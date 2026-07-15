@@ -1,0 +1,19 @@
+{
+  "name": "@arena-games/sealed",
+  "version": "0.1.0",
+  "description": "Sealed Duel — hidden-information reference game (proves viewer-scoping).",
+  "type": "module",
+  "private": true,
+  "main": "./src/sealed.game.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@arena/game-sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "vitest": "^4.1.3"
+  }
+}

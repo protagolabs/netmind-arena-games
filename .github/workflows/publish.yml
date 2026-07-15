@@ -1,0 +1,41 @@
+name: publish
+
+# On merge to main: build content-hash-pinned bundles + index.json and upload to
+# S3. The Arena backend's world-loader pulls these artifacts (never the source).
+#
+# Configure these repo secrets/vars before enabling:
+#   secrets.AWS_ROLE_ARN            — OIDC role with s3:PutObject on the bucket
+#   vars.ARENA_GAMES_S3_BUCKET      — e.g. arena-games-prod
+#   vars.CLOUDFRONT_DISTRIBUTION_ID — (optional) CDN in front of the bucket
+on:
+  push:
+    branches: [main]
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build bundles + index.json
+        run: pnpm build:bundles
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: us-east-1
+      - name: Upload to S3
+        run: aws s3 sync dist/ "s3://${{ vars.ARENA_GAMES_S3_BUCKET }}/games/" --delete
+      - name: Invalidate CDN
+        if: ${{ vars.CLOUDFRONT_DISTRIBUTION_ID != '' }}
+        run: aws cloudfront create-invalidation --distribution-id "${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}" --paths "/games/*"

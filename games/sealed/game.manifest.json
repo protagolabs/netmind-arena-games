@@ -1,0 +1,10 @@
+{
+  "type": "sealed",
+  "displayName": "Sealed Duel",
+  "sdkVersion": "0.0.1",
+  "entry": "src/sealed.game.ts",
+  "players": { "min": 2, "max": 2 },
+  "pace": "turn-based",
+  "rules": "rules.md",
+  "view": "view.ts"
+}
