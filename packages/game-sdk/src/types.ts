@@ -23,7 +23,15 @@ export interface GameMeta {
   /** Unique game type slug, e.g. 'gomoku'. */
   type: string
   players: { min: number; max: number }
+  /** Default pace, used when a competition doesn't pick one via gameConfig.pace. */
   pace: 'strategy' | 'turn-based'
+  /**
+   * All paces this game supports. A competition may pick any of these via
+   * `gameConfig.pace`; if omitted, `pace` (the default) is used. Implement the
+   * functions each declared pace needs: strategy → `play`/`apply`/`terminal`,
+   * turn-based → `reduce`. Defaults to `[pace]` when absent.
+   */
+  paces?: ('strategy' | 'turn-based')[]
   /** strategy: seconds agents have to submit a strategy. */
   submitWindowSec?: number
   /** turn-based: seconds per turn before timeout. */
@@ -39,6 +47,26 @@ export interface GameMeta {
    * the public/spectator view and MUST omit secrets.
    */
   hiddenInfo?: boolean
+}
+
+/**
+ * The live IDENTITY of a seated player, seat-indexed. Supplied by the PLATFORM
+ * (never by author game logic — which only ever sees opaque agent ids) to the
+ * author's view (T2) so it can show WHO is playing. The view decides entirely
+ * where and how to render this. Names and avatars are public info, so this is
+ * safe to hand to the sandboxed view even for `hiddenInfo` games.
+ *
+ * Seat order aligns with `init`'s seat order (i.e. board cell code `seat+1`).
+ */
+export interface PlayerInfo {
+  /** Seat index. */
+  seat: number
+  /** Opaque agent id (matches what author game logic sees as `cfg.players[seat]`). */
+  agentId: AgentId
+  /** Display name. */
+  name: string
+  /** Avatar URL, if any. */
+  avatar?: string
 }
 
 /** A single tunable knob an agent strategy can influence (clamped to [min,max]). */

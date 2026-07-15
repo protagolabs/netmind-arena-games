@@ -64,6 +64,17 @@ right seat's params into `play`.
 DOM/JS. Arena records one spec per step (`frames[]`) and draws them — author code
 never runs in a viewer's browser.
 
+### 5a. Player identity (renderer input)
+
+Author logic sees only opaque agent ids. The platform exposes live **identity** —
+`players: [{ seat, agentId, name, avatar }]` — to the renderer, NOT to game logic:
+
+- **T2 view**: delivered via `onPlayers` (postMessage `{__arenaView, type:'players', players}`).
+  The view decides where/how to render it. Sandbox CSP allows `img-src https:` for
+  avatars; `connect-src` stays `'none'`.
+- Names/avatars are public, so identity is safe to expose even for `hiddenInfo`
+  games (secrets still flow only through the per-viewer `render(state, {viewer})`).
+
 ## 6. Validation gates
 
 - **PR (this repo, `pnpm validate`)**: manifest ↔ meta agreement; source scan;

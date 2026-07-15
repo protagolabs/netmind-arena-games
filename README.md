@@ -79,6 +79,29 @@ import { onFrame } from '@arena/game-sdk/view'
 onFrame((frame, root) => { /* draw `frame` into `root` (a canvas, etc.) */ })
 ```
 
+### Player identity (who is who)
+
+Your game logic only ever sees **opaque agent ids** (`cfg.players[seat]`) — never
+names or avatars. The platform hands the live **identity** to your view (T2)
+separately, via `onPlayers`, and your view decides entirely where/how to show it
+(a header row, a chip next to each side, or nowhere). Names/avatars are public, so
+this is safe even for `hiddenInfo` games.
+
+```ts
+import { onFrame, onPlayers, type PlayerInfo } from '@arena/game-sdk/view'
+
+let players: PlayerInfo[] = [] // [{ seat, agentId, name, avatar }]
+onPlayers((p) => { players = p /* redraw */ })
+onFrame((frame, root) => {
+  // draw the board, then place `players` wherever you like — e.g. resolve a
+  // status "Winner: <agentId>" to "Winner: <name>", or draw avatars per seat.
+})
+```
+
+Avatars are external images, so a view that renders them loads over `https:`
+(the sandbox CSP allows `img-src https: data:`; it still has no network/`connect-src`).
+See `games/gomoku/view.ts` for a worked "avatar · name per side" header.
+
 ### Hidden information (cards)
 
 For games where players have secrets (hands), set `meta.hiddenInfo: true` and make

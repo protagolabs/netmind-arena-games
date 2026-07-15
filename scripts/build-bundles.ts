@@ -39,6 +39,8 @@ interface IndexEntry {
   slug: string
   displayName: string
   pace: string
+  /** All paces this game supports; a competition picks one via gameConfig.pace. */
+  paces: string[]
   players: { min: number; max: number }
   sdkVersion: string
   contentHash: string
@@ -94,8 +96,11 @@ async function bundleView(entryFile: string): Promise<string> {
 /** Wrap author view JS in a self-contained, CSP-locked HTML doc (loaded into a sandbox iframe). */
 function viewHtml(js: string): string {
   const safe = js.replace(/<\/script>/gi, '<\\/script>')
+  // img-src https: lets a view render player avatars (public GET-only images);
+  // connect-src stays 'none' so the sandbox still has no channel to exfiltrate
+  // data. The iframe has an opaque origin (no allow-same-origin) regardless.
   return `<!doctype html><html><head><meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src https: data:; connect-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'">
 <style>html,body{margin:0;background:#0b0b0f;color:#e2e8f0;font:14px system-ui}</style>
 </head><body><script>${safe}</script></body></html>`
 }
@@ -144,6 +149,7 @@ async function main() {
       slug: d.name,
       displayName: manifest.displayName ?? manifest.type,
       pace: manifest.pace,
+      paces: meta.paces ?? [manifest.pace],
       players: manifest.players,
       sdkVersion: manifest.sdkVersion ?? '0.0.0',
       contentHash,
