@@ -90,6 +90,7 @@ export default defineGame<State, Params>({
     type: 'gomoku',
     players: { min: 2, max: 2 },
     pace: 'strategy',
+    paces: ['strategy', 'turn-based'],
     submitWindowSec: 600,
     turnTimeoutSec: 60,
     maxSteps: N * N,
