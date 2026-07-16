@@ -33,8 +33,15 @@ const BROWSER_ENTRY = `
 import { drawRenderSpec, replayFrames, hostSandboxedView } from '@arena/game-sdk/preview'
 ;(async () => {
   const app = document.getElementById('app')
-  const S = await fetch('./sim.json').then((r) => r.json())
-  document.getElementById('meta').textContent =
+  const meta = document.getElementById('meta')
+  const res = await fetch('./sim.json')
+  if (!res.ok) {
+    meta.style.color = '#e5484d'
+    meta.textContent = 'sim failed: ' + (await res.text())
+    return
+  }
+  const S = await res.json()
+  meta.textContent =
     S.slug + ' · ' + S.pace + ' · ' + S.viewMode + ' · ' + S.frames.length + ' frames · scores ' + JSON.stringify(S.scores)
   if (S.viewMode === 'sandboxed') {
     const iframe = document.createElement('iframe')

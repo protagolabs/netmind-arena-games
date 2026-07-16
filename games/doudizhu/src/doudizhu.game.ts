@@ -148,6 +148,22 @@ export default defineGame<State, Record<string, number>>({
     }
   },
 
+  // Self-play heuristic — used ONLY by `pnpm sim` / `pnpm preview` for a local
+  // demo match. This is a turn-based game: the platform advances it via `reduce`
+  // and NEVER calls `play`, so this affects nothing in production. It just needs
+  // to return a LEGAL move every turn so a full match can be simulated.
+  play: (s) => {
+    const seat = s.turn
+    if (s.phase === 'bidding') return { bid: 0 } // all pass → seat 0 farms at stake 1
+    const hand = s.hands[seat] ?? []
+    if (!s.table) return { cards: [hand[0]!] } // leading: play the lowest single
+    for (const r of hand) {
+      const combo = classify([r]) // following: lowest single that beats, else pass
+      if (combo && beats(s.table.combo, combo)) return { cards: [r] }
+    }
+    return { pass: true }
+  },
+
   reduce: (s, action, ctx: Ctx): State => {
     if (s.phase === 'done') ctx.reject('game-over')
     const seat = s.players.indexOf(ctx.actor)
