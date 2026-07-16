@@ -1,10 +1,10 @@
 {
-  "name": "@arena-games/sealed",
+  "name": "@arena-games/doudizhu",
   "version": "0.1.0",
-  "description": "Sealed Duel — hidden-information reference game (proves viewer-scoping).",
+  "description": "Doudizhu (Fight the Landlord) — 3-player hidden-information card game.",
   "type": "module",
   "private": true,
-  "main": "./src/sealed.game.ts",
+  "main": "./src/doudizhu.game.ts",
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run"

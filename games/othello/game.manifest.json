@@ -1,10 +1,10 @@
 {
-  "type": "sealed",
-  "displayName": "Sealed Duel",
+  "type": "othello",
+  "displayName": "Othello",
   "sdkVersion": "0.0.1",
-  "entry": "src/sealed.game.ts",
+  "entry": "src/othello.game.ts",
   "players": { "min": 2, "max": 2 },
-  "pace": "turn-based",
+  "pace": "strategy",
   "rules": "rules.md",
   "view": "view.ts"
 }

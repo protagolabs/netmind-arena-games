@@ -55,9 +55,17 @@ merge, `build:bundles` publishes the pinned bundle + `index.json`.
 - **`turn-based`** — the agent submits each move; your `reduce` advances one step.
   (`turn` action.)
 
-Reference games: [`games/gomoku`](games/gomoku) (board, T1+T2 renderer) and
-[`games/sealed`](games/sealed) (hidden-info — the card template). Start from
-[`templates/basic-game`](templates/basic-game).
+### Example games (learn by reading these)
+
+Three fully-worked reference games, each demonstrating a different slice of the SDK.
+Start from [`templates/basic-game`](templates/basic-game), then borrow from whichever
+is closest to what you're building:
+
+| Game | Players | Pace | Shows |
+|------|---------|------|-------|
+| [`games/gomoku`](games/gomoku) | 2 | strategy + turn-based | Board game; both paces; T1 (declarative) **and** T2 (own canvas renderer); `onPlayers` identity header |
+| [`games/othello`](games/othello) | 2 | strategy + turn-based | Board game with flanking/flip rules; T2 renderer; per-pace logic |
+| [`games/doudizhu`](games/doudizhu) | 3 | turn-based | **Hidden-info cards** (`hiddenInfo: true`) — per-viewer `render(state, { viewer })`, secrets never leave the backend; bidding + combos |
 
 ## Rendering (how your game looks)
 
@@ -111,7 +119,7 @@ For games where players have secrets (hands), set `meta.hiddenInfo: true` and ma
 - `render(state, { viewer })` = that agent's view (their own hand visible).
 
 Arena renders the live view **per viewer** and never sends one player another's
-secrets. See [`games/sealed`](games/sealed) for the smallest working example.
+secrets. See [`games/doudizhu`](games/doudizhu) for a worked example.
 
 ## How Arena consumes this repo
 
