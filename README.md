@@ -31,6 +31,10 @@ Your code is **pure and deterministic**: the only randomness allowed is
 `ctx.random` (seeded by Arena). No `fetch`, `Date`, `Math.random`, `require`, or
 filesystem — only the injected `ctx`. See [spec/protocol.md](spec/protocol.md).
 
+> **Authoring a game?** Read **[AGENTS.md](AGENTS.md)** first — it's the imperative
+> step-by-step spec (what to implement per pace, determinism rules, the render and
+> identity contract, what you can/can't build). This README is the narrative tour.
+
 ## Quickstart
 
 ```bash
@@ -41,12 +45,22 @@ pnpm new-game connect-four "Connect Four"
 
 # edit games/connect-four/src/game.ts + rules.md, then:
 pnpm --filter @arena-games/connect-four test   # your unit tests
+pnpm sim connect-four                          # self-play a full match, print scores
+pnpm preview connect-four                      # SEE it render exactly as the platform will
 pnpm validate                                  # schema + determinism + source scan (the CI gate)
 ```
 
 Open a PR. CI runs `typecheck → test → validate`; a maintainer reviews (watch for
 anything writing `score` with a backdoor — the source is public and audited). On
 merge, `build:bundles` publishes the pinned bundle + `index.json`.
+
+## Local preview (see it before you ship)
+
+`pnpm preview <slug>` sims a full match with your own code, then renders it with
+`@arena/game-sdk/preview` — the **same renderer the platform's React app wraps** —
+so what you see is what Arena shows. A T2 `view.ts` runs in the real sandboxed-iframe
+contract (`onFrame`/`onPlayers`, same CSP); a T1 game uses the platform board renderer.
+`pnpm sim <slug>` is the headless half (frames + players + scores, no browser).
 
 ## Two paces
 
@@ -84,8 +98,13 @@ session). Two options:
 ```ts
 // view.ts
 import { onFrame } from '@arena/game-sdk/view'
+import { ARENA_THEME } from '@arena/game-sdk/theme' // optional: match Arena's look
 onFrame((frame, root) => { /* draw `frame` into `root` (a canvas, etc.) */ })
 ```
+
+To keep a T2 view on-theme with the rest of Arena (dark, red-black, crimson
+accents), import colours from `@arena/game-sdk/theme` — `ARENA_THEME.board.wood`,
+`.stones`, `.accent`, `.fg`, etc. It's a SHOULD, not a MUST; your view is yours.
 
 ### Player identity (who is who)
 

@@ -16,6 +16,16 @@
       "types": "./dist/view.d.ts",
       "development": "./src/view.ts",
       "default": "./dist/view.js"
+    },
+    "./theme": {
+      "types": "./dist/theme.d.ts",
+      "development": "./src/theme.ts",
+      "default": "./dist/theme.js"
+    },
+    "./preview": {
+      "types": "./dist/preview.d.ts",
+      "development": "./src/preview.ts",
+      "default": "./dist/preview.js"
     }
   },
   "files": ["dist"],

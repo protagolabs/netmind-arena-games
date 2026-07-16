@@ -77,7 +77,7 @@ async function bundle(entryFile: string): Promise<string> {
 }
 
 /** Bundle an author view entry to inline JS (self-runs onFrame at load). */
-async function bundleView(entryFile: string): Promise<string> {
+export async function bundleView(entryFile: string): Promise<string> {
   const out = await esbuild.build({
     entryPoints: [entryFile],
     bundle: true,
@@ -94,7 +94,7 @@ async function bundleView(entryFile: string): Promise<string> {
 }
 
 /** Wrap author view JS in a self-contained, CSP-locked HTML doc (loaded into a sandbox iframe). */
-function viewHtml(js: string): string {
+export function viewHtml(js: string): string {
   const safe = js.replace(/<\/script>/gi, '<\\/script>')
   // img-src https: lets a view render player avatars (public GET-only images);
   // connect-src stays 'none' so the sandbox still has no channel to exfiltrate
@@ -171,7 +171,10 @@ async function main() {
   console.log(`\nwrote dist/index.json with ${entries.length} game(s)`)
 }
 
-main().catch((e) => {
-  console.error(e)
-  process.exit(1)
-})
+// Only run the full build when invoked directly (not when imported for viewHtml/bundleView).
+if (import.meta.url === `file://${process.argv[1]}`) {
+  main().catch((e) => {
+    console.error(e)
+    process.exit(1)
+  })
+}
