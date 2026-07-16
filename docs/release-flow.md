@@ -1,0 +1,60 @@
+# Release & PR flow
+
+Every change lands via Pull Request. There are two tracks, auto-distinguished by
+the paths a PR touches.
+
+```
+                         ┌── touches only games/**  ──────────────→  Track B (game)
+PR ── CI classifies by ──┤
+     changed paths       └── touches anything outside games/ ──────→  Track A (project/infra)
+```
+
+## Track A — internal, project itself
+
+SDK, `scripts/`, `spec/`, `.github/`, root config, docs.
+
+1. `games-ci` runs `typecheck → test → validate`.
+2. CODEOWNERS review: `@netmind/arena-core` owns `/packages/game-sdk`, `/spec`,
+   `/scripts`, `/.github`; `@netmind/arena-maintainers` owns the rest.
+3. Approve → merge. No AI review (trusted internal contributors).
+
+## Track B — new game or edit a game (internal OR external)
+
+Contributors (including external forks) submit under `games/<slug>/` only. Four
+gates, all required before merge:
+
+1. **`game-path-guard`** — the PR may only add/modify files under `games/**`. An
+   external PR that also touches SDK/CI/scripts/spec **fails** (blocks sneaking an
+   infra change into a game submission). Internal authors may mix, but CODEOWNERS
+   still routes the infra parts to `@arena-core`.
+2. **`games-ci` (`validate`)** — schema/meta agreement, determinism + termination
+   + score-bounds over several seeds, and a **source scan** for banned APIs.
+3. **`game-ai-review`** — Claude reviews the `games/**` diff for malicious/injected
+   code and large correctness errors. Injection/critical → the check **fails**
+   (blocks merge); everything else is advisory. It never executes the PR's code.
+4. **Human review** — a `@netmind/arena-maintainers` approval on `/games/`.
+
+Merge → **`publish.yml`** builds the content-hash-pinned bundle + `index.json` and
+uploads to S3; the Arena backend pulls it and the type goes live.
+
+## Security model (why it's safe on a public repo)
+
+- `game-ai-review` runs on **`pull_request_target`** so it can use the review token
+  on fork PRs, but it **checks out only the trusted base and never runs the PR's
+  code** — Claude reads the submission via `gh pr diff` with read-only tools. No
+  fork code executes with secrets present.
+- `games-ci` (`validate`) runs the game logic, but on **`pull_request`** with **no
+  secrets** on an ephemeral runner.
+- PR content is treated as untrusted; the AI is a filter, a human maintainer is the
+  final gate.
+
+## One-time repo configuration (not in code)
+
+- **Secret**: `CLAUDE_CODE_OAUTH_TOKEN` (same as the main repo's Claude review).
+- **Publish** (already referenced by `publish.yml`): `secrets.AWS_ROLE_ARN`,
+  `vars.ARENA_GAMES_S3_BUCKET`, optional `vars.CLOUDFRONT_DISTRIBUTION_ID`.
+- **Teams**: `@netmind/arena-maintainers`, `@netmind/arena-core` must exist with the
+  CODEOWNERS mappings.
+- **Branch protection on `main`**: require status checks `validate`,
+  `path-guard`, `ai-review`; require 1 approving review from Code Owners; dismiss
+  stale approvals on new commits; require conversation resolution; disallow bypass.

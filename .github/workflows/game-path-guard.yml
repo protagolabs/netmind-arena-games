@@ -1,0 +1,50 @@
+name: game-path-guard
+
+# Track B (game submissions) may ONLY add or modify files under games/.
+# This blocks the classic supply-chain move — sneaking a change to CI, the
+# source-scanner, the SDK, or the spec into the same PR as a game. Runs on every
+# push to a PR that touches games/, needs no secrets (reads the PR file list with
+# the default read-only token), and is safe against forks.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - 'games/**'
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  path-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enforce game-PR path boundary
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          ASSOC: ${{ github.event.pull_request.author_association }}
+        run: |
+          set -euo pipefail
+          files=$(gh api --paginate "repos/$REPO/pulls/$PR/files" --jq '.[].filename')
+          echo "Changed files:"; echo "$files" | sed 's/^/  /'
+          outside=$(echo "$files" | grep -vE '^games/' || true)
+
+          if [ -z "$outside" ]; then
+            echo "OK — PR only touches games/."
+            exit 0
+          fi
+
+          echo "This PR also changes files OUTSIDE games/:"
+          echo "$outside" | sed 's/^/  /'
+          case "$ASSOC" in
+            OWNER|MEMBER|COLLABORATOR)
+              # Internal author may mix infra + game changes; CODEOWNERS (@arena-core
+              # on /packages/game-sdk, /spec, /scripts, /.github) still gates those.
+              echo "::warning::Internal author ($ASSOC): non-games changes allowed, but require @arena-core review." ;;
+            *)
+              echo "::error::Game submissions may only add or modify files under games/. This external PR ($ASSOC) also changes the files listed above."
+              echo "Please move the infra change into a SEPARATE PR — SDK/CI/scripts/spec changes must be authored/reviewed by a maintainer."
+              exit 1 ;;
+          esac

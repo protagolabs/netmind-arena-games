@@ -1,10 +1,13 @@
 # Every game submission requires review by the Arena maintainers before merge.
 # External authors/agents submit PRs; they never gain write access to the main
-# (private) Arena repo — governance lives entirely here.
+# (private) Arena repo — governance lives entirely here. See docs/release-flow.md.
 
 *                 @netmind/arena-maintainers
 
-# The SDK, spec, protocol, and CI are the contract — guard them tightly.
+# Track B — game submissions: maintainers review (after CI + AI security review).
+/games/               @netmind/arena-maintainers
+
+# The SDK, spec, protocol, and CI are the contract — guard them tightly (Track A).
 /packages/game-sdk/   @netmind/arena-core
 /spec/                @netmind/arena-core
 /scripts/             @netmind/arena-core
