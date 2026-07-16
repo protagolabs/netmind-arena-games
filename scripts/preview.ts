@@ -40,7 +40,10 @@ import { drawRenderSpec, replayFrames, hostSandboxedView } from '@arena/game-sdk
     const iframe = document.createElement('iframe')
     iframe.setAttribute('sandbox', 'allow-scripts')
     iframe.srcdoc = S.viewHtml
-    iframe.style.cssText = 'width:100%;max-width:540px;height:620px;border:none;border-radius:8px;background:#0b0b0f'
+    // Match the platform's SandboxedGameViewer: full-width iframe (the game's own
+    // view.ts caps the board, e.g. gomoku at 480px). No narrow max-width here so
+    // the canvas isn't shrunk below its intended size.
+    iframe.style.cssText = 'width:100%;height:560px;border:none;border-radius:8px;background:#0b0b0f'
     app.appendChild(iframe)
     hostSandboxedView(iframe, { frames: S.frames, players: S.players, ended: true, frameMs: S.frameMs })
   } else {
@@ -79,7 +82,7 @@ async function simData(slug: string, opts: { pace?: 'strategy' | 'turn-based'; s
 
 function shell(slug: string, entry: string): string {
   return `<!doctype html><html><head><meta charset="utf-8"><title>preview · ${slug}</title>
-<style>body{margin:0;background:#0b0b0f;color:#f5f5f5;font:14px system-ui;display:flex;flex-direction:column;align-items:center;gap:14px;padding:28px}#meta{color:#a1a1aa;font-size:12px}a{color:#e5484d}</style>
+<style>body{margin:0;background:#0b0b0f;color:#f5f5f5;font:14px system-ui;display:flex;flex-direction:column;align-items:center;gap:14px;padding:28px}#meta{color:#a1a1aa;font-size:12px}#app{width:100%;max-width:560px}a{color:#e5484d}</style>
 </head><body>
 <div id="meta">loading…</div>
 <div id="app"></div>
