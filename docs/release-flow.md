@@ -35,11 +35,21 @@ gates, all required before merge:
 4. **Human review** — a `@netmind/arena-maintainers` approval on `/games/`.
 
 Merge → **`publish.yml`** builds the content-hash-pinned bundles + `index.json`,
-flattens them into a **GitHub Release** (`pnpm pack:release`, no AWS — just the
-built-in `GITHUB_TOKEN`), and marks it latest. The Arena backend loads the latest
-via `ARENA_GAMES_INDEX=https://github.com/<owner>/<repo>/releases/latest/download/index.json`
-and the type goes live on the next backend deploy/restart. Each merge cuts a new
-release, so history + rollback come for free.
+flattens them (`pnpm pack:release`), and cuts a **GitHub Release** (no AWS — just
+the built-in `GITHUB_TOKEN`). The Arena backend loads the latest via
+`ARENA_GAMES_INDEX=https://github.com/<owner>/<repo>/releases/latest/download/index.json`
+and the type goes live on the next backend deploy/restart.
+
+Publishing is deliberately quiet:
+
+- **Path-filtered trigger** — only `games/**`, `packages/game-sdk/**`, or the build
+  scripts changing can publish. Docs / CI / preview / test-tooling edits never do.
+- **Content-hash gate** — after building, if no game's `contentHash` / view hash
+  changed vs the latest release, the publish is **skipped** (so a game's test-only
+  edit doesn't cut an empty release).
+- **Date tags** — releases are `games-YYYY.MM.DD` (`.2`, `.3` for same-day), not
+  build numbers; notes list the games + their content hashes. History + rollback
+  come for free (pin `ARENA_GAMES_INDEX` to a specific tag's `download/` URL).
 
 ## Security model (why it's safe on a public repo)
 
