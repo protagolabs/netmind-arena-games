@@ -1,0 +1,10 @@
+{
+  "type": "doudizhu",
+  "displayName": "Doudizhu (Fight the Landlord)",
+  "sdkVersion": "0.0.1",
+  "entry": "src/doudizhu.game.ts",
+  "players": { "min": 3, "max": 3 },
+  "pace": "turn-based",
+  "rules": "rules.md",
+  "view": "view.ts"
+}

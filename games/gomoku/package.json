@@ -1,0 +1,19 @@
+{
+  "name": "@arena-games/gomoku",
+  "version": "0.1.0",
+  "description": "Gomoku (five-in-a-row) — reference Arena custom game.",
+  "type": "module",
+  "private": true,
+  "main": "./src/gomoku.game.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@arena/game-sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "vitest": "^4.1.3"
+  }
+}

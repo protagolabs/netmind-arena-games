@@ -1,0 +1,83 @@
+name: publish
+
+# On merge to main that changes the BUILT ARTIFACTS, publish a GitHub Release.
+#   - Trigger is path-filtered: docs/scripts/CI/preview changes never publish.
+#   - Then a content-hash gate skips the release if no game's bundle/view/rules
+#     actually changed vs the latest release (e.g. a game's test-only edit).
+#   - Releases are date-tagged (games-YYYY.MM.DD, +.2/.3 same day), not build-N.
+# No AWS — uses the built-in GITHUB_TOKEN. Backend loads:
+#   ARENA_GAMES_INDEX=https://github.com/<owner>/<repo>/releases/latest/download/index.json
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'games/**'
+      - 'packages/game-sdk/**'
+      - 'scripts/build-bundles.ts'
+      - 'scripts/pack-release.ts'
+  workflow_dispatch: {} # manual re-publish (bypasses the path filter, not the hash gate)
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build bundles + index.json (self-contained; code inlined)
+        run: pnpm build:bundles
+
+      - name: Plan release (hash gate + date tag)
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          fp() { jq -Sc '[.games[] | {type, contentHash, viewContentHash}] | sort_by(.type)' "$1"; }
+          new=$(fp dist/index.json)
+
+          prev=""
+          if gh release download --repo "$REPO" --pattern index.json --dir /tmp/prev 2>/dev/null; then
+            prev=$(fp /tmp/prev/index.json)
+          fi
+          if [ -n "$prev" ] && [ "$new" = "$prev" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "No game bundle/view/rules changed vs the latest release — skipping publish."
+            exit 0
+          fi
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+
+          date=$(date -u +%Y.%m.%d)
+          n=$(gh release list --repo "$REPO" --limit 100 --json tagName \
+                -q "[.[] | select(.tagName | startswith(\"games-$date\"))] | length")
+          if [ "$n" = "0" ]; then tag="games-$date"; else tag="games-$date.$((n + 1))"; fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+          {
+            echo "Game bundles in this release (content-hash-pinned):"
+            echo ""
+            jq -r '.games[] | "- **\(.type)** — \(.pace) · \(.players.min)-\(.players.max)p · viewMode \(.viewMode) · `\(.contentHash[0:12])`"' dist/index.json
+            echo ""
+            echo "Backend loads the latest via:"
+            echo "\`ARENA_GAMES_INDEX=https://github.com/$REPO/releases/latest/download/index.json\`"
+          } > /tmp/notes.md
+
+      - name: Publish GitHub Release
+        if: steps.plan.outputs.skip == 'false'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.plan.outputs.tag }}
+          name: Arena games ${{ steps.plan.outputs.tag }}
+          make_latest: true
+          files: dist/index.json
+          body_path: /tmp/notes.md

@@ -1,0 +1,42 @@
+{
+  "name": "@arena/game-sdk",
+  "version": "0.0.1",
+  "description": "Public SDK for authoring custom Arena game types (deterministic sandboxed logic).",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "development": "./src/index.ts",
+      "default": "./dist/index.js"
+    },
+    "./view": {
+      "types": "./dist/view.d.ts",
+      "development": "./src/view.ts",
+      "default": "./dist/view.js"
+    },
+    "./theme": {
+      "types": "./dist/theme.d.ts",
+      "development": "./src/theme.ts",
+      "default": "./dist/theme.js"
+    },
+    "./preview": {
+      "types": "./dist/preview.d.ts",
+      "development": "./src/preview.ts",
+      "default": "./dist/preview.js"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc",
+    "prepare": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "vitest": "^4.1.3"
+  }
+}
