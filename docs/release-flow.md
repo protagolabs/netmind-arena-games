@@ -34,9 +34,10 @@ gates, all required before merge:
    (blocks merge); everything else is advisory. It never executes the PR's code.
 4. **Human review** — a `@netmind/arena-maintainers` approval on `/games/`.
 
-Merge → **`publish.yml`** builds the content-hash-pinned bundles + `index.json`,
-flattens them (`pnpm pack:release`), and cuts a **GitHub Release** (no AWS — just
-the built-in `GITHUB_TOKEN`). The Arena backend loads the latest via
+Merge → **`publish.yml`** builds `index.json` with every game's code/view/rules
+**inlined** (one self-contained file), and cuts a **GitHub Release** whose sole
+asset is that `index.json` (no AWS — just the built-in `GITHUB_TOKEN`; the release
+page stays clean no matter how many games exist). The Arena backend loads the latest via
 `ARENA_GAMES_INDEX=https://github.com/<owner>/<repo>/releases/latest/download/index.json`
 and the type goes live on the next backend deploy/restart.
 

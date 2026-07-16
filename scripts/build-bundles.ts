@@ -57,6 +57,12 @@ interface IndexEntry {
   viewMode: 'declarative' | 'sandboxed'
   view: string | null
   viewContentHash: string | null
+  // Inlined artifacts — the whole game travels INSIDE index.json so a release is a
+  // single file (no per-file assets). The backend prefers these; `bundle`/`view`/
+  // `rules` paths remain for local dir loads. contentHash is over `bundleCode`.
+  bundleCode: string
+  viewHtml: string | null
+  rulesMarkdown: string | null
 }
 
 async function bundle(entryFile: string): Promise<string> {
@@ -129,16 +135,19 @@ async function main() {
     await writeFile(path.join(DIST, 'bundles', `${manifest.type}.js`), code, 'utf8')
 
     let rules: string | null = null
+    let rulesMarkdown: string | null = null
     if (manifest.rules && existsSync(path.join(dir, manifest.rules))) {
+      rulesMarkdown = await readFile(path.join(dir, manifest.rules), 'utf8')
       rules = `rules/${manifest.type}.md`
-      await writeFile(path.join(DIST, rules), await readFile(path.join(dir, manifest.rules), 'utf8'), 'utf8')
+      await writeFile(path.join(DIST, rules), rulesMarkdown, 'utf8')
     }
 
     // T2: bundle the author view (if any) into a sandboxed HTML doc.
     let view: string | null = null
     let viewContentHash: string | null = null
+    let html: string | null = null
     if (manifest.view && existsSync(path.join(dir, manifest.view))) {
-      const html = viewHtml(await bundleView(path.join(dir, manifest.view)))
+      html = viewHtml(await bundleView(path.join(dir, manifest.view)))
       viewContentHash = createHash('sha256').update(html).digest('hex')
       view = `views/${manifest.type}.html`
       await writeFile(path.join(DIST, view), html, 'utf8')
@@ -163,6 +172,9 @@ async function main() {
       viewMode: view ? 'sandboxed' : 'declarative',
       view,
       viewContentHash,
+      bundleCode: code,
+      viewHtml: html,
+      rulesMarkdown,
     })
     console.log(`bundled ${manifest.type} (${(code.length / 1024).toFixed(1)}kb, ${contentHash.slice(0, 12)})${view ? ' + sandboxed view' : ''}`)
   }
