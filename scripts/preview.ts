@@ -25,22 +25,28 @@ import { bundleView, viewHtml } from './build-bundles.js'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
+// The browser entry FETCHES the sim data from /sim.json — it is NEVER inlined.
+// The data carries the view's full HTML (which itself contains <script> tags);
+// inlining that into a page <script> would prematurely close the tag (the bug).
+// fetch + JSON.parse sidesteps every inline-script escaping hazard.
 const BROWSER_ENTRY = `
 import { drawRenderSpec, replayFrames, hostSandboxedView } from '@arena/game-sdk/preview'
-const S = window.__SIM__
-const app = document.getElementById('app')
-document.getElementById('meta').textContent =
-  S.slug + ' · ' + S.pace + ' · ' + S.viewMode + ' · ' + S.frames.length + ' frames · scores ' + JSON.stringify(S.scores)
-if (S.viewMode === 'sandboxed') {
-  const iframe = document.createElement('iframe')
-  iframe.setAttribute('sandbox', 'allow-scripts')
-  iframe.srcdoc = S.viewHtml
-  iframe.style.cssText = 'width:100%;max-width:540px;height:620px;border:none;border-radius:8px;background:#0b0b0f'
-  app.appendChild(iframe)
-  hostSandboxedView(iframe, { frames: S.frames, players: S.players, ended: true, frameMs: S.frameMs })
-} else {
-  replayFrames({ frames: S.frames, ended: true, frameMs: S.frameMs, onFrame: (f) => drawRenderSpec(app, f) })
-}
+;(async () => {
+  const app = document.getElementById('app')
+  const S = await fetch('./sim.json').then((r) => r.json())
+  document.getElementById('meta').textContent =
+    S.slug + ' · ' + S.pace + ' · ' + S.viewMode + ' · ' + S.frames.length + ' frames · scores ' + JSON.stringify(S.scores)
+  if (S.viewMode === 'sandboxed') {
+    const iframe = document.createElement('iframe')
+    iframe.setAttribute('sandbox', 'allow-scripts')
+    iframe.srcdoc = S.viewHtml
+    iframe.style.cssText = 'width:100%;max-width:540px;height:620px;border:none;border-radius:8px;background:#0b0b0f'
+    app.appendChild(iframe)
+    hostSandboxedView(iframe, { frames: S.frames, players: S.players, ended: true, frameMs: S.frameMs })
+  } else {
+    replayFrames({ frames: S.frames, ended: true, frameMs: S.frameMs, onFrame: (f) => drawRenderSpec(app, f) })
+  }
+})()
 `
 
 async function bundleBrowserEntry(): Promise<string> {
@@ -56,28 +62,29 @@ async function bundleBrowserEntry(): Promise<string> {
   return out.outputFiles?.[0]?.text ?? ''
 }
 
-async function page(slug: string, opts: { pace?: 'strategy' | 'turn-based'; seed?: number; script?: Action[] }): Promise<string> {
+/** The sim payload served at /sim.json and fetched by the browser entry. */
+async function simData(slug: string, opts: { pace?: 'strategy' | 'turn-based'; seed?: number; script?: Action[] }) {
   const sim = await simMatch(slug, opts)
-  const html = sim.viewEntry ? viewHtml(await bundleView(sim.viewEntry)) : ''
-  const data = {
+  return {
     slug: sim.slug,
     pace: sim.pace,
     viewMode: sim.viewMode,
     frames: sim.frames,
     players: sim.players,
     scores: sim.scores,
-    viewHtml: html,
+    viewHtml: sim.viewEntry ? viewHtml(await bundleView(sim.viewEntry)) : '',
     frameMs: 1200,
   }
-  const entry = await bundleBrowserEntry()
-  return `<!doctype html><html><head><meta charset="utf-8"><title>preview · ${sim.slug}</title>
+}
+
+function shell(slug: string, entry: string): string {
+  return `<!doctype html><html><head><meta charset="utf-8"><title>preview · ${slug}</title>
 <style>body{margin:0;background:#0b0b0f;color:#f5f5f5;font:14px system-ui;display:flex;flex-direction:column;align-items:center;gap:14px;padding:28px}#meta{color:#a1a1aa;font-size:12px}a{color:#e5484d}</style>
 </head><body>
-<div id="meta"></div>
+<div id="meta">loading…</div>
 <div id="app"></div>
 <div style="color:#71717a;font-size:11px">reload to replay · edit view.ts and reload · restart after editing game logic</div>
-<script>window.__SIM__=${JSON.stringify(data)}</script>
-<script>${entry}</script>
+<script type="module">${entry}</script>
 </body></html>`
 }
 
@@ -97,14 +104,20 @@ async function main() {
   const scriptPath = flag('--script')
   const script = scriptPath ? (JSON.parse(await readFile(scriptPath, 'utf8')) as Action[]) : undefined
 
+  const entry = await bundleBrowserEntry() // static — bundle once
   const server = http.createServer(async (req, res) => {
-    if (req.url && req.url !== '/' && !req.url.startsWith('/?')) {
-      res.writeHead(404).end('not found')
-      return
-    }
+    const url = (req.url ?? '/').split('?')[0]
     try {
-      const body = await page(slug, { pace, seed, script })
-      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }).end(body)
+      if (url === '/sim.json') {
+        const data = await simData(slug, { pace, seed, script })
+        res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' }).end(JSON.stringify(data))
+        return
+      }
+      if (url === '/') {
+        res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }).end(shell(slug, entry))
+        return
+      }
+      res.writeHead(404).end('not found')
     } catch (e) {
       res.writeHead(500, { 'content-type': 'text/plain' }).end(e instanceof Error ? e.stack ?? e.message : String(e))
     }
