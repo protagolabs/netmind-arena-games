@@ -34,8 +34,12 @@ gates, all required before merge:
    (blocks merge); everything else is advisory. It never executes the PR's code.
 4. **Human review** — a `@netmind/arena-maintainers` approval on `/games/`.
 
-Merge → **`publish.yml`** builds the content-hash-pinned bundle + `index.json` and
-uploads to S3; the Arena backend pulls it and the type goes live.
+Merge → **`publish.yml`** builds the content-hash-pinned bundles + `index.json`,
+flattens them into a **GitHub Release** (`pnpm pack:release`, no AWS — just the
+built-in `GITHUB_TOKEN`), and marks it latest. The Arena backend loads the latest
+via `ARENA_GAMES_INDEX=https://github.com/<owner>/<repo>/releases/latest/download/index.json`
+and the type goes live on the next backend deploy/restart. Each merge cuts a new
+release, so history + rollback come for free.
 
 ## Security model (why it's safe on a public repo)
 
@@ -51,8 +55,9 @@ uploads to S3; the Arena backend pulls it and the type goes live.
 ## One-time repo configuration (not in code)
 
 - **Secret**: `CLAUDE_CODE_OAUTH_TOKEN` (same as the main repo's Claude review).
-- **Publish** (already referenced by `publish.yml`): `secrets.AWS_ROLE_ARN`,
-  `vars.ARENA_GAMES_S3_BUCKET`, optional `vars.CLOUDFRONT_DISTRIBUTION_ID`.
+- **Publish**: nothing — `publish.yml` uses the built-in `GITHUB_TOKEN` to cut the
+  Release (no AWS keys/bucket/CDN). Just point the **backend** at the Release:
+  `ARENA_GAMES_INDEX=https://github.com/<owner>/<repo>/releases/latest/download/index.json`.
 - **Teams**: `@netmind/arena-maintainers`, `@netmind/arena-core` must exist with the
   CODEOWNERS mappings.
 - **Branch protection on `main`**: require status checks `validate`,

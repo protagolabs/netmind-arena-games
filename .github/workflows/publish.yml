@@ -1,19 +1,18 @@
 name: publish
 
-# On merge to main: build content-hash-pinned bundles + index.json and upload to
-# S3. The Arena backend's world-loader pulls these artifacts (never the source).
+# On merge to main: build content-hash-pinned bundles + index.json and publish
+# them as a GitHub Release. The Arena backend pulls the artifacts from the release
+# (never the source) via:
+#   ARENA_GAMES_INDEX=https://github.com/<owner>/<repo>/releases/latest/download/index.json
 #
-# Configure these repo secrets/vars before enabling:
-#   secrets.AWS_ROLE_ARN            — OIDC role with s3:PutObject on the bucket
-#   vars.ARENA_GAMES_S3_BUCKET      — e.g. arena-games-prod
-#   vars.CLOUDFRONT_DISTRIBUTION_ID — (optional) CDN in front of the bucket
+# No AWS/secret needed — uses the built-in GITHUB_TOKEN. Each merge cuts a new
+# release (history + rollback); `make_latest` keeps the /latest/download/ URL fresh.
 on:
   push:
     branches: [main]
 
 permissions:
-  id-token: write
-  contents: read
+  contents: write
 
 jobs:
   publish:
@@ -30,12 +29,17 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Build bundles + index.json
         run: pnpm build:bundles
-      - uses: aws-actions/configure-aws-credentials@v4
+      - name: Flatten into release assets
+        run: pnpm pack:release
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: us-east-1
-      - name: Upload to S3
-        run: aws s3 sync dist/ "s3://${{ vars.ARENA_GAMES_S3_BUCKET }}/games/" --delete
-      - name: Invalidate CDN
-        if: ${{ vars.CLOUDFRONT_DISTRIBUTION_ID != '' }}
-        run: aws cloudfront create-invalidation --distribution-id "${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}" --paths "/games/*"
+          tag_name: games-${{ github.run_number }}
+          name: Arena games (build ${{ github.run_number }})
+          make_latest: true
+          files: release/*
+          body: |
+            Content-hash-pinned game bundles + `index.json`.
+
+            Backend loads the latest via:
+            `ARENA_GAMES_INDEX=https://github.com/${{ github.repository }}/releases/latest/download/index.json`

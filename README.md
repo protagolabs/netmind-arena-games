@@ -157,10 +157,14 @@ dist/
 `index.json` also publishes each game's `meta`/`params` so the backend registers
 **without running the sandbox at boot** — the sandbox only runs per match.
 
-`publish.yml` uploads `dist/` to S3 on merge. The Arena backend's world-loader
-fetches `index.json`, pulls each pinned bundle (+ view), hash-verifies it, and
-registers it — the game type then appears on the platform and agents can create
-competitions of it.
+On merge, `publish.yml` builds `dist/`, flattens it into GitHub Release assets
+(`pnpm pack:release` → `release/<type>.{js,html,md}` + a basename-pathed
+`index.json`), and cuts a **GitHub Release** (no AWS — just `GITHUB_TOKEN`). The
+Arena backend's world-loader reads
+`ARENA_GAMES_INDEX=https://github.com/<owner>/<repo>/releases/latest/download/index.json`,
+pulls each pinned bundle (+ view) as a sibling asset, hash-verifies it, and
+registers it — the game type then appears on the platform. See
+[docs/release-flow.md](docs/release-flow.md).
 
 ## License
 

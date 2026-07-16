@@ -15,6 +15,7 @@
     "test": "pnpm -r test",
     "validate": "tsx scripts/validate-games.ts",
     "build:bundles": "tsx scripts/build-bundles.ts",
+    "pack:release": "tsx scripts/pack-release.ts",
     "sim": "tsx scripts/sim.ts",
     "preview": "tsx scripts/preview.ts",
     "new-game": "node scripts/new-game.mjs"
