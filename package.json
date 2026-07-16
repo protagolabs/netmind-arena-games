@@ -5,7 +5,7 @@
   "description": "Public repository of Arena custom game types. Authors submit game packs here; the Arena backend pulls the built, content-hash-pinned bundles.",
   "license": "Apache-2.0",
   "type": "module",
-  "engines": { "node": ">=20.0.0" },
+  "engines": { "node": ">=22.13.0" },
   "packageManager": "pnpm@9.15.9",
   "dependencies": {
     "@arena/game-sdk": "workspace:*"
