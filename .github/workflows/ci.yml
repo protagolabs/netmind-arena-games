@@ -1,0 +1,29 @@
+name: games-ci
+
+# PR gate for game submissions. External authors/agents open PRs here; this must
+# pass (plus CODEOWNERS review) before merge. The Arena backend is never
+# touched by contributors.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Typecheck (SDK + all games)
+        run: pnpm -r typecheck
+      - name: Unit tests
+        run: pnpm -r test
+      - name: Validate games (schema + determinism + source scan)
+        run: pnpm validate

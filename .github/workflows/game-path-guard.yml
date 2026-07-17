@@ -1,0 +1,48 @@
+name: path-guard
+
+# Track B (game submissions) may ONLY add or modify files under games/. This
+# blocks the classic supply-chain move — sneaking a change to CI, the source
+# scanner, the SDK, or the spec into the same PR as a game.
+#
+# Runs on EVERY PR (so it can be a required status check): a PR that touches no
+# games/ files, or an internal author's mixed PR, passes; an EXTERNAL PR that also
+# changes infra fails. Needs no secrets (reads the PR file list with the default
+# read-only token); safe against forks.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  path-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enforce game-PR path boundary
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          ASSOC: ${{ github.event.pull_request.author_association }}
+        run: |
+          set -euo pipefail
+          files=$(gh api --paginate "repos/$REPO/pulls/$PR/files" --jq '.[].filename')
+          echo "Changed files:"; echo "$files" | sed 's/^/  /'
+
+          echo "$files" | grep -qE '^games/' || { echo "No games/ changes — not a game PR; nothing to guard."; exit 0; }
+
+          outside=$(echo "$files" | grep -vE '^games/' || true)
+          [ -z "$outside" ] && { echo "OK — PR only touches games/."; exit 0; }
+
+          echo "This PR also changes files OUTSIDE games/:"
+          echo "$outside" | sed 's/^/  /'
+          case "$ASSOC" in
+            OWNER|MEMBER|COLLABORATOR)
+              echo "::warning::Internal author ($ASSOC): non-games changes allowed, but require @arena-core review." ;;
+            *)
+              echo "::error::Game submissions may only add or modify files under games/. This external PR ($ASSOC) also changes the files above."
+              echo "Move the infra change into a SEPARATE PR — SDK/CI/scripts/spec must be authored/reviewed by a maintainer."
+              exit 1 ;;
+          esac

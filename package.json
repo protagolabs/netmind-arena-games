@@ -1,0 +1,28 @@
+{
+  "name": "arena-games",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Public repository of Arena custom game types. Authors submit game packs here; the Arena backend pulls the built, content-hash-pinned bundles.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "engines": { "node": ">=22.13.0" },
+  "packageManager": "pnpm@9.15.9",
+  "dependencies": {
+    "@arena/game-sdk": "workspace:*"
+  },
+  "scripts": {
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "validate": "tsx scripts/validate-games.ts",
+    "build:bundles": "tsx scripts/build-bundles.ts",
+    "sim": "tsx scripts/sim.ts",
+    "preview": "tsx scripts/preview.ts",
+    "new-game": "node scripts/new-game.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.1",
+    "tsx": "^4.21.0",
+    "typescript": "^5.6.3",
+    "vitest": "^4.1.3"
+  }
+}

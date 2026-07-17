@@ -1,0 +1,10 @@
+{
+  "type": "othello",
+  "displayName": "Othello",
+  "sdkVersion": "0.0.1",
+  "entry": "src/othello.game.ts",
+  "players": { "min": 2, "max": 2 },
+  "pace": "strategy",
+  "rules": "rules.md",
+  "view": "view.ts"
+}

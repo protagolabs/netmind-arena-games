@@ -1,0 +1,10 @@
+{
+  "type": "liars-dice",
+  "displayName": "Liar's Dice",
+  "sdkVersion": "0.0.1",
+  "entry": "src/liars-dice.game.ts",
+  "players": { "min": 3, "max": 3 },
+  "pace": "turn-based",
+  "rules": "rules.md",
+  "view": "view.ts"
+}

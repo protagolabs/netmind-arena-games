@@ -1,0 +1,19 @@
+{
+  "name": "@arena-games/othello",
+  "version": "0.1.0",
+  "description": "Othello (Reversi) — flank-and-flip disc game.",
+  "type": "module",
+  "private": true,
+  "main": "./src/othello.game.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@arena/game-sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "vitest": "^4.1.3"
+  }
+}

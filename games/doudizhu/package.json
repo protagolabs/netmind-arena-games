@@ -1,0 +1,19 @@
+{
+  "name": "@arena-games/doudizhu",
+  "version": "0.1.0",
+  "description": "Doudizhu (Fight the Landlord) — 3-player hidden-information card game.",
+  "type": "module",
+  "private": true,
+  "main": "./src/doudizhu.game.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@arena/game-sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "vitest": "^4.1.3"
+  }
+}
