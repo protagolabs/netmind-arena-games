@@ -31,15 +31,16 @@ gates, all required before merge:
    + score-bounds over several seeds, and a **source scan** for banned APIs.
 3. **`ai-review`** — Claude reviews the `games/**` diff and grades it into three
    tiers; it never executes the PR's code:
-   - 🔴 **RED** (injection / malicious / critical) → check **fails**, blocks merge.
-   - 🟡 **YELLOW** (a real correctness bug that must be fixed) → check **fails**, blocks merge.
-   - 🟢 **GREEN** (clean, or only minor advisory suggestions) → check **passes**.
+   - 🔴 **RED** (injection / malicious / critical) → status **failure**, blocks merge.
+   - 🟡 **YELLOW** (a real correctness bug that must be fixed) → status **failure**, blocks merge.
+   - 🟢 **GREEN** (clean, or only minor advisory suggestions) → status **success**.
    - The result is reflected on a **label** — `ai-review-passed` (GREEN) or
      `ai-review-changes` (RED/YELLOW) — so maintainers can see at a glance which
      PRs are ready for their review.
-   - **Runs automatically** on open / ready-for-review. **To re-run** after a fix:
-     remove the **`ai-review`** label and add it back (new commits alone do NOT
-     re-trigger — the review isn't cheap).
+   - **This review runs in a separate PRIVATE repo** ([`arena-games-review`](https://github.com/protagolabs/arena-games-review)),
+     NOT in this public repo, so the Claude/GitHub tokens are never stored here. It
+     polls open PRs (~every 5 min) and reports the `ai-review` **commit status** +
+     comment + label. Push a new commit to re-review (each head SHA is reviewed once).
 4. **Human review** — a `@netmind/arena-maintainers` approval on `/games/`
    (required by branch protection, and only after the AI review is GREEN).
 
@@ -63,18 +64,20 @@ Publishing is deliberately quiet:
 
 ## Security model (why it's safe on a public repo)
 
-- `game-ai-review` runs on **`pull_request_target`** so it can use the review token
-  on fork PRs, but it **checks out only the trusted base and never runs the PR's
-  code** — Claude reads the submission via `gh pr diff` with read-only tools. No
-  fork code executes with secrets present.
+- **No secrets live in this public repo.** The AI review (which needs a Claude
+  token) runs in the private [`arena-games-review`](https://github.com/protagolabs/arena-games-review)
+  repo and reports back only a commit status + comment. The PR's code is never
+  executed; only the diff text is sent to Claude.
 - `games-ci` (`validate`) runs the game logic, but on **`pull_request`** with **no
-  secrets** on an ephemeral runner.
+  secrets** on an ephemeral runner. `path-guard` uses only the default read-only token.
 - PR content is treated as untrusted; the AI is a filter, a human maintainer is the
   final gate.
 
 ## One-time repo configuration (not in code)
 
-- **Secret**: `CLAUDE_CODE_OAUTH_TOKEN` (same as the main repo's Claude review).
+- **AI review secrets live in the private [`arena-games-review`](https://github.com/protagolabs/arena-games-review) repo**, NOT here:
+  `CLAUDE_CODE_OAUTH_TOKEN` + `ARENA_GAMES_TOKEN` (a token with PR/commit-status write
+  on this repo). This public repo holds **no review secret**.
 - **Publish**: nothing — `publish.yml` uses the built-in `GITHUB_TOKEN` to cut the
   Release (no AWS keys/bucket/CDN). Just point the **backend** at the Release:
   `ARENA_GAMES_INDEX=https://github.com/<owner>/<repo>/releases/latest/download/index.json`.
@@ -86,4 +89,4 @@ Publishing is deliberately quiet:
   `PUT /repos/<owner>/<repo>/branches/main/protection`. With this in place the
   **Merge button stays disabled until all three checks are green AND a code owner
   approves** — the AI review (GREEN) gates before a human is asked to review.
-- **Labels**: `ai-review` (re-run trigger), `ai-review-passed`, `ai-review-changes`.
+- **Labels**: `ai-review-passed`, `ai-review-changes` (set by the external reviewer).
