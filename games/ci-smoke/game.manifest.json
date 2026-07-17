@@ -1,0 +1,9 @@
+{
+  "type": "ci-smoke",
+  "displayName": "CI Smoke Test",
+  "sdkVersion": "0.0.1",
+  "entry": "src/game.ts",
+  "players": { "min": 2, "max": 2 },
+  "pace": "strategy",
+  "rules": "rules.md"
+}
