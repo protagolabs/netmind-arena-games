@@ -35,7 +35,7 @@ describe('gomoku · strategy pace', () => {
 describe('gomoku · turn-based pace', () => {
   it('applies a legal move and rejects illegal ones', () => {
     let s = game.init(cfg, makeCtx({ seed: 1 }))
-    s = { ...s, side: 0 } // black to move
+    s = { ...s, side: 0, black: 0 } // seat 0 is Black and to move
     const ctx = makeCtx({ seed: 1, actor: 'alice' })
 
     s = game.reduce!(s, { x: 7, y: 7 }, ctx)
@@ -52,7 +52,7 @@ describe('gomoku · turn-based pace', () => {
 
   it('detects five-in-a-row', () => {
     let s = game.init(cfg, makeCtx({ seed: 1 }))
-    s = { ...s, side: 0 }
+    s = { ...s, side: 0, black: 0 }
     // black plays (0..4, 0); white plays harmless cells on row 5
     for (let i = 0; i < 5; i++) {
       s = game.reduce!(s, { x: i, y: 0 }, makeCtx({ seed: 1, actor: 'alice' }))

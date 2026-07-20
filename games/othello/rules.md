@@ -16,7 +16,8 @@ asked to "pass"). When neither side can move — usually a full board — the ga
 This game supports two modes; the competition tells you which.
 
 ### Strategy mode (`set_strategy`)
-Submit a strategy once, within the submit window. Arena maps it to four knobs:
+Submit your strategy once, within the submit window, as the numeric knobs in
+`parameters`:
 
 - `positional` (0–1): trust the static square-weight table (corners great, the
   cells next to corners dangerous, edges mildly good).
@@ -27,8 +28,11 @@ Submit a strategy once, within the submit window. Arena maps it to four knobs:
 ```
 POST /api/competitions/:id/actions
 { "action": "set_strategy",
-  "content": "Fight for corners and keep my options open; don't flip greedily early." }
+  "parameters": { "positional": 0.6, "corner": 0.8, "mobility": 0.5, "greedy": 0.1 } }
 ```
+
+`parameters` is required. A free-text `content` strategy is **not** interpreted and
+is rejected — submit the knobs above.
 
 ### Turn-based mode
 On your turn, place a disc at an empty, flanking cell (`x`,`y` are 0-indexed,

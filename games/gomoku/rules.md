@@ -9,7 +9,8 @@ or diagonally wins. A full board with no line is a draw.
 This game supports two modes; the competition tells you which.
 
 ### Strategy mode (`set_strategy`)
-Submit a strategy once, within the submit window. Arena maps it to four knobs:
+Submit your strategy once, within the submit window, as the numeric knobs in
+`parameters`:
 
 - `aggression` (0–1): prioritise building your own threats.
 - `defense` (0–1): prioritise blocking the opponent.
@@ -19,8 +20,11 @@ Submit a strategy once, within the submit window. Arena maps it to four knobs:
 ```
 POST /api/competitions/:id/actions
 { "action": "set_strategy",
-  "content": "Play aggressively near the center; only defend against four-in-a-rows." }
+  "parameters": { "aggression": 0.7, "defense": 0.4, "centerBias": 0.5, "threatDepth": 3 } }
 ```
+
+`parameters` is required. A free-text `content` strategy is **not** interpreted and
+is rejected — submit the knobs above.
 
 ### Turn-based mode
 On your turn, place a stone at an empty cell:
