@@ -15,6 +15,10 @@
 import { onFrame, onPlayers } from '@arena/game-sdk/view'
 import type { PlayerInfo } from '@arena/game-sdk'
 
+interface ScoreboardRow {
+  label?: string
+  value?: string
+}
 interface BoardFrame {
   board?: {
     cols: number
@@ -23,15 +27,27 @@ interface BoardFrame {
     palette?: Record<number, string>
     lastMove?: { x: number; y: number }
   }
-  panels?: Array<{ type: string; text?: string }>
+  panels?: Array<{ type: string; text?: string; rows?: ScoreboardRow[] }>
 }
 
 const STAR_POINTS_15 = [
   [3, 3], [3, 11], [11, 3], [11, 11], [7, 7],
 ]
-// Seat 0 = Black, seat 1 = White (cell code = seat + 1).
-const SEAT_LABELS = ['Black', 'White']
-const SEAT_COLORS = ['#111827', '#f8fafc']
+// Which seat is Black is decided by a seeded coin flip, so it is NOT fixed to seat
+// order. Roles come from the frame's scoreboard rows ({ label:'Black', value:<id> }),
+// mapped back to each player by agent id — never assumed from seat index (#2023).
+const ROLE_COLORS: Record<string, string> = { Black: '#111827', White: '#f8fafc' }
+
+/** Map agentId -> role label ('Black'/'White') from the latest frame's scoreboard. */
+function roleByAgent(): Map<string, string> {
+  const f = lastFrame as BoardFrame | null
+  const rows = f?.panels?.find((p) => p.type === 'scoreboard')?.rows ?? []
+  const map = new Map<string, string>()
+  for (const row of rows) {
+    if (typeof row.value === 'string' && typeof row.label === 'string') map.set(row.value, row.label)
+  }
+  return map
+}
 
 // Latest identity + frame the platform posted. Either can arrive first, so we
 // cache both and redraw whenever one changes.
@@ -62,11 +78,11 @@ function ensureDom(root: HTMLElement): void {
 }
 
 /** A "stone swatch · avatar · name" chip for one seat. */
-function playerChip(p: PlayerInfo): HTMLDivElement {
+function playerChip(p: PlayerInfo, role: string): HTMLDivElement {
   const chip = document.createElement('div')
   chip.style.cssText = 'display:flex;align-items:center;gap:8px'
   const swatch = document.createElement('span')
-  const color = SEAT_COLORS[p.seat] ?? '#888'
+  const color = ROLE_COLORS[role] ?? '#888'
   swatch.style.cssText = `width:14px;height:14px;border-radius:50%;background:${color};border:1px solid rgba(0,0,0,0.4);flex:none`
   chip.appendChild(swatch)
   if (p.avatar) {
@@ -79,7 +95,6 @@ function playerChip(p: PlayerInfo): HTMLDivElement {
     chip.appendChild(img)
   }
   const label = document.createElement('span')
-  const role = SEAT_LABELS[p.seat] ?? `Seat ${p.seat}`
   label.textContent = `${role} · ${p.name}`
   chip.appendChild(label)
   return chip
@@ -88,8 +103,16 @@ function playerChip(p: PlayerInfo): HTMLDivElement {
 function drawHeader(): void {
   if (!header) return
   header.innerHTML = ''
-  for (const p of [...players].sort((a, b) => a.seat - b.seat)) {
-    header.appendChild(playerChip(p))
+  const roles = roleByAgent()
+  // Order Black-then-White when roles are known; fall back to seat order otherwise.
+  const ordered = [...players].sort((a, b) => {
+    const ra = roles.get(a.agentId)
+    const rb = roles.get(b.agentId)
+    if (ra && rb && ra !== rb) return ra === 'Black' ? -1 : 1
+    return a.seat - b.seat
+  })
+  for (const p of ordered) {
+    header.appendChild(playerChip(p, roles.get(p.agentId) ?? `Seat ${p.seat}`))
   }
 }
 

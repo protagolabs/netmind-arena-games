@@ -12,11 +12,16 @@
 import { defineGame, type Action, type Ctx } from '@arena/game-sdk'
 
 const N = 15
-type Cell = 0 | 1 | 2 // 0 empty, 1 black (seat 0), 2 white (seat 1)
+type Cell = 0 | 1 | 2 // 0 empty, 1 black, 2 white
 
 interface State {
   board: Cell[][]
   players: [string, string]
+  // `players[i]` is always seat i (join order) — the engine routes strategy params
+  // and validates turn actors by seat, so this MUST stay aligned with seat index.
+  // `black` is the seat that holds Black, chosen by the seeded coin flip; it is
+  // NOT always seat 0. Black moves first, so a match opens with `side === black`.
+  black: 0 | 1
   side: 0 | 1
   status: 'playing' | 'won' | 'draw'
   winner?: string
@@ -31,7 +36,10 @@ interface Params {
   threatDepth: number
 }
 
-const colorOf = (side: 0 | 1): Cell => (side === 0 ? 1 : 2)
+// Colour of the stone the given seat places: Black (1) if that seat holds Black,
+// else White (2). Driven by `black`, NOT by seat index — so the coin flip decides
+// who is Black, matching the published rules.
+const colorOf = (side: 0 | 1, black: 0 | 1): Cell => (side === black ? 1 : 2)
 const inBounds = (x: number, y: number): boolean => x >= 0 && x < N && y >= 0 && y < N
 const DIRS: ReadonlyArray<readonly [number, number]> = [
   [1, 0],
@@ -70,7 +78,7 @@ function emptyBoard(): Cell[][] {
 /** Place a stone for `side` at (x,y), returning the next state. Pure. */
 function place(state: State, x: number, y: number): State {
   const board = state.board.map((r) => [...r]) as Cell[][]
-  const color = colorOf(state.side)
+  const color = colorOf(state.side, state.black)
   board[y]![x] = color
   const won = wins(board, x, y, color)
   const moves = state.moves + 1
@@ -104,17 +112,25 @@ export default defineGame<State, Params>({
     threatDepth: { min: 1, max: 3, default: 2 },
   },
 
-  init: (cfg, ctx): State => ({
-    board: emptyBoard(),
-    players: [cfg.players[0] ?? 'p0', cfg.players[1] ?? 'p1'],
-    side: ctx.random() < 0.5 ? 0 : 1, // seeded first move — no first-mover unfairness
-    status: 'playing',
-    moves: 0,
-  }),
+  init: (cfg, ctx): State => {
+    // Seeded coin flip picks which SEAT is Black (fair first-move advantage). Black
+    // always moves first, so `side` opens equal to `black` — this matches the rules
+    // ("Black moves first, chosen by a seeded coin flip") without swapping the
+    // seat-aligned `players` array.
+    const black: 0 | 1 = ctx.random() < 0.5 ? 0 : 1
+    return {
+      board: emptyBoard(),
+      players: [cfg.players[0] ?? 'p0', cfg.players[1] ?? 'p1'],
+      black,
+      side: black,
+      status: 'playing',
+      moves: 0,
+    }
+  },
 
   // —— strategy pace ——
   play: (s, p, ctx): Action => {
-    const mine = colorOf(s.side)
+    const mine = colorOf(s.side, s.black)
     const opp: Cell = mine === 1 ? 2 : 1
     const c = (N - 1) / 2
     const maxDist = Math.hypot(c, c)
@@ -181,15 +197,15 @@ export default defineGame<State, Params>({
       {
         type: 'scoreboard' as const,
         rows: [
-          { label: 'Black', value: s.players[0] },
-          { label: 'White', value: s.players[1] },
+          { label: 'Black', value: s.players[s.black] },
+          { label: 'White', value: s.players[s.black ^ 1] },
         ],
       },
       {
         type: 'status' as const,
         text:
           s.status === 'playing'
-            ? `${s.moves} moves · ${s.side === 0 ? 'Black' : 'White'} to move`
+            ? `${s.moves} moves · ${s.side === s.black ? 'Black' : 'White'} to move`
             : s.status === 'won'
               ? `Winner: ${s.winner}`
               : 'Draw',
