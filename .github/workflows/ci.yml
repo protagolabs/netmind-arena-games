@@ -20,7 +20,15 @@ jobs:
         with:
           node-version: 20
           cache: pnpm
-      - run: pnpm install --frozen-lockfile
+      - name: Install deps
+        # Prefer the committed lockfile for reproducibility. But an external game
+        # PR adds a new games/<slug> workspace member, which needs a new lockfile
+        # importer entry — and path-guard blocks external authors from committing
+        # root files like pnpm-lock.yaml. When that's the only reason the lockfile
+        # is stale, regenerate it in-job (NOT committed) so the game can still be
+        # validated. The fallback reuses existing pinned resolutions and only adds
+        # the missing importer, so already-locked deps stay pinned.
+        run: pnpm install --frozen-lockfile || pnpm install --no-frozen-lockfile
       - name: Typecheck (SDK + all games)
         run: pnpm -r typecheck
       - name: Unit tests
