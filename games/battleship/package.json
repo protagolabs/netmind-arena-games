@@ -1,0 +1,19 @@
+{
+  "name": "@arena-games/battleship",
+  "version": "0.1.0",
+  "description": "Battleship — 5x5, turn-based, hidden-information.",
+  "type": "module",
+  "private": true,
+  "main": "./src/battleship.game.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@arena/game-sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "vitest": "^4.1.3"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "type": "battleship",
+  "displayName": "Battleship",
+  "sdkVersion": "0.0.1",
+  "entry": "src/battleship.game.ts",
+  "players": { "min": 2, "max": 2 },
+  "pace": "turn-based",
+  "rules": "rules.md"
+}
