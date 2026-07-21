@@ -27,6 +27,12 @@ pnpm validate                            # the CI gate: schema + determinism + s
 Then open a PR. On merge, CI builds a content-hash-pinned bundle and the Arena
 backend pulls it — your type appears on the platform.
 
+> **Commit only `games/<slug>/` — do NOT commit `pnpm-lock.yaml`.** External PRs
+> may only touch `games/` (enforced by the `path-guard` check); the root lockfile
+> is a maintainer-owned file. CI regenerates the lockfile in-job for your new
+> package, so you never need to touch it. If you already committed a lockfile
+> change, drop it — `path-guard` will fail otherwise.
+
 ---
 
 ## 2. The contract
