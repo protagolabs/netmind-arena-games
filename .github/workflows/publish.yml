@@ -32,7 +32,14 @@ jobs:
         with:
           node-version: 20
           cache: pnpm
-      - run: pnpm install --frozen-lockfile
+      - name: Install deps
+        # Mirror games-ci: an external game PR merges to main with only its
+        # games/<slug>/ files (path-guard forbids it from committing the root
+        # lockfile), so main's pnpm-lock.yaml can be transiently stale for the new
+        # importer until a maintainer regenerates it. Fall back to a non-frozen
+        # install in that case so publish still cuts the release; existing pinned
+        # resolutions are reused, only the missing importer is added (not committed).
+        run: pnpm install --frozen-lockfile || pnpm install --no-frozen-lockfile
       - name: Build bundles + index.json (self-contained; code inlined)
         run: pnpm build:bundles
 
