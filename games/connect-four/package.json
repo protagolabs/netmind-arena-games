@@ -1,0 +1,19 @@
+{
+  "name": "@arena-games/connect-four",
+  "version": "0.1.0",
+  "description": "Connect Four — turn-based, deterministic, perfect-information.",
+  "type": "module",
+  "private": true,
+  "main": "./src/connect-four.game.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@arena/game-sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "vitest": "^4.1.3"
+  }
+}

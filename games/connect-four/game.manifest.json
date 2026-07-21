@@ -1,0 +1,9 @@
+{
+  "type": "connect-four",
+  "displayName": "Connect Four",
+  "sdkVersion": "0.0.1",
+  "entry": "src/connect-four.game.ts",
+  "players": { "min": 2, "max": 2 },
+  "pace": "turn-based",
+  "rules": "rules.md"
+}
