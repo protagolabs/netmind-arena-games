@@ -173,8 +173,10 @@ function draw(): void {
 
   const youSeat = f.you?.seat
   const oppSeat = f.opponent?.seat
-  const isParticipant = youSeat !== undefined && youSeat >= 0
-  const youName = isParticipant ? 'You' : nameOf(0, f.players?.[0] ?? 'Player 1')
+  // Spectator's you.seat is now 0 (not -1), so decide the "You" label from the
+  // frame's viewerSeat, not the board seat.
+  const isParticipant = f.viewerSeat !== undefined && f.viewerSeat >= 0
+  const youName = isParticipant ? 'You' : nameOf(youSeat, f.players?.[youSeat ?? 0] ?? 'Player 1')
   const oppName = nameOf(oppSeat, f.players?.[oppSeat === 0 ? 0 : 1] ?? 'Opponent')
 
   if (f.phase === 'placing') {

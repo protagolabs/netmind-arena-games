@@ -237,10 +237,17 @@ export default defineGame<State, Record<string, never>>({
     // during 'placing' that means all-empty; during 'playing'/'won' it means
     // hits/misses only on both sides, no un-hit ship ever revealed to a
     // spectator either.
-    const own = viewerSeat >= 0 ? s.boards[viewerSeat as 0 | 1]! : emptyBoard()
-    const oppIdx = viewerSeat === 1 ? 0 : 1
-    const enemy = maskBoard(s.boards[oppIdx]!)
-    const publicOwn = viewerSeat >= 0 ? own : maskBoard(own) // spectator: mask BOTH boards
+    // Fixed left/right seats: a participant sees their OWN sea on the left and
+    // the opponent's on the right; a spectator (viewerSeat === -1) sees seat 0
+    // on the left and seat 1 on the right. A board is drawn UNMASKED (its
+    // un-hit ships visible) only to its own owner -- every other viewer,
+    // including a spectator, sees hits/misses but never an un-hit ship. So a
+    // spectator DOES see the shots landed on BOTH seas (public info), just not
+    // where the surviving ships are.
+    const youSeatIdx: 0 | 1 = viewerSeat === 1 ? 1 : 0
+    const oppSeatIdx: 0 | 1 = youSeatIdx === 0 ? 1 : 0
+    const youBoard = viewerSeat === youSeatIdx ? s.boards[youSeatIdx]! : maskBoard(s.boards[youSeatIdx]!)
+    const oppBoard = maskBoard(s.boards[oppSeatIdx]!)
 
     const waitingOn = s.players.filter((_, i) => !s.placed[i as 0 | 1])
     const status =
@@ -258,16 +265,16 @@ export default defineGame<State, Record<string, never>>({
       phase: s.phase,
       viewerSeat,
       you: {
-        seat: viewerSeat,
-        board: boardToCells(publicOwn),
-        shipsLeft: viewerSeat >= 0 ? s.hitsRemaining[viewerSeat as 0 | 1] : undefined,
-        placed: viewerSeat >= 0 ? s.placed[viewerSeat as 0 | 1] : undefined,
+        seat: youSeatIdx,
+        board: boardToCells(youBoard),
+        shipsLeft: s.hitsRemaining[youSeatIdx], // remaining ship-cell count is public info
+        placed: s.placed[youSeatIdx],
       },
       opponent: {
-        seat: oppIdx,
-        board: boardToCells(enemy),
-        shipsLeft: s.hitsRemaining[oppIdx],
-        placed: s.placed[oppIdx],
+        seat: oppSeatIdx,
+        board: boardToCells(oppBoard),
+        shipsLeft: s.hitsRemaining[oppSeatIdx],
+        placed: s.placed[oppSeatIdx],
       },
       players: s.players,
       side: s.side,

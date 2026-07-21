@@ -143,6 +143,22 @@ describe('battleship · playing-phase hidden information (two-board frame)', () 
     return s
   }
 
+  it('a spectator sees shots landed on BOTH seas, not just one (regression: seat-0 board rendered blank for spectators)', () => {
+    let s = placed()
+    // alice(seat0) fires at bob's sea, then bob(seat1) fires at alice's sea
+    s = game.reduce!(s, { x: 0, y: 0 }, makeCtx({ seed: 1, actor: 'alice' }))
+    s = game.reduce!(s, { x: 2, y: 2 }, makeCtx({ seed: 1, actor: 'bob' }))
+    const spec = game.render!(s) as any // spectator (no viewer)
+    const leftFlat = (spec.you.board as number[][]).flat() // seat 0's sea
+    const rightFlat = (spec.opponent.board as number[][]).flat() // seat 1's sea
+    // BOTH seas must show the shot landed on them (2 = hit, 3 = miss) ...
+    expect(leftFlat.some((c: number) => c === 2 || c === 3)).toBe(true)
+    expect(rightFlat.some((c: number) => c === 2 || c === 3)).toBe(true)
+    // ... but never leak an un-hit ship to a spectator.
+    expect(leftFlat).not.toContain(1)
+    expect(rightFlat).not.toContain(1)
+  })
+
   it("alice's frame shows her OWN intact ships but never bob's un-hit ships", () => {
     const s = placed()
     const frame = game.render!(s, { viewer: 'alice' }) as any
