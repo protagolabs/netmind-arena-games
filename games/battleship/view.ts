@@ -60,6 +60,16 @@ function monogramUri(label: string): string {
 
 const nameOf = (seat: number | undefined, fallback: string): string =>
   (seat !== undefined && players.find((p) => p.seat === seat)?.name) || fallback
+
+// The game's status text is baked with raw agent-ids (game logic is
+// identity-agnostic by contract). Swap each id for its display name here.
+function statusText(f: BSFrame): string {
+  let t = f.panels?.find((p) => p.type === 'status')?.text ?? ''
+  f.players?.forEach((aid, seat) => {
+    if (aid) t = t.split(aid).join(nameOf(seat, aid))
+  })
+  return t
+}
 const avatarOf = (seat: number | undefined, label: string): string => {
   const a = seat !== undefined ? players.find((p) => p.seat === seat)?.avatar : undefined
   return a && a.length > 0 ? a : monogramUri(label)
@@ -182,7 +192,7 @@ function draw(): void {
   if (f.phase === 'placing') {
     root.appendChild(boardPanel(youName, youSeat, youName, undefined, f.you?.board ?? [], null, false, youSeat))
     const status = document.createElement('div')
-    status.textContent = f.panels?.find((p) => p.type === 'status')?.text ?? ''
+    status.textContent = statusText(f)
     status.style.cssText = 'font:13px system-ui;color:#cbd5e1;text-align:center;margin-top:10px'
     root.appendChild(status)
     return
@@ -214,7 +224,7 @@ function draw(): void {
   root.appendChild(legend)
 
   const status = document.createElement('div')
-  status.textContent = f.panels?.find((p) => p.type === 'status')?.text ?? ''
+  status.textContent = statusText(f)
   status.style.cssText = 'font:13px system-ui;color:#cbd5e1;text-align:center;margin-top:8px'
   root.appendChild(status)
 }
