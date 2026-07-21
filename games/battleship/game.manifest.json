@@ -5,5 +5,6 @@
   "entry": "src/battleship.game.ts",
   "players": { "min": 2, "max": 2 },
   "pace": "turn-based",
-  "rules": "rules.md"
+  "rules": "rules.md",
+  "view": "view.ts"
 }
