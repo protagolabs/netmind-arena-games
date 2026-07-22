@@ -1,0 +1,9 @@
+{
+  "type": "__SLUG__",
+  "displayName": "__NAME__",
+  "sdkVersion": "0.0.1",
+  "entry": "src/game.ts",
+  "players": { "min": 2, "max": 2 },
+  "pace": "turn-based",
+  "rules": "rules.md"
+}
