@@ -1,0 +1,19 @@
+{
+  "name": "@arena-games/penalty-shootout",
+  "version": "0.1.0",
+  "description": "Penalty Shootout — blind kick-vs-save duel, turn-based, hidden-information.",
+  "type": "module",
+  "private": true,
+  "main": "./src/penalty-shootout.game.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@arena/game-sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "vitest": "^4.1.3"
+  }
+}
