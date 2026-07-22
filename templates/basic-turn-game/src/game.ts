@@ -39,6 +39,11 @@ export default defineGame<State, Record<string, never>>({
     // any agent could play as whichever seat has the move.
     if (ctx.actor !== s.players[s.side]) ctx.reject('not-your-turn')
 
+    // Treat the action as untrusted input: guard its shape before reading it, so
+    // a malformed submission (e.g. null) becomes a clean ctx.reject rather than a
+    // raw TypeError thrown out of the sandbox. A missing `take` then reads as
+    // undefined and fails the numeric check below — also a clean reject.
+    if (typeof action !== 'object' || action === null) ctx.reject('bad-action')
     const take = (action as { take: number }).take // 1..3
     if (!Number.isInteger(take) || take < 1 || take > 3) ctx.reject('bad-take')
     if (take > s.pile) ctx.reject('too-many')

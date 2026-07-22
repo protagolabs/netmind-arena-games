@@ -12,6 +12,9 @@ describe('__SLUG__', () => {
     // alice's turn, but illegal amounts are rejected.
     expect(() => game.reduce!(s, { take: 0 }, makeCtx({ seed: 1, actor: 'alice' }))).toThrow(/bad-take/)
     expect(() => game.reduce!(s, { take: 4 }, makeCtx({ seed: 1, actor: 'alice' }))).toThrow(/bad-take/)
+    // malformed submissions reject cleanly instead of throwing a raw TypeError.
+    expect(() => game.reduce!(s, null as never, makeCtx({ seed: 1, actor: 'alice' }))).toThrow(/bad-action/)
+    expect(() => game.reduce!(s, {} as never, makeCtx({ seed: 1, actor: 'alice' }))).toThrow(/bad-take/)
   })
 
   it('plays a deterministic match to a winner', () => {
