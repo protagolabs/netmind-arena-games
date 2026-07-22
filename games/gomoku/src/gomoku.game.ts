@@ -7,7 +7,8 @@
  *  - turn-based : each agent submits an actual move {x,y} via `reduce`.
  *
  * State exposes `side` (0|1) = index of the seat to move next — the SDK convention
- * the engine uses to route params (strategy) and validate the actor (turn-based).
+ * the engine uses to route params (strategy). For turn-based, `reduce` itself is
+ * responsible for validating `ctx.actor` against it (the engine does NOT).
  */
 import { defineGame, type Action, type Ctx } from '@arena/game-sdk'
 
@@ -18,7 +19,8 @@ interface State {
   board: Cell[][]
   players: [string, string]
   // `players[i]` is always seat i (join order) — the engine routes strategy params
-  // and validates turn actors by seat, so this MUST stay aligned with seat index.
+  // by seat, and `reduce` validates turn actors against it, so this MUST stay
+  // aligned with seat index.
   // `black` is the seat that holds Black, chosen by the seeded coin flip; it is
   // NOT always seat 0. Black moves first, so a match opens with `side === black`.
   black: 0 | 1

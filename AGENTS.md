@@ -16,7 +16,7 @@ games under `games/` (gomoku, othello, doudizhu).
 
 ```bash
 pnpm install
-pnpm new-game <slug> "<Display Name>"    # scaffold from templates/basic-game
+pnpm new-game <slug> "<Display Name>"    # scaffold (strategy; add --pace turn-based)
 # edit games/<slug>/src/<slug>.game.ts + rules.md
 pnpm --filter @arena-games/<slug> test   # your unit tests (testkit)
 pnpm sim <slug>                          # self-play a full match, print scores
@@ -68,8 +68,15 @@ competition then chooses via `gameConfig.pace`.
   - your `State` **MUST** expose a numeric `side` = index of the seat to move.
 - IF `turn-based` (agent submits each move):
   - implement `init`, `reduce`, `terminal`, `score`.
-  - reject illegal moves with `ctx.reject('code')`.
   - your `State` SHOULD expose a numeric `turn` (or `side`) = whose move it is.
+  - `reduce` **MUST** validate `ctx.actor` against the seat whose turn it is
+    (e.g. `if (ctx.actor !== state.players[state.side]) ctx.reject('not-your-turn')`)
+    — **the engine does NOT do this for you.** `ctx.actor` is only the id of the
+    submitter; without this check any registered agent could play as whichever
+    seat currently has the move and hijack another agent's turn.
+  - reject other illegal moves with `ctx.reject('code')`.
+  - `templates/basic-turn-game` (scaffolded by `pnpm new-game <slug> --pace turn-based`)
+    is a minimal, already-green example of this pattern.
 - To be auto-simmable in `pnpm sim` / `pnpm preview`, you **SHOULD** implement
   `play` even for turn-based games (a weak heuristic is fine). Without it,
   preview needs `--script <actions.json>`.
@@ -84,7 +91,8 @@ the filesystem. The ONLY inputs are the arguments and `ctx`:
 - `ctx.random()` — seeded PRNG in [0,1). The ONLY randomness. MUST be your only
   source of nondeterminism.
 - `ctx.side` — seat to move (strategy). `ctx.actor` — agent id of the submitter
-  (turn-based).
+  (turn-based). `ctx.actor` is NOT validated for you — your `reduce` **MUST**
+  check it against the seat whose turn it is (see §3).
 - `ctx.oracle(key)` — external data Arena pre-fetched and injected (prices,
   image URLs). Use this instead of `fetch`.
 - `ctx.judge(prompt)` — an LLM verdict via Arena's model. Use this instead of
@@ -179,5 +187,7 @@ params: { aggression: { min: 0, max: 1, default: 0.5 } }
 - `games/gomoku` — board, strategy + turn-based, T1 **and** T2 renderer, onPlayers.
 - `games/othello` — 8x8 flanking board, T2 renderer.
 - `games/doudizhu` — 3-player hidden-info cards (`hiddenInfo`), per-viewer render.
-- `templates/basic-game` — the scaffold `pnpm new-game` copies.
+- `templates/basic-game` — strategy scaffold `pnpm new-game` copies by default.
+- `templates/basic-turn-game` — turn-based scaffold (`--pace turn-based`); shows
+  the `ctx.actor` turn-ownership check.
 - [spec/protocol.md](spec/protocol.md) — the exact contract, gates, publish artifact.

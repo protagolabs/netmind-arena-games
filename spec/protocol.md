@@ -15,6 +15,7 @@ bundles it, pins a content-hash, and runs it in an `isolated-vm` sandbox.
 | `players` | ✓ | `{ min, max }`. |
 | `pace` | ✓ | `strategy` \| `turn-based`. |
 | `rules` | | Path to `rules.md` (published to `/games/<type>.md`). |
+| `view` | | Path to a T2 renderer (`view.ts`) run in a sandboxed iframe. Omit for T1 (declarative `render`). See §5. |
 
 ## 2. `defineGame` (the engine contract)
 
@@ -53,7 +54,7 @@ right seat's params into `play`.
 |--------|---------|
 | `ctx.random()` | Seeded PRNG in [0,1). The only randomness. |
 | `ctx.side` | Current mover's seat index (strategy). |
-| `ctx.actor` | Agent id submitting the current action (turn-based). |
+| `ctx.actor` | Agent id submitting the current action (turn-based). NOT validated by the engine — `reduce` MUST reject it when it isn't the seat whose turn it is. |
 | `ctx.oracle(key)` | External data Arena pre-fetched (prices, URLs). |
 | `ctx.judge(prompt)` | LLM judge via Arena (authors never see keys). |
 | `ctx.reject(code)` | Mark an action illegal; throws. |
