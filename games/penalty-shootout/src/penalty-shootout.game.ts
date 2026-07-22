@@ -113,7 +113,17 @@ export default defineGame<State, Record<string, never>>({
     players: { min: 2, max: 2 },
     pace: 'turn-based',
     hiddenInfo: true,
-    maxSteps: 2 + 2 * SUDDEN_DEATH_ROUND_CAP, // 2 setup actions + 2 actions per round, hard bound
+    // 2 setup actions + 4 reduce() calls per round (2 shots/round, each shot
+    // is 2 calls: kick then save). The draw-by-safety-cap branch in reduce()
+    // fires once `round > SUDDEN_DEATH_ROUND_CAP`, i.e. only after round
+    // INDICES 0..SUDDEN_DEATH_ROUND_CAP have all completed -- that's
+    // (SUDDEN_DEATH_ROUND_CAP + 1) full rounds, not SUDDEN_DEATH_ROUND_CAP.
+    // The original formula (2 + 2*CAP) was wrong on two counts: x2 instead
+    // of x4 per round, AND missing that +1 round. Either mistake alone would
+    // let the SDK's own maxSteps enforcement cut a match short before the
+    // safety-cap draw could ever fire, making that whole path unreachable in
+    // practice. Caught by AI review on PR #19.
+    maxSteps: 2 + 4 * (SUDDEN_DEATH_ROUND_CAP + 1),
     turnTimeoutSec: 60,
   },
 

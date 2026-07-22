@@ -287,6 +287,12 @@ describe('penalty-shootout · sudden death', () => {
     expect(s.phase).toBe('won')
     expect(s.winner).toBeUndefined()
     expect(game.score(s)).toEqual({ alice: 0.5, bob: 0.5 })
+    // The whole point of the safety cap is to fire BEFORE the SDK's own
+    // meta.maxSteps enforcement would cut the match short -- if this ever
+    // regresses (wrong multiplier, off-by-one on the round count), the
+    // platform would truncate a real tied match before this draw path could
+    // ever run. Regression test for the AI-review finding on PR #19.
+    expect(s.moves).toBeLessThanOrEqual((game as any).meta.maxSteps)
   })
 })
 
