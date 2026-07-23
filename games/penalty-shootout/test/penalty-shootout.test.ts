@@ -11,8 +11,8 @@ function setOrder(s: any, actor: string, order: number[], seed = 1) {
 function kick(s: any, actor: string, col: string, row: string, seed = 1) {
   return game.reduce!(s, { col, row }, makeCtx({ seed, actor }))
 }
-function save(s: any, actor: string, col: string, seed = 1) {
-  return game.reduce!(s, { col }, makeCtx({ seed, actor }))
+function save(s: any, actor: string, col: string, row: string, seed = 1) {
+  return game.reduce!(s, { col, row }, makeCtx({ seed, actor }))
 }
 
 const ORDER_A = [3, 1, 6, 2, 5, 4]
@@ -30,17 +30,39 @@ function bothPlaced(seed = 1) {
 // is ever 100% guaranteed anymore. To build predictable full-match scenarios
 // deterministically, search for a save-action seed that actually produces the
 // desired outcome for THIS specific shot, rather than assuming one.
-function saveForOutcome(afterKick: any, keeperActor: string, guessCol: string, want: 'goal' | 'saved' | 'wide', maxTries = 5000) {
+function saveForOutcome(
+  afterKick: any,
+  keeperActor: string,
+  guessCol: string,
+  guessRow: string,
+  want: 'goal' | 'saved' | 'wide',
+  maxTries = 5000,
+) {
   for (let seed = 1; seed <= maxTries; seed++) {
-    const t = save(afterKick, keeperActor, guessCol, seed)
+    const t = save(afterKick, keeperActor, guessCol, guessRow, seed)
     if (t.history[t.history.length - 1].outcome === want) return t
   }
   throw new Error(`no seed produced outcome '${want}' within ${maxTries} tries`)
 }
-/** One full shot (kick + save), searched to resolve to exactly `want`. */
-function shot(s: any, kickerActor: string, keeperActor: string, kickCol: string, guessCol: string, want: 'goal' | 'saved' | 'wide') {
+/**
+ * One full shot (kick + save), searched to resolve to exactly `want`. The
+ * kick always uses row 'U'; `guessRow` defaults to 'U' too, so callers that
+ * only care about column match/mismatch (the vast majority of call sites)
+ * automatically get a FULL match when guessCol === kickCol, unchanged from
+ * before row became a real guess dimension. Pass an explicit guessRow to
+ * test the partial-match (column right, row wrong) path specifically.
+ */
+function shot(
+  s: any,
+  kickerActor: string,
+  keeperActor: string,
+  kickCol: string,
+  guessCol: string,
+  want: 'goal' | 'saved' | 'wide',
+  guessRow = 'U',
+) {
   const afterKick = kick(s, kickerActor, kickCol, 'U', 1)
-  return saveForOutcome(afterKick, keeperActor, guessCol, want)
+  return saveForOutcome(afterKick, keeperActor, guessCol, guessRow, want)
 }
 
 describe('penalty-shootout · setup phase', () => {
@@ -110,7 +132,7 @@ describe('penalty-shootout · blind kick/save duel', () => {
   it('rejects the shooter trying to also submit the save', () => {
     let s = bothPlaced()
     s = kick(s, 'alice', 'L', 'U')
-    expect(() => save(s, 'alice', 'L')).toThrow(/not-your-turn/)
+    expect(() => save(s, 'alice', 'L', 'U')).toThrow(/not-your-turn/)
   })
 
   it('rejects malformed kick/save actions', () => {
@@ -118,15 +140,16 @@ describe('penalty-shootout · blind kick/save duel', () => {
     expect(() => kick(s, 'alice', 'X', 'U')).toThrow(/invalid-target/)
     expect(() => kick(s, 'alice', 'L', 'X')).toThrow(/invalid-target/)
     s = kick(s, 'alice', 'L', 'U')
-    expect(() => save(s, 'bob', 'X')).toThrow(/invalid-guess/)
+    expect(() => save(s, 'bob', 'X', 'U')).toThrow(/invalid-guess/)
+    expect(() => save(s, 'bob', 'L', 'X')).toThrow(/invalid-guess/) // bad row now rejected too
   })
 
-  it('column mismatch can never be saved -- only goal or wide', () => {
+  it('column mismatch can never be saved -- only goal or wide, regardless of row', () => {
     const outcomes = new Set<string>()
     for (let seed = 1; seed <= 200; seed++) {
       let s = bothPlaced(seed)
       s = kick(s, 'alice', 'L', 'U', seed)
-      s = save(s, 'bob', 'R', seed)
+      s = save(s, 'bob', 'R', 'U', seed)
       const o = s.history[0].outcome
       expect(o).not.toBe('saved')
       outcomes.add(o)
@@ -134,51 +157,103 @@ describe('penalty-shootout · blind kick/save duel', () => {
     expect(outcomes.has('goal')).toBe(true) // the common case must actually occur
   })
 
-  it('column match at power 1 can never be a goal -- only saved or wide', () => {
+  it('a full match (col + row) at power 1 can never be a goal -- only saved or wide', () => {
     const outcomes = new Set<string>()
     for (let seed = 1; seed <= 400; seed++) {
       let s = game.init(cfg, makeCtx({ seed })) as any
       s = setOrder(s, 'alice', [1, 2, 3, 4, 5, 6], seed) // alice's first shooter: power 1
       s = setOrder(s, 'bob', ORDER_B, seed)
       s = kick(s, 'alice', 'M', 'D', seed)
-      s = save(s, 'bob', 'M', seed)
+      s = save(s, 'bob', 'M', 'D', seed) // full match: col AND row both correct
       expect(s.history[0].power).toBe(1)
       expect(s.history[0].outcome).not.toBe('goal')
       outcomes.add(s.history[0].outcome)
     }
     expect(outcomes.has('saved')).toBe(true)
-    expect(outcomes.has('wide')).toBe(true) // power 1 has a real (35%) wide chance
+    expect(outcomes.has('wide')).toBe(true) // power 1 has a real (18%) wide chance
   })
 
-  it('column match at power 6 can produce all three outcomes', () => {
+  it('a partial match (col right, row wrong) at power 1 CAN still be a goal -- unlike a full match', () => {
+    const outcomes = new Set<string>()
+    for (let seed = 1; seed <= 400; seed++) {
+      let s = game.init(cfg, makeCtx({ seed })) as any
+      s = setOrder(s, 'alice', [1, 2, 3, 4, 5, 6], seed) // power 1
+      s = setOrder(s, 'bob', ORDER_B, seed)
+      s = kick(s, 'alice', 'M', 'D', seed)
+      s = save(s, 'bob', 'M', 'U', seed) // col right, row wrong
+      outcomes.add(s.history[0].outcome)
+    }
+    // Even at power 1, a partial read leaves a real scoring chance (discount
+    // < 1 means the save chance is no longer 100%) -- the flat-constant
+    // design this replaced could never produce this at all for power 1.
+    expect(outcomes.has('goal')).toBe(true)
+    expect(outcomes.has('saved')).toBe(true)
+  })
+
+  it('column match at power 6, full read, can produce all three outcomes', () => {
     const outcomes = new Set<string>()
     for (let seed = 1; seed <= 400; seed++) {
       let s = game.init(cfg, makeCtx({ seed })) as any
       s = setOrder(s, 'alice', [6, 1, 2, 3, 4, 5], seed) // alice's first shooter: power 6
       s = setOrder(s, 'bob', ORDER_B, seed)
       s = kick(s, 'alice', 'M', 'U', seed)
-      s = save(s, 'bob', 'M', seed)
+      s = save(s, 'bob', 'M', 'U', seed) // full match
       outcomes.add(s.history[0].outcome)
     }
     expect(outcomes.has('goal')).toBe(true)
     expect(outcomes.has('saved')).toBe(true)
   })
 
-  it('row (up/down) never affects the outcome -- purely cosmetic', () => {
-    for (const seed of [1, 7, 13]) {
-      let sUp = game.init(cfg, makeCtx({ seed })) as any
-      sUp = setOrder(sUp, 'alice', [6, 1, 2, 3, 4, 5], seed)
-      sUp = setOrder(sUp, 'bob', ORDER_B, seed)
-      sUp = kick(sUp, 'alice', 'M', 'U', seed)
-      sUp = save(sUp, 'bob', 'M', seed)
+  it('a full match is never worse than a partial match for the same underlying roll (no inverted incentive)', () => {
+    // Regression test for a design bug caught before shipping: an earlier
+    // version used flat save-chance constants for a partial (row-wrong)
+    // match instead of scaling SAVE_TABLE, which let a WRONG row guess save
+    // more often than a full match at power >= 4. Scaling the same curve
+    // guarantees full >= partial. Both branches consume ctx.random() calls
+    // in the exact same order up to the save roll (the guess content itself
+    // never changes call count), so for a given seed the wide roll and the
+    // save roll draw the SAME underlying random numbers in both branches --
+    // this lets us compare outcomes directly, seed by seed, deterministically.
+    for (let seed = 1; seed <= 500; seed++) {
+      let sFull = game.init(cfg, makeCtx({ seed })) as any
+      sFull = setOrder(sFull, 'alice', [6, 1, 2, 3, 4, 5], seed) // power 6: worst case for the old bug
+      sFull = setOrder(sFull, 'bob', ORDER_B, seed)
+      sFull = kick(sFull, 'alice', 'M', 'U', seed)
+      const full = save(sFull, 'bob', 'M', 'U', seed) // full match
 
-      let sDown = game.init(cfg, makeCtx({ seed })) as any
-      sDown = setOrder(sDown, 'alice', [6, 1, 2, 3, 4, 5], seed)
-      sDown = setOrder(sDown, 'bob', ORDER_B, seed)
-      sDown = kick(sDown, 'alice', 'M', 'D', seed)
-      sDown = save(sDown, 'bob', 'M', seed)
+      let sPartial = game.init(cfg, makeCtx({ seed })) as any
+      sPartial = setOrder(sPartial, 'alice', [6, 1, 2, 3, 4, 5], seed)
+      sPartial = setOrder(sPartial, 'bob', ORDER_B, seed)
+      sPartial = kick(sPartial, 'alice', 'M', 'U', seed)
+      const partial = save(sPartial, 'bob', 'M', 'D', seed) // col right, row wrong
 
-      expect(sUp.history[0].outcome).toBe(sDown.history[0].outcome)
+      if (partial.history[0].outcome === 'saved') {
+        expect(full.history[0].outcome).toBe('saved')
+      }
+    }
+  })
+
+  it('a middle-column partial match saves at least as often as an equivalent side-column partial match', () => {
+    // Same RNG-alignment trick as above: same seed, same power (alice's
+    // first shooter, power 6), same call sequence -- only the shot's column
+    // (and matching wrong-row guess) differs, so the underlying wide/save
+    // rolls line up and a direct per-seed comparison is valid.
+    for (let seed = 1; seed <= 500; seed++) {
+      let sMid = game.init(cfg, makeCtx({ seed })) as any
+      sMid = setOrder(sMid, 'alice', [6, 1, 2, 3, 4, 5], seed)
+      sMid = setOrder(sMid, 'bob', ORDER_B, seed)
+      sMid = kick(sMid, 'alice', 'M', 'U', seed)
+      const mid = save(sMid, 'bob', 'M', 'D', seed) // mid column, row wrong
+
+      let sSide = game.init(cfg, makeCtx({ seed })) as any
+      sSide = setOrder(sSide, 'alice', [6, 1, 2, 3, 4, 5], seed)
+      sSide = setOrder(sSide, 'bob', ORDER_B, seed)
+      sSide = kick(sSide, 'alice', 'L', 'U', seed)
+      const side = save(sSide, 'bob', 'L', 'D', seed) // side column, row wrong
+
+      if (side.history[0].outcome === 'saved') {
+        expect(mid.history[0].outcome).toBe('saved')
+      }
     }
   })
 })
@@ -355,10 +430,10 @@ describe('penalty-shootout · determinism', () => {
         s = setOrder(s, 'bob', ORDER_B, seed)
         for (let r = 0; r < 20 && s.phase === 'shooting'; r++) {
           s = kick(s, 'alice', 'M', 'U', seed)
-          s = save(s, 'bob', 'L', seed)
+          s = save(s, 'bob', 'L', 'U', seed)
           if (s.phase !== 'shooting') break
           s = kick(s, 'bob', 'R', 'D', seed)
-          s = save(s, 'alice', 'R', seed)
+          s = save(s, 'alice', 'R', 'D', seed)
         }
         return s
       }

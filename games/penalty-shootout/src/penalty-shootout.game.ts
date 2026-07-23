@@ -10,17 +10,28 @@
  *      blind (the whole point of the game):
  *        a) the shooter submits a target {col, row} — stored in state but
  *           hidden from the keeper/spectators until resolved.
- *        b) the keeper submits a guess {col} — blind, cannot see (a).
+ *        b) the keeper submits a guess {col, row} — blind, cannot see (a).
  *        reduce() then resolves both at once with ctx.random().
  *
- * `row` (up/down) never affects the outcome — purely cosmetic, matching the
- * confirmed design. Every shot resolves to one of three outcomes:
+ * `row` (up/down) is a real second guessing dimension — the keeper must read
+ * both column AND height to fully stop a shot. Every shot resolves to one of
+ * three outcomes:
  *   1. `wide`  — the shot misses the goal outright, independent of the
  *      keeper's guess. Rolled first, via MISS_TABLE (higher power = more
  *      power behind the shot = LESS control = more likely to go wide).
  *   2. `saved` — only possible when not wide AND the keeper's column guess
- *      matches; SAVE_TABLE gives a progressive per-power save chance on a
- *      correct guess (higher power = harder to stop even when guessed right).
+ *      matches. SAVE_TABLE gives a progressive per-power save chance on a
+ *      FULL match (column AND row both correct) — higher power is harder to
+ *      stop even when read perfectly. When only the column matches (row
+ *      guessed wrong), the save chance is SAVE_TABLE scaled down by
+ *      PARTIAL_SAVE_DISCOUNT: a middle-column shot only needs a small
+ *      positional adjustment (discount 0.85, keeper is already central), a
+ *      side-column shot needs a fully committed dive in the wrong height
+ *      (discount 0.6, harder to correct mid-dive). Scaling the SAME power
+ *      curve (rather than using flat constants) guarantees a full match is
+ *      never worse than a partial match at any power level — an earlier flat
+ *      design (mid=70%, side=50%) inverted this at power >=4, where guessing
+ *      the wrong row was BETTER than guessing right. See design notes.
  *   3. `goal`  — not wide, and either the column didn't match or the save
  *      roll failed.
  *
@@ -42,6 +53,7 @@ interface ShotRecord {
   col: Col
   row: Row
   keeperCol: Col
+  keeperRow: Row
   outcome: Outcome
 }
 
@@ -63,11 +75,24 @@ interface State {
 const REGULATION_ROUNDS = 5 // 5 shots each decide it; 6th+ only happens tied (sudden death)
 const SUDDEN_DEATH_ROUND_CAP = 25 // 5 regulation + 20 sudden-death rounds, then force a draw
 
-// power 1..6 -> save chance when the keeper's column guess matches the target column
+// power 1..6 -> save chance on a FULL match (column AND row both correct)
 const SAVE_TABLE: Record<number, number> = { 1: 1.0, 2: 0.9, 3: 0.8, 4: 0.7, 5: 0.6, 6: 0.5 }
 // power 1..6 -> chance the shot goes wide (misses the goal outright), rolled
 // before any save check -- weaker shooters have far less control.
 const MISS_TABLE: Record<number, number> = { 1: 0.18, 2: 0.15, 3: 0.12, 4: 0.09, 5: 0.06, 6: 0.03 }
+
+// Discount applied to SAVE_TABLE when the keeper's column guess is correct
+// but the row guess is wrong (a partial read). Middle-column shots only need
+// a small positional adjustment to still get a hand on the ball (keeper is
+// already centered); side-column shots require a fully committed dive, so
+// guessing the wrong height there is much costlier. Multiplying the SAME
+// SAVE_TABLE curve (instead of using flat constants) keeps a full match
+// strictly >= a partial match at every power level -- see file header.
+const PARTIAL_SAVE_DISCOUNT_MID = 0.85
+const PARTIAL_SAVE_DISCOUNT_SIDE = 0.6
+function partialSaveDiscount(col: Col): number {
+  return col === 'M' ? PARTIAL_SAVE_DISCOUNT_MID : PARTIAL_SAVE_DISCOUNT_SIDE
+}
 
 // Flavor nicknames: "<power><suffix>", e.g. "3lot" -- one per power level,
 // randomized once per match (seeded, deterministic) so re-simming the same
@@ -156,13 +181,11 @@ export default defineGame<State, Record<string, never>>({
       }
       return { order }
     }
-    if (state.pendingKick === null) {
-      const cols: Col[] = ['L', 'M', 'R']
-      const rows: Row[] = ['U', 'D']
-      return { col: cols[Math.floor(ctx.random() * 3)], row: rows[Math.floor(ctx.random() * 2)] }
-    }
+    // Both the shooter's kick and the keeper's blind guess are now {col, row}
+    // shaped -- the keeper must read height as well as direction.
     const cols: Col[] = ['L', 'M', 'R']
-    return { col: cols[Math.floor(ctx.random() * 3)] }
+    const rows: Row[] = ['U', 'D']
+    return { col: cols[Math.floor(ctx.random() * 3)], row: rows[Math.floor(ctx.random() * 2)] }
   },
 
   reduce(s, action, ctx): State {
@@ -201,8 +224,8 @@ export default defineGame<State, Record<string, never>>({
     // awaiting the blind save guess from the other seat
     const keeperSeat: 0 | 1 = s.shooterSeat === 0 ? 1 : 0
     if (ctx.actor !== s.players[keeperSeat]) return ctx.reject('not-your-turn')
-    const { col } = action as { col?: unknown }
-    if (!isCol(col)) return ctx.reject('invalid-guess')
+    const { col, row } = action as { col?: unknown; row?: unknown }
+    if (!isCol(col) || !isRow(row)) return ctx.reject('invalid-guess')
 
     const power = powerAt(s, s.shooterSeat)
 
@@ -214,11 +237,15 @@ export default defineGame<State, Record<string, never>>({
     if (wide) {
       outcome = 'wide'
     } else {
-      // 2) on target -- does the keeper's blind guess match, and if so, does
-      //    the save roll succeed?
-      const matched = col === s.pendingKick.col
-      const saveChance = matched ? SAVE_TABLE[power]! : 0
-      const saved = matched && ctx.random() < saveChance
+      // 2) on target -- column match is required for ANY save chance. Given
+      //    a column match, a full match (row also correct) uses the plain
+      //    SAVE_TABLE; a partial match (row wrong) uses that same curve
+      //    scaled down by partialSaveDiscount() -- see file header for why
+      //    this must be a scale of SAVE_TABLE and not a flat constant.
+      const colMatched = col === s.pendingKick.col
+      const rowMatched = row === s.pendingKick.row
+      const saveChance = !colMatched ? 0 : rowMatched ? SAVE_TABLE[power]! : SAVE_TABLE[power]! * partialSaveDiscount(s.pendingKick.col)
+      const saved = saveChance > 0 && ctx.random() < saveChance
       outcome = saved ? 'saved' : 'goal'
     }
 
@@ -234,6 +261,7 @@ export default defineGame<State, Record<string, never>>({
         col: s.pendingKick.col,
         row: s.pendingKick.row,
         keeperCol: col,
+        keeperRow: row,
         outcome,
       },
     ]

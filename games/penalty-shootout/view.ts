@@ -2,7 +2,8 @@
  * Penalty Shootout author view (T2) — runs in a sandboxed Arena iframe. Pure
  * text/ASCII, drawn into a monospace <pre>, animated with a small local timer
  * loop (no images, no canvas) — a goal frame with 3 columns (L/M/R) x 2 rows
- * (U/D, cosmetic only), the ball, and the keeper.
+ * (U/D — a real guessing dimension for the keeper, not cosmetic), the ball,
+ * and the keeper.
  *
  * The box is drawn with plain ASCII (+ - |), not Unicode box-drawing glyphs
  * (┌─┬┐ etc). Unicode box-drawing characters are NOT guaranteed single-width
@@ -39,6 +40,7 @@ interface ShotRecord {
   col: Col
   row: Row
   keeperCol: Col
+  keeperRow: Row
   outcome: Outcome
 }
 interface PSFrame {
@@ -148,11 +150,15 @@ function keeperLine(col: Col | null, keeperSeat: Seat): string {
 // A ball that sailed past the frame entirely (a wide shot) -- drawn just
 // outside the box so it visually reads as "missed the goal", never inside a
 // cell (which would misleadingly suggest it was on target). Colored for the
-// shooting seat, matching the ball everywhere else.
+// shooting seat, matching the ball everywhere else. No trailing text label
+// here -- this whole line is scaled 1.5x by bigBlock(), and a long label at
+// that scale pushed the line past the sandboxed iframe's fixed width and
+// triggered a horizontal scrollbar. The WIDE!! banner immediately below
+// (unscaled) already says it in words -- this line only needs the visual.
 function wideMarker(col: Col, shooterSeat: Seat): string {
   const idx = COLS.indexOf(col)
   const leftPad = 1 + idx * 6
-  return ' '.repeat(leftPad) + cell('o ->', TEAM_COLOR[shooterSeat]) + '  (WIDE -- missed the goal)'
+  return ' '.repeat(leftPad) + cell('o ->', TEAM_COLOR[shooterSeat])
 }
 
 // ---- fixed-slot scoreboard --------------------------------------------------
@@ -305,6 +311,108 @@ function sceneWon(f: PSFrame): string {
   return lines.join('\n')
 }
 
+// ---- commentary line pool ---------------------------------------------------
+
+// Flavor lines for the resolution banner, picked by how well the keeper
+// actually read the shot -- this is what lets the probability tiers in the
+// game logic (full match / partial match / column-wrong / wide) come through
+// as something a player FEELS instead of a number they'd have to be shown.
+// Style is drawn from real football commentary cadence: short punchy bursts
+// for goal/wide, an "Oh, what a save"-style exclamation for a full-read save
+// (echoing Gordon Banks' 1970 save off Pele, commonly cited as the greatest
+// save in the sport's history).
+const ROW_LABEL: Record<Row, string> = { U: 'high', D: 'low' }
+
+const COMMENTARY: Record<string, string[]> = {
+  WIDE: [
+    'Sailing over the bar — no danger there at all.',
+    "Ankle wobbles, and it's flying well wide!",
+    "He's missed it completely — didn't even trouble the frame!",
+    'The pressure got to him — miles off target.',
+    'That was never troubling the goal.',
+  ],
+  GOAL_COL_WRONG: [
+    "Wrong way! The keeper's on the floor and the ball's nestled in the net.",
+    "Sent the wrong way — there's nothing he could do!",
+    'Completely outfoxed — an empty net to aim at.',
+    'The keeper guessed wrong, and he’s made to pay.',
+    'Wide open goal — the keeper dove into thin air.',
+  ],
+  GOAL_PARTIAL_SIDE: [
+    'Got the direction right, but the height beat him — inches from a save.',
+    "So close! Dove the right way but couldn't adjust in time.",
+    'Committed to the dive, guessed the wrong height — agonizing.',
+    "The angle was right, the timing wasn't.",
+    'He got a hand near it — but not near enough.',
+  ],
+  GOAL_PARTIAL_MID: [
+    'Stood his ground but reached the wrong way — squeezes past him.',
+    'Quick reactions, wrong height — just missed it.',
+    'So nearly there — the height betrayed him.',
+    'Held his position, lost the duel by inches.',
+    "A half-beat too slow to adjust — and it's in.",
+  ],
+  GOAL_FULL_MATCH: [
+    "The keeper read it perfectly — and still couldn't stop it!",
+    'Textbook guess, unstoppable strike — hats off to the shooter.',
+    'Everything right by the keeper, and still beaten!',
+    "The keeper did everything he could — it just wasn't enough.",
+    "Guessed right, dove right — and still it's in the net!",
+  ],
+  SAVE_PARTIAL_SIDE: [
+    'What a save! Got a boot to it at full stretch!',
+    'Incredible reflexes — somehow got there!',
+    'Guessed the right side and made it count — pushed away!',
+    'A flying save, more instinct than precision!',
+    'Sheer will got him to that ball — cleared away!',
+  ],
+  SAVE_PARTIAL_MID: [
+    'Adjusted just in time — smothered it!',
+    'Wrong height, right result — the body did the rest!',
+    'Not textbook, but it counts all the same!',
+    "Caught it on the glove's edge — safe!",
+    'Good fortune met good positioning — saved!',
+  ],
+  SAVE_FULL_MATCH: [
+    'Oh, what a save! Read it like a book!',
+    'Perfect guess, perfect save — world-class goalkeeping!',
+    'He knew exactly where it was going — denied!',
+    "Composed, precise, unbeatable — that's how it's done!",
+    "The shooter's plan, completely rumbled!",
+  ],
+}
+
+// Picks a random line, avoiding an immediate repeat of the last line used for
+// this category so back-to-back shots of the same type don't feel canned.
+// Plain Math.random() is fine here -- this is a pure client-side rendering
+// choice, never consulted by reduce(), so it has zero effect on determinism.
+const lastLineIndex = new Map<string, number>()
+function pickLine(category: string): string {
+  const pool = COMMENTARY[category]
+  if (!pool || pool.length === 0) return ''
+  if (pool.length === 1) return pool[0]!
+  const prev = lastLineIndex.get(category)
+  let idx = Math.floor(Math.random() * pool.length)
+  while (idx === prev) idx = Math.floor(Math.random() * pool.length)
+  lastLineIndex.set(category, idx)
+  return pool[idx]!
+}
+
+// Classifies a resolved shot into a commentary category based on how well
+// the keeper actually read it -- mirrors the tiers in the game's own save
+// logic (full match / partial match mid / partial match side / column wrong
+// entirely), so the flavor text always matches what actually happened.
+function commentaryCategory(shot: ShotRecord): string {
+  if (shot.outcome === 'wide') return 'WIDE'
+  const colMatched = shot.col === shot.keeperCol
+  if (!colMatched) return 'GOAL_COL_WRONG' // column wrong can only ever be a goal, never saved
+  const rowMatched = shot.row === shot.keeperRow
+  const isMid = shot.col === 'M'
+  if (rowMatched) return shot.outcome === 'goal' ? 'GOAL_FULL_MATCH' : 'SAVE_FULL_MATCH'
+  if (isMid) return shot.outcome === 'goal' ? 'GOAL_PARTIAL_MID' : 'SAVE_PARTIAL_MID'
+  return shot.outcome === 'goal' ? 'GOAL_PARTIAL_SIDE' : 'SAVE_PARTIAL_SIDE'
+}
+
 // ---- reveal flipbook (plays once per newly-resolved shot) -----------------
 
 function revealTicks(f: PSFrame, shot: ShotRecord, shooterName: string, keeperName: string): string[] {
@@ -327,6 +435,7 @@ function revealTicks(f: PSFrame, shot: ShotRecord, shooterName: string, keeperNa
       '',
       outcomeBanner('wide'),
       `        ${shooter} shakes their head...`,
+      `        ${pickLine('WIDE')}`,
       '',
       board,
     ].join('\n')
@@ -346,11 +455,12 @@ function revealTicks(f: PSFrame, shot: ShotRecord, shooterName: string, keeperNa
   const tick2 = [
     bigBlock(goalFrame(ballAt) + '\n' + keeperLine(shot.keeperCol, keeperSeat)),
     '',
-    `  ${keeperTag} dives toward the ${COL_LABEL[shot.keeperCol]}!`,
+    `  ${keeperTag} dives toward the ${COL_LABEL[shot.keeperCol]}, going ${ROW_LABEL[shot.keeperRow]}!`,
     '',
     board,
   ].join('\n')
   const bigResolved = bigBlock(goalFrame(ballAt) + '\n' + keeperLine(shot.keeperCol, keeperSeat))
+  const category = commentaryCategory(shot)
   const bannerLines =
     shot.outcome === 'goal'
       ? [
@@ -358,6 +468,7 @@ function revealTicks(f: PSFrame, shot: ShotRecord, shooterName: string, keeperNa
           '',
           outcomeBanner('goal'),
           `        ${shooter} pumps a fist in the air!`,
+          `        ${pickLine(category)}`,
           '',
           board,
         ]
@@ -366,6 +477,7 @@ function revealTicks(f: PSFrame, shot: ShotRecord, shooterName: string, keeperNa
           '',
           outcomeBanner('saved'),
           `        ${keeperTag} roars!`,
+          `        ${pickLine(category)}`,
           '',
           board,
         ]
@@ -386,13 +498,21 @@ function ensureRoot(h: HTMLElement): void {
     'font:700 17px system-ui;color:#60a5fa;text-align:center;letter-spacing:.5px;' +
     'padding-bottom:6px;margin-bottom:8px;border-bottom:2px solid #334155'
   pre = document.createElement('pre')
+  // white-space:pre-wrap (not plain `pre`) -- the fixed-width ASCII art
+  // (goal box, scoreboard) is always short enough to never need wrapping, so
+  // it renders identically either way, but the commentary lines (see
+  // COMMENTARY/pickLine) are full prose sentences that can run past the
+  // container width at normal (non-scaled) font size. Plain `pre` let those
+  // overflow horizontally and forced a scrollbar; pre-wrap still preserves
+  // the exact whitespace runs the box-drawing needs, but wraps long text
+  // onto a second line instead of overflowing.
   pre.style.cssText =
     'background:#0f172a;color:#e2e8f0;border:1px solid #1e293b;border-radius:12px;padding:12px;' +
-    'font:14px/1.4 ui-monospace,SFMono-Regular,Consolas,monospace;white-space:pre;overflow:auto;margin:0;' +
+    'font:14px/1.4 ui-monospace,SFMono-Regular,Consolas,monospace;white-space:pre-wrap;overflow:auto;margin:0;' +
     'box-shadow:0 4px 18px rgba(0,0,0,.35)'
   const cap = document.createElement('div')
   cap.style.cssText = 'font:11px system-ui;color:#94a3b8;text-align:center;margin-top:8px'
-  cap.textContent = 'L / M / R = left / mid / right (up/down is cosmetic only, never affects the result)'
+  cap.textContent = 'L/M/R = left/mid/right, U/D = high/low -- the keeper must read both to fully stop a shot'
   wrap.appendChild(title)
   wrap.appendChild(pre)
   wrap.appendChild(cap)
@@ -407,7 +527,13 @@ function setText(s: string): void {
 }
 
 const HOLD_MS = 1300 // was 800 -- overall pace slowed again per feedback
-const RESULT_HOLD_MS = HOLD_MS + 3000 // linger longer on a shot's outcome specifically
+// Result hold time now differs by outcome, matching how it actually feels to
+// watch a real shootout: a goal is a quick burst of relief/excitement that
+// doesn't need lingering, while a save or a wide miss is the moment a player
+// replays "what if" in their head -- that needs room to breathe. Previously
+// a single RESULT_HOLD_MS (HOLD_MS + 3000) covered both cases identically.
+const RESULT_HOLD_GOAL_MS = HOLD_MS + 2000 // ~3.3s -- quick, don't overstay the celebration
+const RESULT_HOLD_MISS_MS = HOLD_MS + 5000 // ~6.3s -- let a save/wide sink in, plus room for the new commentary line
 const TICK_MS = 700 // was 450 -- still too fast to read each reveal step
 const frameQueue: PSFrame[] = []
 let busy = false
@@ -422,7 +548,15 @@ function shooterKeeperNames(f: PSFrame): [string, string] {
   ]
 }
 
-function playTicks(ticks: string[], onDone: () => void): void {
+// The LAST tick is the resolution banner -- the one carrying the commentary
+// line (see COMMENTARY/pickLine) -- so it gets its own longer `lastTickMs`
+// instead of the routine TICK_MS used for the earlier suspense-building
+// ticks. Previously every tick (including the banner) used the same short
+// TICK_MS, so the commentary line flashed for ~700ms regardless of how long
+// RESULT_HOLD_GOAL_MS/RESULT_HOLD_MISS_MS was set to -- that hold was only
+// ever applied to the LATER settle() screen (the aftermath score summary),
+// never to the banner text itself. Caught after actually watching a preview.
+function playTicks(ticks: string[], lastTickMs: number, onDone: () => void): void {
   let i = 0
   const step = () => {
     if (i >= ticks.length) {
@@ -430,8 +564,9 @@ function playTicks(ticks: string[], onDone: () => void): void {
       return
     }
     setText(ticks[i]!)
+    const isLast = i === ticks.length - 1
     i++
-    setTimeout(step, TICK_MS)
+    setTimeout(step, isLast ? lastTickMs : TICK_MS)
   }
   step()
 }
@@ -461,9 +596,12 @@ function pump(): void {
     const keeperSeat: Seat = shot.shooterSeat === 0 ? 1 : 0
     const keeperName = nameOf(keeperSeat, next.players?.[keeperSeat] ?? 'Keeper')
     busy = true
-    // this settle() follows a just-revealed result -- linger on it longer
-    // than the routine idle/awaiting-save holds (explicit ask: +2s per shot).
-    playTicks(revealTicks(next, shot, shooterName, keeperName), () => settle(next, RESULT_HOLD_MS))
+    // The banner tick itself (carrying the commentary line) lingers for
+    // RESULT_HOLD_GOAL_MS/RESULT_HOLD_MISS_MS -- longer for a save/wide than
+    // a goal, so there's actually time to read it. The settle() that follows
+    // uses the routine HOLD_MS default for the aftermath score screen.
+    const holdMs = shot.outcome === 'goal' ? RESULT_HOLD_GOAL_MS : RESULT_HOLD_MISS_MS
+    playTicks(revealTicks(next, shot, shooterName, keeperName), holdMs, () => settle(next))
     return
   }
 
