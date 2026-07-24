@@ -1,0 +1,10 @@
+{
+  "type": "long-jump-duel",
+  "displayName": "Long Jump Duel",
+  "sdkVersion": "0.0.1",
+  "entry": "src/long-jump-duel.game.ts",
+  "players": { "min": 2, "max": 2 },
+  "pace": "turn-based",
+  "rules": "rules.md",
+  "view": "view.ts"
+}

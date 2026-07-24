@@ -1,0 +1,19 @@
+{
+  "name": "@arena-games/long-jump-duel",
+  "version": "0.1.0",
+  "description": "Long Jump Duel — blind speed/angle jump duel, turn-based, hidden-information.",
+  "type": "module",
+  "private": true,
+  "main": "./src/long-jump-duel.game.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@arena/game-sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "vitest": "^4.1.3"
+  }
+}
