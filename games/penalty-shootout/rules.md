@@ -35,14 +35,14 @@ Each shot is two actions:
 { "action": "turn", "parameters": { "col": "L" | "M" | "R", "row": "U" | "D" } }
 ```
 
-`row` (up/down) is cosmetic only — it never affects the outcome. Your target
-is hidden from the keeper until they respond.
+Your target (both column AND row) is hidden from the keeper until they
+respond — the keeper must read height as well as direction to fully stop it.
 
 **If it's your turn to keep goal (the other seat, blind — you cannot see
 what your opponent chose):**
 
 ```
-{ "action": "turn", "parameters": { "col": "L" | "M" | "R" } }
+{ "action": "turn", "parameters": { "col": "L" | "M" | "R", "row": "U" | "D" } }
 ```
 
 ## Resolution
@@ -65,27 +65,35 @@ Every shot resolves to exactly one of three outcomes, decided in this order:
    wide, the keeper's guess is irrelevant — it's simply not a goal.
 
 2. **Saved** — only possible when the shot was NOT wide and the keeper's
-   column guess matches the shot's column. Save chance on a correct guess
-   also depends on power:
+   **column** guess matches the shot's column. If the **row** guess also
+   matches (a full read), save chance follows the base table below. If only
+   the column matches (row guessed wrong — a partial read), that same chance
+   is scaled down:
 
-   | power | save chance on a correct guess |
-   |---|---|
-   | 1 | 100% |
-   | 2 | 90% |
-   | 3 | 80% |
-   | 4 | 70% |
-   | 5 | 60% |
-   | 6 | 50% |
+   | power | full match (col + row) | partial — mid column, row wrong | partial — side column, row wrong |
+   |---|---|---|---|
+   | 1 | 100% | 85.0% | 60.0% |
+   | 2 | 90% | 76.5% | 54.0% |
+   | 3 | 80% | 68.0% | 48.0% |
+   | 4 | 70% | 59.5% | 42.0% |
+   | 5 | 60% | 51.0% | 36.0% |
+   | 6 | 50% | 42.5% | 30.0% |
 
-   Higher power is harder to stop even when the keeper guesses right.
+   Higher power is harder to stop even on a full read. A partial read (right
+   column, wrong height) is always worse than a full read, and worse still on
+   a side column (L/R) than the middle (M) — the keeper is already centered
+   for a middle shot, so a wrong height there only costs a small adjustment;
+   a side shot commits the keeper to a full dive, so a wrong height there
+   costs much more. Missing the column entirely gives 0% save chance
+   regardless of the row guess.
 
 3. **Goal** — not wide, and either the column didn't match or the save roll
    failed.
 
 Note the tradeoff this creates: a high-power shooter (5, 6) is very hard to
-save even when guessed correctly, but is also comparatively more likely to
-go wide. A low-power shooter (1, 2) is always stopped by a correct guess, but
-rarely misses the goal outright when the guess is wrong.
+save even when read perfectly, but is also comparatively more likely to go
+wide. A low-power shooter (1, 2) is always stopped by a full read, but a
+partial read against them still leaves a real (if small) scoring chance.
 
 Rejected actions: `not-your-turn`, `invalid-target` (bad kick format),
 `invalid-guess` (bad save format), `game-over`.
@@ -94,8 +102,8 @@ Rejected actions: `not-your-turn`, `invalid-target` (bad kick format),
 
 After 5 rounds (10 shots total), whoever scored more goals wins: winner
 scores 1, loser 0. Tied after 5 rounds → sudden death: every further shooter
-is power 1 (100% save on a correct guess, 18% wide chance); continues round
-by round until the score differs after a completed round. In the extremely
+is power 1 (100% save on a full read, 18% wide chance); continues round by
+round until the score differs after a completed round. In the extremely
 unlikely case it never resolves, the match is called a draw (0.5 each) after
 a safety cap of rounds.
 
@@ -103,8 +111,13 @@ a safety cap of rounds.
 
 - Your own already-resolved shots and your opponent's already-resolved shots
   are both fully public (`history`, each entry has an `outcome` of `goal`,
-  `saved`, or `wide`) — only the **current, unresolved** shot's target is
-  secret, and only from the keeper's side.
+  `saved`, or `wide`, plus the keeper's full guess `keeperCol`/`keeperRow`) —
+  only the **current, unresolved** shot's target is secret, and only from the
+  keeper's side.
 - The game is deterministic: the same seed and action sequence always yields
   the same result. The only randomness is (a) whether a given shot goes wide,
   and (b) whether a column-matched, non-wide shot is actually saved.
+- A full read (column AND row both correct) is never worse than a partial
+  read (column right, row wrong) at any power level — the partial-read save
+  chance is always a fraction of the full-read chance for that same power,
+  never an independent value that could exceed it.
