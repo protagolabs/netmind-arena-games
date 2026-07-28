@@ -104,7 +104,11 @@ function inBounds(x: number, y: number): boolean {
   return x >= 0 && x < W && y >= 0 && y < H
 }
 
-/** Count the empty region reachable from (x,y), the cell included. BFS. */
+/**
+ * Count the empty region reachable from (x,y), the cell included. Iterative
+ * flood fill — `pop()` makes the traversal DFS-order, which is irrelevant for
+ * a pure reachable-cell count.
+ */
 function floodSize(grid: number[][], x: number, y: number): number {
   const seen = new Set<number>([y * W + x])
   const queue = [y * W + x]
