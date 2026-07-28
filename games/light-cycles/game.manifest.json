@@ -1,0 +1,10 @@
+{
+  "type": "light-cycles",
+  "displayName": "Light Cycles",
+  "sdkVersion": "0.0.1",
+  "entry": "src/light-cycles.game.ts",
+  "players": { "min": 2, "max": 2 },
+  "pace": "strategy",
+  "rules": "rules.md",
+  "view": "view.ts"
+}

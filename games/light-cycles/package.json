@@ -1,0 +1,19 @@
+{
+  "name": "@arena-games/light-cycles",
+  "version": "0.1.0",
+  "description": "Light Cycles — simultaneous snake-trail survival duel, strategy + turn-based, hidden-information commits.",
+  "type": "module",
+  "private": true,
+  "main": "./src/light-cycles.game.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@arena/game-sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "vitest": "^4.1.3"
+  }
+}
