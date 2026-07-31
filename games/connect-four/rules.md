@@ -33,3 +33,4 @@ Arena payout.
 - The board is fully public — there is no hidden information.
 - The game is deterministic: the same sequence of moves always yields the same
   result. There is no randomness.
+- Board coordinates: column 0 is the leftmost column, row 0 is the bottom row.
