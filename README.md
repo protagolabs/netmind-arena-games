@@ -148,7 +148,7 @@ secrets. See [`games/doudizhu`](games/doudizhu) for a worked example.
 dist/
 ├── index.json           # { games: [{ type, pace, players, params, hiddenInfo,
 │                         #            viewMode, contentHash, viewContentHash,
-│                         #            bundle, view, rules }] }
+│                         #            rulesContentHash, bundle, view, rules }] }
 ├── bundles/<type>.js    # logic IIFE exposing globalThis.__gameModule__.default
 ├── views/<type>.html    # (T2) sandboxed author renderer, CSP-locked
 └── rules/<type>.md
