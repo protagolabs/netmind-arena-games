@@ -50,7 +50,12 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          fp() { jq -Sc '[.games[] | {type, contentHash, viewContentHash}] | sort_by(.type)' "$1"; }
+          # Fingerprint = every hash a release actually ships: logic bundle, view HTML,
+          # and rules markdown (all three are inlined into index.json, so a rules-only
+          # edit IS a shipped change and must publish). Releases cut before
+          # rulesContentHash existed have no such field → jq yields null → the first
+          # run after this change publishes once, then the gate is stable again.
+          fp() { jq -Sc '[.games[] | {type, contentHash, viewContentHash, rulesContentHash}] | sort_by(.type)' "$1"; }
           new=$(fp dist/index.json)
 
           prev=""

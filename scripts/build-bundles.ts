@@ -46,6 +46,8 @@ interface IndexEntry {
   contentHash: string
   bundle: string
   rules: string | null
+  /** sha256 of `rulesMarkdown` — lets publish.yml's gate see rules-only edits. */
+  rulesContentHash: string | null
   // Meta + params are published here so the Arena backend registers WITHOUT
   // running the sandbox at boot (introspection). The sandbox only runs per-match.
   maxSteps: number
@@ -140,8 +142,10 @@ async function main() {
 
     let rules: string | null = null
     let rulesMarkdown: string | null = null
+    let rulesContentHash: string | null = null
     if (manifest.rules && existsSync(path.join(dir, manifest.rules))) {
       rulesMarkdown = await readFile(path.join(dir, manifest.rules), 'utf8')
+      rulesContentHash = createHash('sha256').update(rulesMarkdown).digest('hex')
       rules = `rules/${manifest.type}.md`
       await writeFile(path.join(DIST, rules), rulesMarkdown, 'utf8')
     }
@@ -168,6 +172,7 @@ async function main() {
       contentHash,
       bundle: `bundles/${manifest.type}.js`,
       rules,
+      rulesContentHash,
       maxSteps: meta.maxSteps ?? 10_000,
       submitWindowSec: meta.submitWindowSec ?? null,
       turnTimeoutSec: meta.turnTimeoutSec ?? null,
