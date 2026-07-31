@@ -1,0 +1,10 @@
+{
+  "type": "chinese-checkers",
+  "displayName": "Chinese Checkers",
+  "sdkVersion": "0.0.1",
+  "entry": "src/chinese-checkers.game.ts",
+  "players": { "min": 2, "max": 2 },
+  "pace": "strategy",
+  "rules": "rules.md",
+  "view": "view.ts"
+}
