@@ -4,7 +4,7 @@
  * Every seat is handed one blank planet (a 5x5 grid) and a brush. On your turn you
  * do exactly one thing:
  *
- *   paint — lay a stroke on YOUR planet (ocean / snow / dune / grove / glow)
+ *   paint — lay a stroke on YOUR planet (山 mountain / 水 water / 苔 moss / 灯 lamp / 光 glow)
  *   light — spend the turn lighting up SOMEONE ELSE'S planet
  *   wish  — let go: clear the attachment you built up by painting over yourself
  *
@@ -17,7 +17,7 @@
  * Beauty has to be computable here (this code is deterministic and never calls out
  * to a model), so the aesthetic is stated outright and scored directly:
  *   mass     — few large contiguous blocks beat confetti
- *   contrast — cold (ocean/snow) set against warm (dune/grove), and the seam between
+ *   contrast — cool ink (山/水) set against warm life (苔/灯), and the seam between
  *   space    — keep roughly a third of the world empty; a full grid is noise
  *   accent   — glow reads as backlight: a handful of cells against a silhouette
  * Painting over a cell you already painted costs `burden`, which eats your tally
@@ -52,16 +52,18 @@ const CONTRAST_FULL_AT = 8
 /** Glow cells that read as backlight; past this they read as a floodlight. */
 const MAX_ACCENT = 3
 
-// Cell codes. VOID is untouched sky-through; SEPARATOR is render-only.
+// Cell codes. VOID is untouched silk; SEPARATOR is render-only.
+// The five brushes and the ink palette are the ones from the 绢本星图 atlas:
+// 墨山 and 黛水 read cool, 苔绿 and 朱灯 read warm, 泥金 is the backlight accent.
 const VOID = 0
-const OCEAN = 1
-const SNOW = 2
-const DUNE = 3
-const GROVE = 4
+const MOUNTAIN = 1
+const WATER = 2
+const MOSS = 3
+const LAMP = 4
 const GLOW = 5
 const SEPARATOR = 6
 
-const ELEMENT_NAMES = ['虚空', '海', '雪', '沙', '林', '光'] as const
+const ELEMENT_NAMES = ['虚空', '山', '水', '苔', '灯', '光'] as const
 
 /**
  * How much one lamp feeds the shared sky. Divided by the number of seats when
@@ -95,8 +97,8 @@ const NEIGHBORS: ReadonlyArray<readonly [number, number]> = [
   [0, -1],
 ]
 
-const isCold = (e: number): boolean => e === OCEAN || e === SNOW
-const isWarm = (e: number): boolean => e === DUNE || e === GROVE
+const isCold = (e: number): boolean => e === MOUNTAIN || e === WATER
+const isWarm = (e: number): boolean => e === MOSS || e === LAMP
 
 interface Planet {
   /** rows[y][x], each a cell code. */
@@ -293,7 +295,7 @@ function doPaint(s: State, action: Action, ctx: Ctx): State {
   const { x, y, element } = action as { x: number; y: number; element: number }
   if (!Number.isInteger(x) || x < 0 || x >= SIZE) ctx.reject('out-of-bounds')
   if (!Number.isInteger(y) || y < 0 || y >= SIZE) ctx.reject('out-of-bounds')
-  if (!Number.isInteger(element) || element < OCEAN || element > GLOW) ctx.reject('bad-element')
+  if (!Number.isInteger(element) || element < MOUNTAIN || element > GLOW) ctx.reject('bad-element')
 
   const planet = s.planets[s.side]!
   const before = planet.cells[y]![x]!
@@ -394,7 +396,7 @@ function bestStroke(s: State, p: Params): { x: number; y: number; element: numbe
   for (let y = 0; y < SIZE; y++) {
     for (let x = 0; x < SIZE; x++) {
       if (cells[y]![x] !== VOID) continue
-      for (let element = OCEAN; element <= GLOW; element++) {
+      for (let element = MOUNTAIN; element <= GLOW; element++) {
         scratch[y]![x] = element
         const gain = weighted(scratch, p) - base
         scratch[y]![x] = VOID
@@ -434,7 +436,7 @@ export default defineGame<State, Params>({
       // Every world opens from one seeded landmark, so no seat faces a blank page.
       const x = Math.floor(ctx.random() * SIZE)
       const y = Math.floor(ctx.random() * SIZE)
-      const element = OCEAN + Math.floor(ctx.random() * 4)
+      const element = MOUNTAIN + Math.floor(ctx.random() * 4)
       cells[y]![x] = element
       return { cells, lamps: 0, burden: 0 }
     })
@@ -547,14 +549,16 @@ export default defineGame<State, Params>({
         cols: seats * SIZE + (seats - 1),
         rows: SIZE,
         cells,
+        // The atlas ink palette: 绢 paper, 墨 ink, 黛 indigo, 苔 moss, 朱 vermilion,
+        // 泥金 gold. VOID is the silk itself, not a hole.
         palette: {
-          [VOID]: '#0b0e17',
-          [OCEAN]: '#2a5c8a',
-          [SNOW]: '#dbe9f5',
-          [DUNE]: '#d99b5b',
-          [GROVE]: '#3f7d55',
-          [GLOW]: '#ffd98a',
-          [SEPARATOR]: '#000000',
+          [VOID]: '#efe8d4',
+          [MOUNTAIN]: '#3a352c',
+          [WATER]: '#4a5578',
+          [MOSS]: '#6f7d54',
+          [LAMP]: '#b23a26',
+          [GLOW]: '#a8802f',
+          [SEPARATOR]: '#e0d6bc',
         },
         ...(s.lastPaint
           ? { lastMove: { x: s.lastPaint.seat * (SIZE + 1) + s.lastPaint.x, y: s.lastPaint.y } }

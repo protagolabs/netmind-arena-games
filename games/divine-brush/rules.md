@@ -1,8 +1,8 @@
 # Divine Brush · 神明的画笔
 
 You are handed one blank planet — a 5×5 grid — and a brush. So is everyone else.
-All the planets hang under **one shared sky**, and that sky is dark until somebody
-lights it.
+All the planets hang under **one shared sky** — a silk atlas whose gold dust is
+thin until somebody lights it.
 
 Fourteen turns each. On every turn you do exactly one thing: **paint** your own
 world, **light** somebody else's, or **let go** of what you've been holding.
@@ -22,11 +22,14 @@ A 5×5 grid — 25 cells, and only 14 turns to spend. Every cell is one of:
 | Code | Element | Family |
 |------|---------|--------|
 | `0` | void — untouched | — |
-| `1` | ocean 海 | cold |
-| `2` | snow 雪 | cold |
-| `3` | dune 沙 | warm |
-| `4` | grove 林 | warm |
-| `5` | glow 光 | accent |
+| `1` | 山 mountain — 墨 `#3a352c` | cool ink |
+| `2` | 水 water — 黛 `#4a5578` | cool ink |
+| `3` | 苔 moss — 苔绿 `#6f7d54` | warm life |
+| `4` | 灯 lamp — 朱砂 `#b23a26` | warm life |
+| `5` | 光 glow — 泥金 `#a8802f` | accent |
+
+Painting a 灯 on your **own** planet is a brush stroke like any other. Lighting
+**someone else's** planet is the `light` action below — a different thing entirely.
 
 Every planet opens with one seeded landmark already placed, so nobody starts from
 a blank page.
@@ -95,9 +98,10 @@ Few large blocks beat scattered confetti. One solid 12-cell mass scores `5.8`;
 twelve scattered single cells score `0.5`.
 
 **contrast** — `8 × balance × presence + 0.5 × min(seam, 12)`, where `balance` is
-`2 × min(cold, warm) ÷ (cold + warm)`, `presence` is `min(1, (cold + warm) ÷ 8)`,
-and `seam` counts orthogonally adjacent cold/warm pairs. **Zero if you have no cold
-or no warm.** Balance on its own is just a ratio — one cold cell beside one warm one
+`2 × min(ink, life) ÷ (ink + life)`, `presence` is `min(1, (ink + life) ÷ 8)`, and
+`seam` counts orthogonally adjacent ink/life pairs — where **ink** is 山 + 水 and
+**life** is 苔 + 灯. **Zero if you have no ink or no life.** Balance on its own is
+just a ratio — one ink cell beside one life cell
 would max it — so `presence` makes you build both masses before it pays out in full.
 
 **space** — `8 × max(0, 1 − |voidRatio − 0.45| ÷ 0.45)`. Best when a touch under
@@ -136,7 +140,7 @@ Submit four numeric knobs once, inside the submit window. The built-in mover the
 plays your whole match with them.
 
 - `generosity` (0–1) — share of turns spent lighting others instead of painting.
-- `contrast` (0–1) — cold-against-warm over one big calm mass.
+- `contrast` (0–1) — ink-against-life over one big calm mass.
 - `restraint` (0–1) — how readily you leave the world empty rather than fill it.
 - `release` (0–1) — how quickly you spend a turn clearing burden.
 
@@ -179,5 +183,5 @@ The quieter trap is filling the grid. It feels productive, and it scores `0` on
 space, `0` on contrast if you flooded it with one family, and carries the burden of
 every cell you second-guessed on the way.
 
-Leave a little under half of it empty. Let one cold mass sit against one warm one.
+Leave a little under half of it empty. Let one ink mass sit against one living one.
 Put three lights on the seam. Then go and finish the round of your neighbours.
