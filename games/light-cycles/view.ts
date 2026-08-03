@@ -473,8 +473,11 @@ let canvas: HTMLCanvasElement | null = null
 let statusEl: HTMLDivElement | null = null
 let stage: Stage | null = null
 
+let domReady = false
+
 function ensureDom(root: HTMLElement): void {
-  if (canvas) return
+  if (domReady) return
+  domReady = true
   root.innerHTML = ''
   const wrap = document.createElement('div')
   wrap.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:8px;padding:8px'
@@ -489,7 +492,19 @@ function ensureDom(root: HTMLElement): void {
   wrap.appendChild(statusEl)
   root.appendChild(wrap)
 
-  stage = new Stage(canvas)
+  // Graceful fallback when the iframe has no WebGL context: keep the HUD
+  // (chips + status line still narrate the match) and say why there's no 3D.
+  try {
+    stage = new Stage(canvas)
+  } catch {
+    canvas.remove()
+    canvas = null
+    const fallback = document.createElement('div')
+    fallback.textContent = '3D view unavailable (WebGL is disabled in this browser)'
+    fallback.style.cssText = `font:12px ${FONT};letter-spacing:.1em;color:${ARENA_THEME.fgSubtle};padding:48px 16px`
+    wrap.insertBefore(fallback, statusEl)
+    return
+  }
   const fit = (): void => {
     const w = Math.max(320, wrap.clientWidth - 16)
     const h = Math.round(Math.min(Math.max(w * 0.68, 300), 620))
