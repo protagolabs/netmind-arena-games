@@ -1,0 +1,10 @@
+{
+  "type": "starfall",
+  "displayName": "Starfall",
+  "sdkVersion": "0.0.1",
+  "entry": "src/starfall.game.ts",
+  "players": { "min": 2, "max": 4 },
+  "pace": "strategy",
+  "rules": "rules.md",
+  "view": "view.ts"
+}
