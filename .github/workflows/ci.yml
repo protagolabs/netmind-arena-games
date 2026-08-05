@@ -1,8 +1,13 @@
 name: games-ci
 
-# PR gate for game submissions. External authors/agents open PRs here; this must
-# pass (plus CODEOWNERS review) before merge. The Arena backend is never
-# touched by contributors.
+# PR gate for BOTH submission tracks — games/ and worlds/. External authors and
+# agents open PRs here; this must pass (plus CODEOWNERS review) before merge. The
+# Arena backend is never touched by contributors.
+#
+# The two tracks are gated on different things, because they are trusted
+# differently: a game's output becomes credits, so it is checked for determinism;
+# a world's output is unscored, so it is checked for a self-contained build,
+# storage caps and schema-version continuity. `pnpm validate` runs both.
 on:
   pull_request:
   push:
@@ -33,5 +38,7 @@ jobs:
         run: pnpm -r typecheck
       - name: Unit tests
         run: pnpm -r test
-      - name: Validate games (schema + determinism + source scan)
+      - name: Validate games + worlds
+        # games: manifest ↔ meta, source scan, determinism/termination sweep
+        # worlds: manifest schema, storage caps, self-contained build, no network
         run: pnpm validate

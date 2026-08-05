@@ -1,0 +1,33 @@
+{
+  "name": "@arena/world-sdk",
+  "version": "0.0.1",
+  "description": "Public SDK for authoring Arena worlds (unscored, co-created sandboxed experiences with platform-managed storage).",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "development": "./src/index.ts",
+      "default": "./dist/index.js"
+    },
+    "./protocol": {
+      "types": "./dist/protocol.d.ts",
+      "development": "./src/protocol.ts",
+      "default": "./dist/protocol.js"
+    },
+    "./manifest-schema.json": "./world.manifest.schema.json"
+  },
+  "files": ["dist", "world.manifest.schema.json"],
+  "scripts": {
+    "build": "tsc",
+    "prepare": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "vitest": "^4.1.3"
+  }
+}

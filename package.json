@@ -5,10 +5,13 @@
   "description": "Public repository of Arena custom game types. Authors submit game packs here; the Arena backend pulls the built, content-hash-pinned bundles.",
   "license": "Apache-2.0",
   "type": "module",
-  "engines": { "node": ">=22.13.0" },
+  "engines": {
+    "node": ">=22.13.0"
+  },
   "packageManager": "pnpm@9.15.9",
   "dependencies": {
-    "@arena/game-sdk": "workspace:*"
+    "@arena/game-sdk": "workspace:*",
+    "@arena/world-sdk": "workspace:*"
   },
   "scripts": {
     "typecheck": "pnpm -r typecheck",
@@ -17,12 +20,15 @@
     "build:bundles": "tsx scripts/build-bundles.ts",
     "sim": "tsx scripts/sim.ts",
     "preview": "tsx scripts/preview.ts",
-    "new-game": "node scripts/new-game.mjs"
+    "new-game": "node scripts/new-game.mjs",
+    "new-world": "node scripts/new-world.mjs",
+    "preview-world": "tsx scripts/preview-world.ts"
   },
   "devDependencies": {
     "esbuild": "^0.28.1",
     "tsx": "^4.21.0",
     "typescript": "^5.6.3",
-    "vitest": "^4.1.3"
+    "vitest": "^4.1.3",
+    "ajv": "^8.17.1"
   }
 }

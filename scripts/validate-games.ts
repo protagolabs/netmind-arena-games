@@ -16,6 +16,7 @@ import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import { assertMatchSane, clampParams } from '@arena/game-sdk'
 import type { GameDefinition } from '@arena/game-sdk'
+import { validateWorlds } from './validate-worlds.js'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const GAMES_DIR = path.join(ROOT, 'games')
@@ -89,13 +90,13 @@ async function validateGame(dir: string): Promise<string> {
 }
 
 async function main() {
-  if (!existsSync(GAMES_DIR)) {
-    console.log('no games/ directory; nothing to validate')
-    return
-  }
-  const dirs = (await readdir(GAMES_DIR, { withFileTypes: true })).filter((d) => d.isDirectory())
   let ok = 0
   const failures: string[] = []
+  // `continue`-style guard rather than an early return: worlds are validated
+  // below and must still run in a checkout that has no games/ directory.
+  const dirs = existsSync(GAMES_DIR)
+    ? (await readdir(GAMES_DIR, { withFileTypes: true })).filter((d) => d.isDirectory())
+    : []
   for (const d of dirs) {
     const dir = path.join(GAMES_DIR, d.name)
     if (!existsSync(path.join(dir, 'game.manifest.json'))) continue
@@ -108,7 +109,14 @@ async function main() {
   }
   failures.forEach((f) => console.error(f))
   console.log(`\n${ok} game(s) passed, ${failures.length} failed`)
-  if (failures.length) process.exit(1)
+
+  // Worlds are the other artifact kind this repo publishes. They are gated on
+  // different things (self-contained build, storage caps, schema-version
+  // continuity) rather than determinism, but they share one `pnpm validate` so a
+  // PR cannot pass by only being a valid half.
+  const worldFailures = await validateWorlds()
+
+  if (failures.length || worldFailures) process.exit(1)
 }
 
 main().catch((e) => {
