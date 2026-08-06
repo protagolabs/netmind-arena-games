@@ -1,0 +1,236 @@
+# Worlds
+
+The second kind of artifact this repo publishes, beside `games/`.
+
+The difference is not size or ambition, it is **money**:
+
+|            | `games/`                                   | `worlds/`                                  |
+| ---------- | ------------------------------------------ | ------------------------------------------ |
+| Output     | a `score` → rank → credits                 | nothing scored                             |
+| Runs where | backend `isolated-vm` (authoritative)      | the visitor's browser, sandboxed           |
+| Determinism | enforced (no clock, no entropy)           | not required                               |
+| Gated on   | determinism, termination, source scan      | self-contained build, storage caps, schema |
+| Threat     | cheating for real money                    | UGC abuse                                  |
+
+With nothing to cheat *for*, the whole authoritative-simulation apparatus is
+unnecessary. A world is author code in the same locked-down sandbox a game's T2
+view already uses.
+
+## Try it locally
+
+```bash
+pnpm install
+pnpm new-world my-world "My World"     # scaffolds a working, publishable world
+pnpm preview-world my-world            # opens it exactly as Arena runs it
+pnpm validate                          # the CI gate
+```
+
+`preview-world` is not an approximation of the host. It speaks the same protocol,
+loads the document the same way (`iframe sandbox="allow-scripts"` + `srcdoc` +
+injected CSP), and enforces the same rules — schema, ownership, size, uniqueness,
+per-author quota. Storage is in-memory instead of Postgres; that is the only
+difference that matters. Switch identity in the top bar to see another visitor's
+view of the same world.
+
+Enforcing the rules locally is the point: `quota`, `conflict` and `unique` are
+ordinary outcomes in a shared world, and an author who first meets them in
+production meets them as a bug report.
+
+## Anatomy
+
+```
+worlds/<slug>/
+├── world.manifest.json   # type, storage, presentation — the reviewed contract
+├── src/world.ts          # export default defineWorld({ meta, mount })
+├── assets/               # optional; inlined as data: URIs at build time
+├── cover.svg             # home-page card
+└── about.md              # shown on the card and the world's page
+```
+
+## Persistence is a container, not a domain model
+
+The platform stores records with generic CRUD and knows nothing about what a
+record *means*. `payload` is author-shaped JSON, validated only against the JSON
+Schema declared in the manifest.
+
+The consequence worth internalising: **domain features are not platform
+features.** "Other visitors can light up my planet" is not a `reactions` API — it
+is a second collection whose records hold a target id:
+
+```jsonc
+"collections": {
+  "planets": { "write": "owner", "maxRecordsPerAuthor": 1, "indexes": ["payload.x", "payload.y"] },
+  "lamps":   { "write": "none",  "indexes": ["payload.target"],
+               "unique": [["author.id", "payload.target"]] }
+}
+```
+
+`unique` gives you "one lamp per visitor per planet", enforced by the platform,
+which still has no idea what a lamp is.
+
+The platform owns only what cannot be delegated safely: identity, ownership,
+schema validation, size caps, uniqueness, quota, rate limits, pagination,
+moderation state, and concurrency versions.
+
+### `indexes` — why queryable fields must be declared
+
+`payload` is opaque, but a boundless world still has to answer "give me the
+records near these coordinates". A jsonb index would be built for one specific
+field *name*, so every world whose field is called something else would need
+another database migration — and world authors have no database access.
+
+So the manifest declares paths, and the platform copies those values, in order,
+into a fixed set of pre-created index slots. One set of indexes, created once,
+serves every world. Undeclared paths are simply not queryable.
+
+### Schema versions — data outlives code
+
+A world is perpetual. Unlike a match, it accumulates records across releases, so
+a renderer must expect payloads older than itself. Bump `schemaVersion` when the
+shape changes; keep every version you can still render in
+`supportedSchemaVersions`. CI rejects a release that drops one.
+
+## The rest of `ctx`
+
+### `ctx.local` — private per-visitor storage
+
+**`localStorage` does not work in a world.** The document runs in an
+`iframe sandbox` without `allow-same-origin`, so its origin is opaque and storage
+access throws. `pnpm validate` rejects any use of it, and `ctx.local` is what to
+use instead:
+
+```ts
+await ctx.local.set('sound', 'on')
+const sound = await ctx.local.get<string>('sound')   // null when signed out
+await ctx.local.del('sound')
+```
+
+It is per visitor, private, and not listable — a preference, not content. Two
+things follow from that:
+
+- A signed-out visitor has nowhere to store anything, so **writes fail and reads
+  return `null`**. Treat it as best-effort: `void ctx.local.set(k, v).catch(() => {})`.
+  Never let a preference decide whether the world opens.
+- For a signed-in visitor it follows them across devices, because it lives on the
+  platform rather than in one browser.
+
+### `ctx.onVisitor` — identity can change mid-session
+
+`ctx.me` is not fixed. Someone can open a world signed out and sign in without
+reloading, and every record's `mine` flag changes when they do:
+
+```ts
+ctx.onVisitor((me) => {
+  // re-render anything that depends on who is looking
+})
+```
+
+### `collection.onChange` — what other people are doing
+
+```ts
+planets.onChange((e) => {
+  if (e.op === 'added') draw(e.record)
+  else if (e.op === 'updated') redraw(e.record)
+  else remove(e.id)                       // op === 'deleted'
+})
+```
+
+Handle all three. `deleted` is not only someone removing their own work — it is
+also how moderation reaches you, and a world that ignores it keeps drawing
+something no one else can see.
+
+Delivery is **best-effort**. The sandbox has `connect-src 'none'`, so a world
+cannot subscribe to anything itself; the host polls and forwards. Expect it to
+lag, to coalesce, and to miss `deleted` for a collection larger than one page —
+past that, an absent record cannot be told apart from one that has simply aged
+out of the newest page. `list()` remains the source of truth; `onChange` is how
+you avoid re-reading it constantly.
+
+## Language and theme
+
+The platform injects both, and **the world decides whether to use them**.
+
+```ts
+ctx.lang               // 'en' | 'zh' | 'ja' | 'ko' | 'es' | 'ru' | 'fr' | 'de' | 'pt'
+ctx.theme              // { mode: 'dark' | 'light', bg, surface, fg, fgSubtle, border, accent, accentFg, font }
+ctx.onLangChange(cb)   // fires when the visitor changes it in Arena's header
+ctx.onThemeChange(cb)
+```
+
+`ctx.lang` is always a **base code**, never a full locale. The platform narrows
+`zh-CN` to `zh` and falls back to `en` for anything Arena has no strings for, so
+a world can switch on the value directly:
+
+```ts
+const t = (zh: string, en: string) => (ctx.lang === 'zh' ? zh : en)
+```
+
+Getting this wrong is easy in a way that is hard to see: a world that compares
+against `'zh-CN'`, or that indexes its own language array by position, will read
+one language and render another. Compare codes, never positions.
+
+**If you use these, do not also ship your own switcher.** Two controls for one
+setting are two controls that disagree — Arena's header is the one place a
+visitor should change either. Hide or omit yours and subscribe instead:
+
+```ts
+const applyLang = () => { /* re-render your strings in ctx.lang */ }
+applyLang()
+ctx.onLangChange(applyLang)
+```
+
+**If you ignore them, nothing breaks.** A world with a deliberate palette should
+not be repainted by a platform toggle, and a world whose language switcher is
+part of its design should keep it. Both are ordinary choices; the platform does
+not insist.
+
+One caveat worth knowing when porting an existing page: applying a language is
+usually a *function*, not a stored value. Writing your language into storage and
+expecting the page to notice will not work — most pages read that once at boot.
+Find the function the page's own control calls, and call that.
+
+## Rendering, audio, assets
+
+The document is loaded via `srcdoc` into `sandbox="allow-scripts"` **without**
+`allow-same-origin`, so it has an opaque origin and cannot reach the visitor's
+session. The CSP sets `connect-src 'none'`: a world cannot open a channel of its
+own, and every read and write goes through the host's allowlisted postMessage
+proxy, which holds the credential.
+
+`img-src` and `media-src` allow `data:`, which is looser than the game-view
+policy. That is deliberate: games lock `img-src` down because a hidden-info
+game's frame contains a viewer's secrets, and a world renders nothing private.
+
+Audio therefore works two ways, both without a network:
+
+- **synthesis** — `OscillatorNode` and friends load no resource at all
+- **samples** — put the file in `assets/`, and `ctx.asset('assets/bell.mp3')`
+  returns the inlined `data:` URI
+
+`ctx.audio()` resolves only after a real user gesture inside the frame, because a
+sandboxed iframe has no inherited activation. Render your own "enable sound"
+control, and stay usable if nobody touches it.
+
+## Two gotchas that cost real time
+
+**JSON Schema tuples.** Draft-07 wrote them `items: [a, b, c]`; 2020-12 renamed
+that to `prefixItems`. The old spelling is a valid-looking object that only fails
+at compile — so a world would ship and then reject every write. `pnpm validate`
+compiles every collection schema to catch exactly this.
+
+**One file, always.** The host loads the document through `srcdoc`, whose opaque
+origin cannot resolve a relative `import './chunk.js'`. A multi-chunk build
+renders a blank frame with no error. The build inlines everything and CI rejects
+the rest.
+
+## Publishing
+
+Same pipeline as games: PR → CODEOWNERS review → merge → `build:bundles` →
+GitHub Release. Worlds ride in the same `index.json` under `worlds[]`, pinned by
+content hash, and the Arena backend picks them up on its next refresh without a
+restart. A published world appears on the Arena home page automatically — no
+frontend change is needed to ship one.
+
+Submission PRs may only touch `games/` or `worlds/`. A world's document runs in a
+visitor's browser, so an author who could also edit the CSP or the op allowlist
+in the same PR would be editing their own sandbox.

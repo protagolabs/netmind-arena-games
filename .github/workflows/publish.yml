@@ -3,7 +3,8 @@ name: publish
 # On merge to main that changes the BUILT ARTIFACTS, publish a GitHub Release.
 #   - Trigger is path-filtered: docs/scripts/CI/preview changes never publish.
 #   - Then a content-hash gate skips the release if no game's bundle/view/rules
-#     actually changed vs the latest release (e.g. a game's test-only edit).
+#     and no world's document actually changed vs the latest release (e.g. a
+#     test-only edit).
 #   - Releases are date-tagged (games-YYYY.MM.DD, +.2/.3 same day), not build-N.
 # No AWS — uses the built-in GITHUB_TOKEN. Backend loads:
 #   ARENA_GAMES_INDEX=https://github.com/<owner>/<repo>/releases/latest/download/index.json
@@ -12,8 +13,11 @@ on:
     branches: [main]
     paths:
       - 'games/**'
+      - 'worlds/**'
       - 'packages/game-sdk/**'
+      - 'packages/world-sdk/**'
       - 'scripts/build-bundles.ts'
+      - 'scripts/build-worlds.ts'
       - 'scripts/pack-release.ts'
   workflow_dispatch: {} # manual re-publish (bypasses the path filter, not the hash gate)
 
@@ -40,7 +44,7 @@ jobs:
         # install in that case so publish still cuts the release; existing pinned
         # resolutions are reused, only the missing importer is added (not committed).
         run: pnpm install --frozen-lockfile || pnpm install --no-frozen-lockfile
-      - name: Build bundles + index.json (self-contained; code inlined)
+      - name: Build bundles + worlds + index.json (self-contained; code inlined)
         run: pnpm build:bundles
 
       - name: Plan release (hash gate + date tag)
@@ -55,7 +59,14 @@ jobs:
           # edit IS a shipped change and must publish). Releases cut before
           # rulesContentHash existed have no such field → jq yields null → the first
           # run after this change publishes once, then the gate is stable again.
-          fp() { jq -Sc '[.games[] | {type, contentHash, viewContentHash, rulesContentHash}] | sort_by(.type)' "$1"; }
+          # Worlds are folded into the SAME fingerprint: they ship in the same
+          # index.json, so a world-only change is a shipped change and must
+          # publish. `// []` keeps this working against a release cut before
+          # worlds existed (jq would otherwise fail on the missing key).
+          fp() { jq -Sc '{
+                   games:  [(.games  // [])[] | {type, contentHash, viewContentHash, rulesContentHash}] | sort_by(.type),
+                   worlds: [(.worlds // [])[] | {type, contentHash}] | sort_by(.type)
+                 }' "$1"; }
           new=$(fp dist/index.json)
 
           prev=""
@@ -64,7 +75,7 @@ jobs:
           fi
           if [ -n "$prev" ] && [ "$new" = "$prev" ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "No game bundle/view/rules changed vs the latest release — skipping publish."
+            echo "No game or world artifact changed vs the latest release — skipping publish."
             exit 0
           fi
           echo "skip=false" >> "$GITHUB_OUTPUT"
@@ -78,8 +89,14 @@ jobs:
           {
             echo "Game bundles in this release (content-hash-pinned):"
             echo ""
-            jq -r '.games[] | "- **\(.type)** — \(.pace) · \(.players.min)-\(.players.max)p · viewMode \(.viewMode) · `\(.contentHash[0:12])`"' dist/index.json
+            jq -r '(.games // [])[] | "- **\(.type)** — \(.pace) · \(.players.min)-\(.players.max)p · viewMode \(.viewMode) · `\(.contentHash[0:12])`"' dist/index.json
             echo ""
+            if [ "$(jq -r '(.worlds // []) | length' dist/index.json)" != "0" ]; then
+              echo "Worlds in this release (unscored, no credits):"
+              echo ""
+              jq -r '(.worlds // [])[] | "- **\(.type)** — \(.presentation.surface) · \(((.storage.collections // {}) | keys | length)) collection(s) · `\(.contentHash[0:12])`"' dist/index.json
+              echo ""
+            fi
             echo "Backend loads the latest via:"
             echo "\`ARENA_GAMES_INDEX=https://github.com/$REPO/releases/latest/download/index.json\`"
           } > /tmp/notes.md
