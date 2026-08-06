@@ -1,0 +1,132 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://arena42.ai/schemas/world.manifest.schema.json",
+  "title": "Arena world manifest",
+  "description": "Declares an unscored, co-created Arena world. Everything the platform enforces at runtime — collection schemas, size caps, ownership, uniqueness, quota, presentation surface — is declared here, so raising a limit requires a reviewed change to this file rather than an edit to author code.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "type",
+    "kind",
+    "displayName",
+    "entry",
+    "schemaVersion",
+    "supportedSchemaVersions",
+    "presentation"
+  ],
+  "properties": {
+    "type": {
+      "description": "Unique kebab-case slug. Becomes the /worlds/<type> route. Must not collide with any game type.",
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "maxLength": 64
+    },
+    "kind": { "const": "world" },
+    "displayName": { "type": "string", "minLength": 1, "maxLength": 120 },
+    "sdkVersion": { "type": "string" },
+    "entry": {
+      "description": "Path to the file with `export default defineWorld(...)`. Must bundle to ONE self-contained document: the host loads it via iframe srcdoc, whose opaque origin cannot resolve relative imports between chunks.",
+      "type": "string",
+      "minLength": 1
+    },
+
+    "schemaVersion": {
+      "description": "Version this build writes into new records. Bump on any incompatible payload change.",
+      "type": "integer",
+      "minimum": 1
+    },
+    "supportedSchemaVersions": {
+      "description": "Every version this build can still render, including schemaVersion. A world is perpetual — its data outlives its releases — so CI rejects dropping a version that already exists in the store.",
+      "type": "array",
+      "items": { "type": "integer", "minimum": 1 },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+
+    "storage": {
+      "description": "Omit entirely for a read-only world; then nothing is stored and no write endpoint exists.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["collections"],
+      "properties": {
+        "collections": {
+          "description": "Named containers. The platform stores records and never interprets their payload — domain behaviour is expressed by adding a collection, not by asking for a platform feature. 'Other visitors can light up my planet' is a `lamps` collection holding a target id.",
+          "type": "object",
+          "minProperties": 1,
+          "maxProperties": 8,
+          "propertyNames": { "pattern": "^[a-z][a-z0-9_]{0,31}$" },
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["schema", "write", "maxRecordBytes"],
+            "properties": {
+              "schema": {
+                "description": "JSON Schema for `payload`. Rejected writes fail with `invalid`.",
+                "type": "object"
+              },
+              "write": {
+                "description": "owner = only its author may modify (normal); anyone = any identified visitor (expect conflicts); none = append-only.",
+                "enum": ["owner", "anyone", "none"]
+              },
+              "read": { "enum": ["public", "owner"], "default": "public" },
+              "anonymousCanWrite": { "type": "boolean", "default": false },
+              "maxRecordBytes": {
+                "description": "Serialized-payload cap. Required: an uncapped write endpoint is free object storage.",
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 262144
+              },
+              "maxRecordsPerAuthor": { "type": "integer", "minimum": 1 },
+              "indexes": {
+                "description": "Payload paths promoted to pre-created index slots, in order, so they can appear in `where`/`sort`. Undeclared paths are not queryable. Using fixed slots is what lets one set of indexes serve every world — publishing a world never needs a database migration.",
+                "type": "array",
+                "items": { "type": "string", "pattern": "^payload(\\.[A-Za-z0-9_]+)+$" },
+                "maxItems": 6,
+                "uniqueItems": true
+              },
+              "unique": {
+                "description": "Tuples of paths that must be collectively unique. [[\"author.id\", \"payload.target\"]] gives 'one lamp per visitor per target' without the platform knowing what a lamp is. Every payload.* path used here must also appear in `indexes`.",
+                "type": "array",
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "pattern": "^(author\\.id|payload(\\.[A-Za-z0-9_]+)+)$"
+                  },
+                  "minItems": 1,
+                  "maxItems": 4
+                },
+                "maxItems": 4
+              }
+            }
+          }
+        },
+        "quota": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "totalRecords": { "type": "integer", "minimum": 1 },
+            "writesPerHourPerAuthor": { "type": "integer", "minimum": 1 }
+          }
+        }
+      }
+    },
+
+    "presentation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["surface", "cover"],
+      "properties": {
+        "surface": {
+          "description": "fullscreen gets its own route — required for pan/drag or `touch-action: none` experiences, which fight page scrolling when boxed into a card. embed may be rendered inline at `aspect`.",
+          "enum": ["fullscreen", "embed"]
+        },
+        "cover": { "type": "string", "minLength": 1 },
+        "aspect": { "type": "string", "pattern": "^[0-9]+:[0-9]+$" },
+        "audio": { "type": "boolean", "default": false }
+      }
+    },
+
+    "about": { "type": "string" }
+  }
+}

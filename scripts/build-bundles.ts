@@ -17,6 +17,7 @@ import { createHash } from 'node:crypto'
 import path from 'node:path'
 import esbuild from 'esbuild'
 import type { GameDefinition, ParamSpec } from '@arena/game-sdk'
+import { buildWorlds } from './build-worlds.js'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const GAMES_DIR = path.join(ROOT, 'games')
@@ -188,8 +189,17 @@ async function main() {
     console.log(`bundled ${manifest.type} (${(code.length / 1024).toFixed(1)}kb, ${contentHash.slice(0, 12)})${view ? ' + sandboxed view' : ''}`)
   }
 
-  await writeFile(path.join(DIST, 'index.json'), JSON.stringify({ version: 1, games: entries }, null, 2), 'utf8')
-  console.log(`\nwrote dist/index.json with ${entries.length} game(s)`)
+  // Worlds ride the same index so a Release stays a single file and the backend
+  // keeps one source of truth. They are a different KIND of artifact (no scored
+  // logic, one self-contained document), not a different pipeline.
+  const worlds = await buildWorlds(DIST)
+
+  await writeFile(
+    path.join(DIST, 'index.json'),
+    JSON.stringify({ version: 1, games: entries, worlds }, null, 2),
+    'utf8',
+  )
+  console.log(`\nwrote dist/index.json with ${entries.length} game(s) and ${worlds.length} world(s)`)
 }
 
 // Only run the full build when invoked directly (not when imported for viewHtml/bundleView).
