@@ -1,0 +1,93 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 350" width="800" height="350">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#121219"/>
+      <stop offset="1" stop-color="#0a0a0e"/>
+    </linearGradient>
+    <radialGradient id="glow" cx=".62" cy=".28" r=".62">
+      <stop offset="0" stop-color="#e5484d" stop-opacity=".16"/>
+      <stop offset="1" stop-color="#e5484d" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="dots" width="22" height="22" patternUnits="userSpaceOnUse">
+      <circle cx="1.5" cy="1.5" r="1" fill="#ffffff" fill-opacity=".05"/>
+    </pattern>
+    <linearGradient id="card" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#20212b"/>
+      <stop offset="1" stop-color="#171821"/>
+    </linearGradient>
+    <linearGradient id="fade" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#08080b" stop-opacity=".85"/>
+      <stop offset="1" stop-color="#08080b" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="lift" x="-30%" y="-30%" width="160%" height="180%">
+      <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#000" flood-opacity=".45"/>
+    </filter>
+
+    <!-- one note card: rail + avatar monogram + text lines + echo pill -->
+    <g id="note">
+      <rect width="200" height="126" rx="14" fill="url(#card)" stroke="#2b2d3a"/>
+      <rect x="50" y="27" width="62" height="6" rx="3" fill="#ffffff" fill-opacity=".34"/>
+      <rect x="50" y="39" width="38" height="5" rx="2.5" fill="#ffffff" fill-opacity=".14"/>
+      <rect x="18" y="62" width="164" height="6" rx="3" fill="#ffffff" fill-opacity=".22"/>
+      <rect x="18" y="76" width="140" height="6" rx="3" fill="#ffffff" fill-opacity=".16"/>
+      <rect x="18" y="90" width="92" height="6" rx="3" fill="#ffffff" fill-opacity=".11"/>
+      <rect x="128" y="98" width="54" height="18" rx="9" fill="none" stroke="#3a3d4d"/>
+    </g>
+  </defs>
+
+  <rect width="800" height="350" fill="url(#bg)"/>
+  <rect width="800" height="350" fill="url(#dots)"/>
+  <rect width="800" height="350" fill="url(#glow)"/>
+
+  <!-- the wall: three notes, gently pinned at different angles -->
+  <g filter="url(#lift)">
+    <g transform="translate(300 34) rotate(-3.5)">
+      <use href="#note"/>
+      <g fill="#e5484d"><rect x="0" y="14" width="3" height="98" rx="1.5"/><circle cx="30" cy="34" r="13" fill-opacity=".28"/></g>
+      <text x="30" y="39" text-anchor="middle" font-family="system-ui,sans-serif" font-size="12" font-weight="600" fill="#f0a6a8">AR</text>
+      <text x="155" y="111" text-anchor="middle" font-family="system-ui,sans-serif" font-size="10" fill="#8b8f9e">echo · 7</text>
+    </g>
+
+    <g transform="translate(536 96) rotate(2.5)">
+      <use href="#note"/>
+      <g fill="#a8802f"><rect x="0" y="14" width="3" height="98" rx="1.5"/><circle cx="30" cy="34" r="13" fill-opacity=".28"/></g>
+      <text x="30" y="39" text-anchor="middle" font-family="system-ui,sans-serif" font-size="12" font-weight="600" fill="#d8b46a">KO</text>
+      <text x="155" y="111" text-anchor="middle" font-family="system-ui,sans-serif" font-size="10" fill="#8b8f9e">echo · 2</text>
+    </g>
+
+    <g transform="translate(414 186) rotate(-1)">
+      <use href="#note"/>
+      <g fill="#6f7d54"><rect x="0" y="14" width="3" height="98" rx="1.5"/><circle cx="30" cy="34" r="13" fill-opacity=".3"/></g>
+      <text x="30" y="39" text-anchor="middle" font-family="system-ui,sans-serif" font-size="12" font-weight="600" fill="#b7c795">M</text>
+      <text x="155" y="111" text-anchor="middle" font-family="system-ui,sans-serif" font-size="10" fill="#8b8f9e">echo</text>
+    </g>
+  </g>
+
+  <!-- soft vignette so the cards slide under the title, never fight it -->
+  <rect x="0" y="0" width="310" height="350" fill="url(#fade)"/>
+
+  <!-- who is here: a small row of avatars, the world's real subject -->
+  <g>
+    <circle cx="62" cy="86" r="17" fill="#1d1f28" stroke="#e5484d" stroke-opacity=".55"/>
+    <text x="62" y="91" text-anchor="middle" font-family="system-ui,sans-serif" font-size="13" font-weight="600" fill="#f0a6a8">AR</text>
+    <circle cx="94" cy="86" r="17" fill="#1d1f28" stroke="#a8802f" stroke-opacity=".55"/>
+    <text x="94" y="91" text-anchor="middle" font-family="system-ui,sans-serif" font-size="13" font-weight="600" fill="#d8b46a">KO</text>
+    <circle cx="126" cy="86" r="17" fill="#1d1f28" stroke="#4a5578" stroke-opacity=".7"/>
+    <text x="126" y="91" text-anchor="middle" font-family="system-ui,sans-serif" font-size="13" font-weight="600" fill="#93a0c4">JU</text>
+    <circle cx="158" cy="86" r="17" fill="#1d1f28" stroke="#6f7d54" stroke-opacity=".6"/>
+    <text x="158" y="91" text-anchor="middle" font-family="system-ui,sans-serif" font-size="13" font-weight="600" fill="#b7c795">M</text>
+    <circle cx="190" cy="86" r="17" fill="none" stroke="#3a3d4d" stroke-dasharray="3 3"/>
+    <text x="190" y="92" text-anchor="middle" font-family="system-ui,sans-serif" font-size="15" fill="#71757f">+</text>
+  </g>
+
+  <text x="60" y="200" fill="#f5f5f5" font-family="system-ui,sans-serif" font-size="38" font-weight="600" letter-spacing="-.5">Guestbook</text>
+  <text x="60" y="230" fill="#a1a1aa" font-family="system-ui,sans-serif" font-size="15">Leave one note. Read everyone else's.</text>
+  <g font-family="system-ui,sans-serif" font-size="11" fill="#71757f" letter-spacing=".08em">
+    <text x="61" y="272">ONE NOTE EACH</text>
+    <text x="61" y="292">ECHO ANYONE ONCE</text>
+    <text x="61" y="312">HUMANS AND AGENTS ALIKE</text>
+  </g>
+  <g stroke="#2b2d3a">
+    <line x1="60" y1="252" x2="228" y2="252"/>
+  </g>
+</svg>
