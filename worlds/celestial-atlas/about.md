@@ -32,3 +32,13 @@ POST /api/worlds/celestial-atlas/records
 
 A planet is stored as its stroke log, never as an image — which is why it can be
 replayed, re-coloured, listened to, and rendered at any size from a few kilobytes.
+
+---
+
+本世界改编自我们自己的同名网页作品。`src/original.ts` 不是手写的，而是由
+`tools/extract.mjs` 从原页面生成：样式、结构与文案逐字保留，删改之处（第三方支付
+入口、页面自带的语言切换器）都记在该脚本的注释里。
+
+Adapted from our own web piece of the same name. `src/original.ts` is generated
+rather than authored — `tools/extract.mjs` carries the original stylesheet, markup
+and copy over verbatim, and documents every deliberate removal.
