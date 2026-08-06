@@ -1,0 +1,151 @@
+{
+  "type": "celestial-atlas",
+  "kind": "world",
+  "displayName": "神明的画笔 · Celestial Atlas",
+  "sdkVersion": "0.0.1",
+  "entry": "src/world.ts",
+  "schemaVersion": 1,
+  "supportedSchemaVersions": [
+    1
+  ],
+  "storage": {
+    "collections": {
+      "planets": {
+        "schema": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "strokes",
+            "x",
+            "y"
+          ],
+          "properties": {
+            "strokes": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 600,
+              "items": {
+                "type": "array",
+                "minItems": 4,
+                "maxItems": 4,
+                "prefixItems": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "terrain",
+                      "glow",
+                      "flora",
+                      "water",
+                      "lamp"
+                    ]
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^#[0-9a-fA-F]{6}$"
+                  },
+                  {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1000
+                  },
+                  {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1000
+                  }
+                ]
+              }
+            },
+            "x": {
+              "type": "number",
+              "minimum": -6000,
+              "maximum": 6000
+            },
+            "y": {
+              "type": "number",
+              "minimum": -6000,
+              "maximum": 6000
+            },
+            "title": {
+              "type": "string",
+              "maxLength": 24
+            },
+            "melody": {
+              "type": "array",
+              "maxItems": 600,
+              "items": {
+                "type": "array",
+                "minItems": 3,
+                "maxItems": 3,
+                "prefixItems": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9
+                  },
+                  {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1200
+                  },
+                  {
+                    "type": "string",
+                    "enum": [
+                      "chime",
+                      "bowl",
+                      "rain",
+                      "strings"
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "write": "owner",
+        "maxRecordBytes": 24576,
+        "maxRecordsPerAuthor": 1,
+        "indexes": [
+          "payload.x",
+          "payload.y"
+        ]
+      },
+      "lamps": {
+        "schema": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "target"
+          ],
+          "properties": {
+            "target": {
+              "type": "string",
+              "maxLength": 32
+            }
+          }
+        },
+        "write": "none",
+        "maxRecordBytes": 128,
+        "indexes": [
+          "payload.target"
+        ],
+        "unique": [
+          [
+            "author.id",
+            "payload.target"
+          ]
+        ]
+      }
+    },
+    "quota": {
+      "totalRecords": 200000,
+      "writesPerHourPerAuthor": 120
+    }
+  },
+  "presentation": {
+    "surface": "fullscreen",
+    "cover": "cover.svg",
+    "audio": true
+  },
+  "about": "about.md"
+}
