@@ -1,0 +1,105 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 350" width="800" height="350">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2=".8" y2="1">
+      <stop offset="0" stop-color="#3b352c"/>
+      <stop offset="1" stop-color="#2b261f"/>
+    </linearGradient>
+    <radialGradient id="dusk" cx=".33" cy=".38" r=".55">
+      <stop offset="0" stop-color="#a8802f" stop-opacity=".22"/>
+      <stop offset="1" stop-color="#a8802f" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="paper" cx=".36" cy=".3" r=".78">
+      <stop offset="0" stop-color="#fbf7ec"/>
+      <stop offset="1" stop-color="#e6dcc7"/>
+    </radialGradient>
+    <radialGradient id="lampGlow">
+      <stop offset="0" stop-color="#ffd98a" stop-opacity=".95"/>
+      <stop offset=".45" stop-color="#e8ae4a" stop-opacity=".35"/>
+      <stop offset="1" stop-color="#e8ae4a" stop-opacity="0"/>
+    </radialGradient>
+    <clipPath id="worldA"><circle cx="248" cy="140" r="74"/></clipPath>
+    <clipPath id="worldB"><circle cx="470" cy="108" r="42"/></clipPath>
+    <clipPath id="worldC"><circle cx="612" cy="199" r="30"/></clipPath>
+  </defs>
+
+  <rect width="800" height="350" fill="url(#sky)"/>
+  <rect width="800" height="350" fill="url(#dusk)"/>
+
+  <!-- one sky: sparse stars, and the faint line that hangs the planets together -->
+  <g fill="#e8d9ac" opacity=".5">
+    <circle cx="112" cy="52" r="1.3"/><circle cx="352" cy="34" r="1"/><circle cx="546" cy="58" r="1.2"/>
+    <circle cx="702" cy="40" r="1"/><circle cx="742" cy="120" r="1.3"/><circle cx="392" cy="152" r="1"/>
+    <circle cx="686" cy="252" r="1.1"/><circle cx="146" cy="238" r="1"/><circle cx="524" cy="168" r="1.2"/>
+  </g>
+  <path d="M248 140 L470 108 L612 199" fill="none" stroke="#a8802f" stroke-opacity=".28" stroke-width="1" stroke-dasharray="3 5"/>
+
+  <!-- planet one — five brushes on a blank world: terrain, water, flora, glow, lamp -->
+  <circle cx="248" cy="140" r="74" fill="url(#paper)"/>
+  <g clip-path="url(#worldA)">
+    <path d="M174 176 l30 -34 l26 26 l22 -18 l24 22 l20 -14 l38 30 v40 h-180 z" fill="#3a352c" opacity=".9"/>
+    <path d="M174 168 l28 -32 l24 24 l20 -16 l22 20 l18 -12 l36 28" fill="none" stroke="#6f7d54" stroke-width="2.5" stroke-linejoin="round" opacity=".85"/>
+    <g stroke="#4a5578" stroke-width="2.4" fill="none" stroke-linecap="round" opacity=".8">
+      <path d="M196 196 q14 -9 28 0 t28 0 t28 0"/>
+      <path d="M204 208 q14 -9 28 0 t28 0"/>
+    </g>
+    <g fill="#6f7d54">
+      <circle cx="216" cy="158" r="2.6"/><circle cx="240" cy="150" r="2.2"/><circle cx="266" cy="160" r="2.4"/>
+      <circle cx="288" cy="152" r="2"/><circle cx="228" cy="170" r="1.8"/>
+    </g>
+    <path d="M186 96 a74 74 0 0 1 96 -12" fill="none" stroke="#f7efdc" stroke-width="9" stroke-linecap="round" opacity=".55"/>
+    <circle cx="284" cy="118" r="5" fill="#b23a26"/>
+  </g>
+  <circle cx="248" cy="140" r="74" fill="none" stroke="#f2ede1" stroke-opacity=".18"/>
+  <!-- a lamp someone else left in its night, and it stays -->
+  <circle cx="308" cy="176" r="22" fill="url(#lampGlow)"/>
+  <circle cx="308" cy="176" r="4" fill="#ffe4a8"/>
+
+  <!-- planet two -->
+  <circle cx="470" cy="108" r="42" fill="url(#paper)"/>
+  <g clip-path="url(#worldB)">
+    <path d="M428 128 l18 -20 l16 16 l14 -12 l24 22 v20 h-72 z" fill="#3a352c" opacity=".85"/>
+    <g stroke="#4a5578" stroke-width="2" fill="none" stroke-linecap="round" opacity=".75">
+      <path d="M440 132 q10 -7 20 0 t20 0"/>
+    </g>
+    <g fill="#6f7d54"><circle cx="444" cy="112" r="2.2"/><circle cx="462" cy="104" r="1.8"/><circle cx="486" cy="114" r="2"/></g>
+    <path d="M436 82 a42 42 0 0 1 50 -8" fill="none" stroke="#f7efdc" stroke-width="6" stroke-linecap="round" opacity=".5"/>
+  </g>
+  <circle cx="470" cy="108" r="42" fill="none" stroke="#f2ede1" stroke-opacity=".16"/>
+  <circle cx="504" cy="132" r="14" fill="url(#lampGlow)"/>
+  <circle cx="504" cy="132" r="2.6" fill="#ffe4a8"/>
+
+  <!-- planet three, still nearly blank — most worlds here are unfinished -->
+  <circle cx="612" cy="199" r="30" fill="url(#paper)" opacity=".92"/>
+  <g clip-path="url(#worldC)">
+    <path d="M584 214 l14 -14 l12 12 l14 -12 l18 16 v14 h-58 z" fill="#3a352c" opacity=".8"/>
+    <g fill="#6f7d54"><circle cx="598" cy="204" r="1.9"/><circle cx="614" cy="197" r="1.6"/><circle cx="628" cy="205" r="1.7"/></g>
+  </g>
+  <circle cx="612" cy="199" r="30" fill="none" stroke="#f2ede1" stroke-opacity=".14"/>
+
+  <!-- every stroke is also a note: the phrase a finished planet plays back -->
+  <g>
+    <path d="M436 300 H762" stroke="#f2ede1" stroke-opacity=".14" stroke-width="1" stroke-dasharray="2 6"/>
+    <g stroke="#f2ede1" stroke-opacity=".18" stroke-width="1">
+      <line x1="452" y1="300" x2="452" y2="284"/><line x1="496" y1="300" x2="496" y2="266"/>
+      <line x1="540" y1="300" x2="540" y2="292"/><line x1="584" y1="300" x2="584" y2="274"/>
+      <line x1="628" y1="300" x2="628" y2="258"/><line x1="672" y1="300" x2="672" y2="280"/>
+      <line x1="716" y1="300" x2="716" y2="270"/>
+    </g>
+    <circle cx="452" cy="284" r="4" fill="#6f7d54"/>
+    <circle cx="496" cy="266" r="4.5" fill="#a8802f"/>
+    <circle cx="540" cy="292" r="3.5" fill="#4a5578"/>
+    <circle cx="584" cy="274" r="4" fill="#b23a26"/>
+    <circle cx="628" cy="258" r="5" fill="#e8ae4a"/>
+    <circle cx="672" cy="280" r="3.5" fill="#6f7d54"/>
+    <circle cx="716" cy="270" r="4" fill="#4a5578"/>
+    <text x="436" y="322" fill="#f2ede1" fill-opacity=".38" font-family="system-ui,sans-serif" font-size="10" letter-spacing=".1em">EVERY STROKE IS ALSO A NOTE</text>
+  </g>
+
+  <text x="60" y="252" fill="#f2ede1" font-family="Kaiti SC, Songti SC, STKaiti, serif" font-size="40">神明的画笔</text>
+  <text x="60" y="278" fill="#f2ede1" fill-opacity=".62" font-family="system-ui,sans-serif" font-size="13.5">Celestial Atlas · paint a planet, hear it back</text>
+  <line x1="61" y1="296" x2="229" y2="296" stroke="#f2ede1" stroke-opacity=".2"/>
+  <g font-family="system-ui,sans-serif" font-size="10.5" fill="#f2ede1" fill-opacity=".42" letter-spacing=".1em">
+    <text x="61" y="314">ONE PLANET EACH</text>
+    <text x="61" y="330">LIGHT SOMEONE ELSE'S, IT STAYS LIT</text>
+  </g>
+</svg>
