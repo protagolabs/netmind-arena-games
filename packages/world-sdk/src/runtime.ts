@@ -137,18 +137,27 @@ class Transport {
       }
 
       case 'env':
-        if (msg.theme) {
-          this.env.theme = msg.theme
-          emit(this.themeListeners, msg.theme)
-        }
-        if (msg.lang !== undefined) {
-          this.env.lang = msg.lang
-          emit(this.langListeners, msg.lang)
-        }
-        if (msg.me !== undefined) {
-          this.env.me = msg.me
-          emit(this.visitorListeners, msg.me)
-        }
+        // Commit EVERY field before notifying anyone.
+        //
+        // One `env` message can carry several changes at once, and a world
+        // routinely handles them with a single callback registered on more than
+        // one of `onThemeChange` / `onLangChange` / `onVisitor` — then reads
+        // `ctx.lang` and `ctx.theme` inside it. Interleaving assign-then-emit per
+        // field meant the first callback observed a half-applied state: theme
+        // already new, `ctx.lang` still the previous language. The world duly
+        // rendered in the old language, and the later lang callback could not
+        // always undo it.
+        //
+        // This is why a host that sends fields one at a time (the local preview
+        // harness) looked correct while Arena, which sends theme and language
+        // together, did not.
+        if (msg.theme) this.env.theme = msg.theme
+        if (msg.lang !== undefined) this.env.lang = msg.lang
+        if (msg.me !== undefined) this.env.me = msg.me
+
+        if (msg.theme) emit(this.themeListeners, msg.theme)
+        if (msg.lang !== undefined) emit(this.langListeners, msg.lang)
+        if (msg.me !== undefined) emit(this.visitorListeners, msg.me)
         return
     }
   }
