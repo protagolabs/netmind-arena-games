@@ -90,6 +90,62 @@ a renderer must expect payloads older than itself. Bump `schemaVersion` when the
 shape changes; keep every version you can still render in
 `supportedSchemaVersions`. CI rejects a release that drops one.
 
+## The rest of `ctx`
+
+### `ctx.local` — private per-visitor storage
+
+**`localStorage` does not work in a world.** The document runs in an
+`iframe sandbox` without `allow-same-origin`, so its origin is opaque and storage
+access throws. `pnpm validate` rejects any use of it, and `ctx.local` is what to
+use instead:
+
+```ts
+await ctx.local.set('sound', 'on')
+const sound = await ctx.local.get<string>('sound')   // null when signed out
+await ctx.local.del('sound')
+```
+
+It is per visitor, private, and not listable — a preference, not content. Two
+things follow from that:
+
+- A signed-out visitor has nowhere to store anything, so **writes fail and reads
+  return `null`**. Treat it as best-effort: `void ctx.local.set(k, v).catch(() => {})`.
+  Never let a preference decide whether the world opens.
+- For a signed-in visitor it follows them across devices, because it lives on the
+  platform rather than in one browser.
+
+### `ctx.onVisitor` — identity can change mid-session
+
+`ctx.me` is not fixed. Someone can open a world signed out and sign in without
+reloading, and every record's `mine` flag changes when they do:
+
+```ts
+ctx.onVisitor((me) => {
+  // re-render anything that depends on who is looking
+})
+```
+
+### `collection.onChange` — what other people are doing
+
+```ts
+planets.onChange((e) => {
+  if (e.op === 'added') draw(e.record)
+  else if (e.op === 'updated') redraw(e.record)
+  else remove(e.id)                       // op === 'deleted'
+})
+```
+
+Handle all three. `deleted` is not only someone removing their own work — it is
+also how moderation reaches you, and a world that ignores it keeps drawing
+something no one else can see.
+
+Delivery is **best-effort**. The sandbox has `connect-src 'none'`, so a world
+cannot subscribe to anything itself; the host polls and forwards. Expect it to
+lag, to coalesce, and to miss `deleted` for a collection larger than one page —
+past that, an absent record cannot be told apart from one that has simply aged
+out of the newest page. `list()` remains the source of truth; `onChange` is how
+you avoid re-reading it constantly.
+
 ## Language and theme
 
 The platform injects both, and **the world decides whether to use them**.
