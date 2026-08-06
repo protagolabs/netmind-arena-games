@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" width="800" height="500">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#04060f"/>
+      <stop offset="1" stop-color="#123049"/>
+    </linearGradient>
+    <radialGradient id="moonGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#dce8ff" stop-opacity=".28"/>
+      <stop offset="1" stop-color="#dce8ff" stop-opacity="0"/>
+    </radialGradient>
+    <clipPath id="frame"><rect width="800" height="500" rx="0"/></clipPath>
+  </defs>
+
+  <g clip-path="url(#frame)">
+    <rect width="800" height="500" fill="url(#sky)"/>
+    <circle cx="576" cy="128" r="240" fill="url(#moonGlow)"/>
+
+    <g fill="#ffffff">
+      <circle cx="70" cy="52" r="1.5" opacity=".7"/>
+      <circle cx="146" cy="104" r="1.1" opacity=".5"/>
+      <circle cx="212" cy="40" r="1.7" opacity=".8"/>
+      <circle cx="288" cy="128" r="1.2" opacity=".45"/>
+      <circle cx="352" cy="66" r="1.5" opacity=".65"/>
+      <circle cx="430" cy="30" r="1.1" opacity=".5"/>
+      <circle cx="486" cy="96" r="1.4" opacity=".6"/>
+      <circle cx="676" cy="60" r="1.6" opacity=".7"/>
+      <circle cx="742" cy="132" r="1.2" opacity=".5"/>
+      <circle cx="112" cy="164" r="1.3" opacity=".55"/>
+      <circle cx="640" cy="176" r="1" opacity=".4"/>
+      <circle cx="30" cy="112" r="1.2" opacity=".5"/>
+    </g>
+    <circle cx="576" cy="128" r="34" fill="#f2ecd8"/>
+
+    <rect y="210" width="800" height="290" fill="#0d2438"/>
+    <path d="M0 226q60-14 120 0t120 0 120 0 120 0 120 0 120 0 80 0v40H0z" fill="#0b1e30"/>
+    <path d="M0 262q80-18 160 0t160 0 160 0 160 0 160 0v46H0z" fill="#091829"/>
+    <path d="M0 306q100-24 200 0t200 0 200 0 200 0v54H0z" fill="#071322"/>
+    <path d="M0 362q120-30 240 0t240 0 240 0 80 0v42H0z" fill="#050f1b"/>
+    <path d="M0 406q140-34 280 0t280 0 240 0v94H0z" fill="#040b15"/>
+
+    <g fill="#bee1ff" opacity=".3">
+      <rect x="556" y="236" width="40" height="2"/>
+      <rect x="536" y="268" width="80" height="2"/>
+      <rect x="566" y="300" width="52" height="3"/>
+      <rect x="512" y="336" width="118" height="3"/>
+      <rect x="558" y="380" width="70" height="3"/>
+    </g>
+
+    <!-- the bottle, tilted on the swell -->
+    <g transform="translate(196 246) rotate(-16) scale(2.1)">
+      <rect x="17" y="1" width="10" height="9" rx="2.5" fill="#c9a06a"/>
+      <rect x="17" y="1" width="10" height="3" rx="1.5" fill="#e0bd8b"/>
+      <path d="M18 9h8v10c0 4.5 7.5 8.5 7.5 17.5V71a10 10 0 0 1-10 10h-3a10 10 0 0 1-10-10V36.5C10.5 27.5 18 23.5 18 19V9Z" fill="#5aa8d8" fill-opacity=".34"/>
+      <path d="M17 44h10a3 3 0 0 1 0 6H17a3 3 0 0 1 0-6Z" fill="#f6ecd4"/>
+      <path d="M17 53h10a3 3 0 0 1 0 6H17a3 3 0 0 1 0-6Z" fill="#efe0c0"/>
+      <path d="M18 9h8v10c0 4.5 7.5 8.5 7.5 17.5V71a10 10 0 0 1-10 10h-3a10 10 0 0 1-10-10V36.5C10.5 27.5 18 23.5 18 19V9Z" fill="none" stroke="#a9dcff" stroke-opacity=".75" stroke-width="1.4"/>
+      <path d="M20.5 22c-2.5 4-5.5 7-5.5 15v33" stroke="#ffffff" stroke-opacity=".45" stroke-width="2" stroke-linecap="round"/>
+    </g>
+    <ellipse cx="228" cy="392" rx="86" ry="9" fill="#bee1ff" opacity=".14"/>
+
+    <!-- a second one, far out: a different body, because the sea has several -->
+    <g transform="translate(672 296) rotate(12) scale(.85)" opacity=".75">
+      <rect x="16" y="11" width="12" height="8" rx="2.5" fill="#c9a06a"/>
+      <rect x="17.5" y="21" width="9" height="1.6" rx=".8" fill="#8d6b45"/>
+      <path d="M17 18h10v21.6a21 21 0 1 1-10 0V18Z" fill="#c79ae0" fill-opacity=".34" stroke="#e0c2ff" stroke-opacity=".6" stroke-width="1.4"/>
+      <path d="M13 58h18a3 3 0 0 1 0 6H13a3 3 0 0 1 0-6Z" fill="#f6ecd4"/>
+    </g>
+
+    <text x="56" y="446" fill="#f4f7fb" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="34" font-weight="600" letter-spacing="2">漂流瓶</text>
+    <text x="56" y="474" fill="#bcd4ea" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="15" letter-spacing="3" opacity=".85">DRIFT BOTTLE</text>
+  </g>
+</svg>

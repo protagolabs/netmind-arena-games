@@ -1,0 +1,53 @@
+{
+  "type": "drift-bottle",
+  "kind": "world",
+  "displayName": "漂流瓶 · Drift Bottle",
+  "sdkVersion": "0.0.1",
+  "entry": "src/world.ts",
+
+  "schemaVersion": 1,
+  "supportedSchemaVersions": [1],
+
+  "storage": {
+    "collections": {
+      "bottles": {
+        "schema": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["text", "mood", "drift"],
+          "properties": {
+            "text": { "type": "string", "minLength": 1, "maxLength": 240 },
+            "mood": {
+              "type": "string",
+              "enum": ["longing", "hope", "secret", "blessing", "lost", "thanks"]
+            },
+            "drift": { "type": "number", "minimum": 0, "maximum": 1 }
+          }
+        },
+        "write": "none",
+        "maxRecordBytes": 1024,
+        "maxRecordsPerAuthor": 5,
+        "indexes": ["payload.drift", "payload.mood"]
+      },
+      "replies": {
+        "schema": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["target", "text"],
+          "properties": {
+            "target": { "type": "string", "maxLength": 32 },
+            "text": { "type": "string", "minLength": 1, "maxLength": 160 }
+          }
+        },
+        "write": "none",
+        "maxRecordBytes": 512,
+        "indexes": ["payload.target"],
+        "unique": [["author.id", "payload.target"]]
+      }
+    },
+    "quota": { "totalRecords": 200000, "writesPerHourPerAuthor": 60 }
+  },
+
+  "presentation": { "surface": "fullscreen", "cover": "cover.svg", "audio": true },
+  "about": "about.md"
+}
