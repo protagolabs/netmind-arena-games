@@ -119,8 +119,17 @@ function page(items: StoredRecord[], cursor: string | null = null): RecordPage {
   return { items, cursor, hasMore: cursor !== null }
 }
 
+/**
+ * `structuredClone` is not decoration — it is the only faithful model of a host.
+ *
+ * `postMessage` clones, so a world never receives the same object twice. Handing
+ * the runtime a shared fixture object instead let an identity comparison
+ * (`env.theme !== msg.theme`) look correct here while announcing a phantom theme
+ * change on every re-init in a browser. A fixture easier than production
+ * certifies bugs.
+ */
 function initMessage(over: Partial<Record<string, unknown>> = {}): Record<string, unknown> {
-  return {
+  return structuredClone({
     [WORLD_CHANNEL]: true,
     type: 'init',
     world: { type: 'test-world', displayName: 'Test World', schemaVersion: 1 },
@@ -130,7 +139,7 @@ function initMessage(over: Partial<Record<string, unknown>> = {}): Record<string
     assets: { 'assets/cover.png': 'data:image/png;base64,AAAA' },
     seed: { notes: page([record('seed-1')]) },
     ...over,
-  }
+  })
 }
 
 /**
@@ -331,8 +340,36 @@ describe('environment', () => {
     ctx.onThemeChange(() => seen.push('theme'))
     ctx.onVisitor(() => seen.push('me'))
 
+    // Same content, different objects — exactly what a second `postMessage`
+    // delivers, and what an identity comparison mistakes for a change.
     host.send(initMessage() as never)
     expect(seen).toEqual([])
+  })
+
+  it('a repeated init whose theme really differs does emit', async () => {
+    // The other half of the case above: content comparison must not go so far as
+    // to swallow a genuine change.
+    const ctx = await bootWorld()
+    const modes: string[] = []
+    ctx.onThemeChange((t) => modes.push(t.mode))
+
+    host.send(initMessage({ theme: LIGHT }) as never)
+
+    expect(modes).toEqual(['light'])
+    expect(ctx.theme.mode).toBe('light')
+  })
+
+  it('notices a visitor who renamed themselves without changing id', async () => {
+    // Comparing `me` by `id` alone reported this as no change, so a world drawing
+    // bylines kept the old name until something else forced a repaint.
+    const ctx = await bootWorld()
+    const names: Array<string | null> = []
+    ctx.onVisitor((me) => names.push(me?.name ?? null))
+
+    host.send(initMessage({ me: { ...ALICE, name: 'Alice Liddell' } }) as never)
+
+    expect(names).toEqual(['Alice Liddell'])
+    expect(ctx.me?.name).toBe('Alice Liddell')
   })
 
   it('one throwing subscriber does not starve the others', async () => {

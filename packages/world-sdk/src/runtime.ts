@@ -44,6 +44,28 @@ function fail(code: WorldErrorCode, message: string, retryAfterSec?: number): Wo
   return err
 }
 
+/**
+ * Content equality for the small, flat, JSON-only payloads the host sends.
+ *
+ * `!==` would compare object IDENTITY, and that is never the right question here:
+ * a host's messages arrive through `postMessage` as a fresh structured clone every
+ * time, so an identity check reports "changed" on every re-init even when nothing
+ * did — and the world repaints, re-animates or re-sounds for nothing.
+ *
+ * Keys are sorted before serializing so a host that builds the same theme in a
+ * different property order still counts as unchanged.
+ */
+function sameContent(a: unknown, b: unknown): boolean {
+  if (a === b) return true
+  const stable = (v: unknown): string =>
+    JSON.stringify(v, (_k, val) =>
+      val && typeof val === 'object' && !Array.isArray(val)
+        ? Object.fromEntries(Object.entries(val as Record<string, unknown>).sort(([x], [y]) => (x < y ? -1 : 1)))
+        : val,
+    )
+  return stable(a) === stable(b)
+}
+
 /** Fan-out helper. A throwing subscriber must never break the others or the host. */
 function emit<T>(listeners: Set<(v: T) => void>, value: T): void {
   for (const fn of [...listeners]) {
@@ -114,11 +136,17 @@ class Transport {
         //
         // Treating a re-init as an environment change makes the world correct
         // whatever the host does.
+        // Compared by CONTENT, not identity: see {@link sameContent}. An identity
+        // check passes only against a host that hands over the very same object
+        // twice, which `postMessage` cannot do — so it announced a theme change on
+        // every single re-init. Comparing `me` by `id` alone had the mirror-image
+        // problem: a visitor who renamed themselves or changed their avatar was
+        // reported as no change at all.
         const first = this.env.theme === null
         const changed = {
-          theme: this.env.theme !== msg.theme,
+          theme: !sameContent(this.env.theme, msg.theme),
           lang: this.env.lang !== msg.lang,
-          me: this.env.me?.id !== msg.me?.id,
+          me: !sameContent(this.env.me, msg.me),
         }
         this.env = { me: msg.me, theme: msg.theme, lang: msg.lang }
         this.resolveInit(msg)
