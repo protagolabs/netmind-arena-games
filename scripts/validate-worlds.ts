@@ -30,7 +30,7 @@ import Ajv from 'ajv/dist/2020.js'
 import type { WorldManifest } from '@arena/world-sdk'
 // The publish caps come from the build step rather than being restated here: a
 // second copy of a number is a second chance for CI to disagree with publish.
-import { bundleWorld, worldHtml, readAssets, MAX_HTML_BYTES, MAX_COVER_BYTES } from './build-worlds.js'
+import { bundleWorldWithInputs, worldHtml, readAssets, MAX_HTML_BYTES, MAX_COVER_BYTES } from './build-worlds.js'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const WORLDS_DIR = path.join(ROOT, 'worlds')
@@ -60,25 +60,37 @@ const NETWORK_PATTERNS = [
  */
 const STORAGE_PATTERNS = [/\blocalStorage\b/, /\bsessionStorage\b/]
 
-async function scanSources(dir: string, report: (msg: string) => void): Promise<void> {
-  for (const e of await readdir(dir, { withFileTypes: true })) {
-    const full = path.join(dir, e.name)
-    if (e.isDirectory()) {
-      await scanSources(full, report)
-    } else if (/\.(ts|tsx|js|mjs)$/.test(e.name) && !e.name.includes('.test.')) {
-      // Strip comments first. A comment explaining WHY a world must not touch
-      // `localStorage` is exactly the documentation this rule wants to exist,
-      // and failing the build for it teaches authors to delete the explanation.
-      const src = (await readFile(full, 'utf8')).replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1')
-      for (const p of NETWORK_PATTERNS) {
-        if (p.test(src)) {
-          report(`${path.relative(ROOT, full)}: ${p.source} — a world cannot reach the network (connect-src 'none'); use ctx.collection(...)`)
-        }
+/**
+ * Scan the files the BUNDLE contains, not a directory.
+ *
+ * Two scopes were wrong before this. `worlds/<slug>/src/` made the gate opt-in:
+ * `entry` is only required to exist, so a world with `main.ts` at its root — or
+ * anything under `lib/` — was never checked at all, which is exactly the shape a
+ * submission would take to avoid the check. The whole world directory then went
+ * too far the other way and accused build tooling: `tools/extract.mjs` names
+ * `localStorage` precisely because its job is to strip it out of vendored code,
+ * and it runs in Node and never ships.
+ *
+ * esbuild's metafile is the answer to the question actually being asked — which
+ * code ends up in the visitor's browser. Dependencies pulled into the bundle are
+ * scanned too: they ship, so their `fetch` fails just as silently as the author's
+ * would.
+ */
+async function scanBundleInputs(inputs: string[], report: (msg: string) => void): Promise<void> {
+  for (const full of inputs) {
+    if (!/\.(ts|tsx|js|mjs)$/.test(full) || full.includes('.test.')) continue
+    // Strip comments first. A comment explaining WHY a world must not touch
+    // `localStorage` is exactly the documentation this rule wants to exist,
+    // and failing the build for it teaches authors to delete the explanation.
+    const src = (await readFile(full, 'utf8')).replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1')
+    for (const p of NETWORK_PATTERNS) {
+      if (p.test(src)) {
+        report(`${path.relative(ROOT, full)}: ${p.source} — a world cannot reach the network (connect-src 'none'); use ctx.collection(...)`)
       }
-      for (const p of STORAGE_PATTERNS) {
-        if (p.test(src)) {
-          report(`${path.relative(ROOT, full)}: ${p.source} — unavailable in an opaque-origin iframe; use ctx.local`)
-        }
+    }
+    for (const p of STORAGE_PATTERNS) {
+      if (p.test(src)) {
+        report(`${path.relative(ROOT, full)}: ${p.source} — unavailable in an opaque-origin iframe; use ctx.local`)
       }
     }
   }
@@ -159,16 +171,17 @@ async function validateWorld(dir: string, gameTypes: Set<string>, validateManife
   // Throws with the byte count when `assets/**` exceeds its combined cap.
   await readAssets(dir)
 
-  const problems: string[] = []
-  const srcDir = path.join(dir, 'src')
-  if (existsSync(srcDir)) await scanSources(srcDir, (m) => problems.push(m))
-  if (problems.length) throw new Error(problems.join('\n    '))
-
   // Actually build it. This is the check that matters most: the host loads the
   // document through iframe `srcdoc`, whose opaque origin cannot resolve relative
   // imports, so anything that does not collapse to one file renders a blank frame
-  // with no error to go on.
-  const js = await bundleWorld(path.join(dir, manifest.entry))
+  // with no error to go on. The build also tells us which files shipped, which is
+  // what the source scan below is entitled to complain about.
+  const { js, inputs } = await bundleWorldWithInputs(path.join(dir, manifest.entry))
+
+  const problems: string[] = []
+  await scanBundleInputs(inputs, (m) => problems.push(m))
+  if (problems.length) throw new Error(problems.join('\n    '))
+
   const html = worldHtml(js, manifest.displayName)
   const bytes = Buffer.byteLength(html, 'utf8')
   if (bytes > MAX_HTML_BYTES) {

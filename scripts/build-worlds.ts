@@ -77,7 +77,22 @@ export interface WorldIndexEntry {
  * inlining is the easy way to accidentally ship a 10MB index.
  */
 export async function bundleWorld(entryFile: string): Promise<string> {
+  return (await bundleWorldWithInputs(entryFile)).js
+}
+
+/**
+ * The same bundle, plus the list of files that actually went into it.
+ *
+ * `validate-worlds` scans exactly this list rather than a directory: it is the
+ * only definition of "code this world ships" that cannot be sidestepped by
+ * putting the entry somewhere unconventional, and the only one that does not
+ * accuse a world of a build script's Node-side code.
+ */
+export async function bundleWorldWithInputs(
+  entryFile: string,
+): Promise<{ js: string; inputs: string[] }> {
   const out = await esbuild.build({
+    metafile: true,
     entryPoints: [entryFile],
     bundle: true,
     format: 'iife',
@@ -102,7 +117,10 @@ export async function bundleWorld(entryFile: string): Promise<string> {
   })
   const text = out.outputFiles?.[0]?.text
   if (!text) throw new Error(`esbuild produced no output for ${entryFile}`)
-  return text
+  // Keys are paths relative to the cwd; resolve them so a caller can read them
+  // regardless of where it was invoked from.
+  const inputs = Object.keys(out.metafile?.inputs ?? {}).map((p) => path.resolve(p))
+  return { js: text, inputs }
 }
 
 /**
