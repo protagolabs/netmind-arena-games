@@ -102,10 +102,34 @@ class Transport {
     const msg = e.data as HostMessage
 
     switch (msg.type) {
-      case 'init':
+      case 'init': {
+        // A repeated `init` must behave like an `env` update, not a silent
+        // overwrite.
+        //
+        // `resolveInit` is a one-shot promise, so a second init used to replace
+        // `ctx.me` / `ctx.theme` / `ctx.lang` with nobody notified. A host that
+        // re-posts init after a language change therefore left the world drawn in
+        // the new language while `ctx.lang` had been rewound to the old one — and
+        // the next callback that read it rendered one selection behind.
+        //
+        // Treating a re-init as an environment change makes the world correct
+        // whatever the host does.
+        const first = this.env.theme === null
+        const changed = {
+          theme: this.env.theme !== msg.theme,
+          lang: this.env.lang !== msg.lang,
+          me: this.env.me?.id !== msg.me?.id,
+        }
         this.env = { me: msg.me, theme: msg.theme, lang: msg.lang }
         this.resolveInit(msg)
+
+        if (!first) {
+          if (changed.theme) emit(this.themeListeners, msg.theme)
+          if (changed.lang) emit(this.langListeners, msg.lang)
+          if (changed.me) emit(this.visitorListeners, msg.me)
+        }
         return
+      }
 
       case 'result': {
         const p = this.pending.get(msg.id)
