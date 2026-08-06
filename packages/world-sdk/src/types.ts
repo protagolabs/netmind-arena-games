@@ -297,10 +297,28 @@ export interface WorldCtx {
    */
   audio(): Promise<AudioContext>
 
+  /**
+   * Arena's current design tokens, including `mode: 'dark' | 'light'`.
+   *
+   * Use them and a world follows Arena's appearance for free; ignore them and it
+   * keeps its own. Both are legitimate — a world with a deliberate palette (ink
+   * on silk, say) should not be repainted by a platform toggle.
+   */
   readonly theme: WorldTheme
   onThemeChange(cb: (theme: WorldTheme) => void): Unsubscribe
 
-  /** Arena's active UI language, e.g. `'zh'` | `'en'`. */
+  /**
+   * Arena's active UI language, always one of its supported BASE codes:
+   * `en` `zh` `ja` `ko` `es` `ru` `fr` `de` `pt`.
+   *
+   * Never a full locale — the platform narrows `zh-CN` to `zh` before it gets
+   * here, and falls back to `en` for anything it has no strings for. So a world
+   * can switch on the value directly and does not need to parse it.
+   *
+   * A world that uses this SHOULD NOT also ship its own language control: two
+   * switches for one setting are two switches that disagree. Read it, subscribe
+   * to changes, and let Arena's header be the only place it is chosen.
+   */
   readonly lang: string
   onLangChange(cb: (lang: string) => void): Unsubscribe
 }

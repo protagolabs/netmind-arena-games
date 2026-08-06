@@ -148,8 +148,15 @@ function mimeOf(file: string): string {
   return MIME[path.extname(file).toLowerCase()] ?? 'application/octet-stream'
 }
 
-/** Inline every file under `assets/`, keyed by its path relative to the world dir. */
-async function readAssets(dir: string): Promise<Record<string, string>> {
+/**
+ * Inline every file under `assets/`, keyed by its path relative to the world dir.
+ *
+ * Exported so `preview-world` can hand a world the same map the host does. A
+ * preview that served `ctx.asset()` an empty map would make every asset throw
+ * locally and resolve in production — the one direction of divergence an author
+ * cannot debug.
+ */
+export async function readAssets(dir: string): Promise<Record<string, string>> {
   const base = path.join(dir, 'assets')
   if (!existsSync(base)) return {}
 

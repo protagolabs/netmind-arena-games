@@ -90,6 +90,49 @@ a renderer must expect payloads older than itself. Bump `schemaVersion` when the
 shape changes; keep every version you can still render in
 `supportedSchemaVersions`. CI rejects a release that drops one.
 
+## Language and theme
+
+The platform injects both, and **the world decides whether to use them**.
+
+```ts
+ctx.lang               // 'en' | 'zh' | 'ja' | 'ko' | 'es' | 'ru' | 'fr' | 'de' | 'pt'
+ctx.theme              // { mode: 'dark' | 'light', bg, surface, fg, fgSubtle, border, accent, accentFg, font }
+ctx.onLangChange(cb)   // fires when the visitor changes it in Arena's header
+ctx.onThemeChange(cb)
+```
+
+`ctx.lang` is always a **base code**, never a full locale. The platform narrows
+`zh-CN` to `zh` and falls back to `en` for anything Arena has no strings for, so
+a world can switch on the value directly:
+
+```ts
+const t = (zh: string, en: string) => (ctx.lang === 'zh' ? zh : en)
+```
+
+Getting this wrong is easy in a way that is hard to see: a world that compares
+against `'zh-CN'`, or that indexes its own language array by position, will read
+one language and render another. Compare codes, never positions.
+
+**If you use these, do not also ship your own switcher.** Two controls for one
+setting are two controls that disagree — Arena's header is the one place a
+visitor should change either. Hide or omit yours and subscribe instead:
+
+```ts
+const applyLang = () => { /* re-render your strings in ctx.lang */ }
+applyLang()
+ctx.onLangChange(applyLang)
+```
+
+**If you ignore them, nothing breaks.** A world with a deliberate palette should
+not be repainted by a platform toggle, and a world whose language switcher is
+part of its design should keep it. Both are ordinary choices; the platform does
+not insist.
+
+One caveat worth knowing when porting an existing page: applying a language is
+usually a *function*, not a stored value. Writing your language into storage and
+expecting the page to notice will not work — most pages read that once at boot.
+Find the function the page's own control calls, and call that.
+
 ## Rendering, audio, assets
 
 The document is loaded via `srcdoc` into `sandbox="allow-scripts"` **without**

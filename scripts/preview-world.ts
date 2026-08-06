@@ -21,7 +21,7 @@ import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import Ajv from 'ajv/dist/2020.js'
 import type { WorldManifest } from '@arena/world-sdk'
-import { bundleWorld, worldHtml } from './build-worlds.js'
+import { bundleWorld, worldHtml, readAssets } from './build-worlds.js'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -54,6 +54,12 @@ for (const [name, spec] of Object.entries(manifest.storage?.collections ?? {})) 
 
 const doc = worldHtml(await bundleWorld(path.join(dir, manifest.entry)), manifest.displayName)
 
+/**
+ * The same `data:` URIs the host would hand over, so `ctx.asset()` resolves here
+ * exactly as it does in production rather than throwing for every path.
+ */
+const assets = await readAssets(dir)
+
 const PORT = Number(process.env.PORT ?? 4321)
 
 const harness = /* html */ `<!doctype html>
@@ -77,7 +83,17 @@ const harness = /* html */ `<!doctype html>
     <option value="|anon|anonymous">signed out</option>
   </select>
   <button id="theme">light / dark</button>
-  <button id="lang">中 / EN</button>
+  <select id="lang" title="Arena language">
+    <option value="zh">中文</option>
+    <option value="en">English</option>
+    <option value="ja">日本語</option>
+    <option value="ko">한국어</option>
+    <option value="es">Español</option>
+    <option value="ru">Русский</option>
+    <option value="fr">Français</option>
+    <option value="de">Deutsch</option>
+    <option value="pt">Português</option>
+  </select>
   <button id="wipe">wipe store</button>
   <span id="log"></span>
 </div>
@@ -85,6 +101,7 @@ const harness = /* html */ `<!doctype html>
 <script>
 const CH = '__arenaWorld'
 const MANIFEST = __MANIFEST__
+const ASSETS = __ASSETS__
 const COLLECTIONS = (MANIFEST.storage && MANIFEST.storage.collections) || {}
 
 // ── in-memory store, same shape as world_records
@@ -255,7 +272,7 @@ function sendInit() {
   for (const name of Object.keys(COLLECTIONS)) seed[name] = ops(name, 'list', { limit: 50 })
   post({ type: 'init',
          world: { type: MANIFEST.type, displayName: MANIFEST.displayName, schemaVersion: MANIFEST.schemaVersion },
-         me: me.id ? me : null, theme, lang, assets: {}, seed })
+         me: me.id ? me : null, theme, lang, assets: ASSETS, seed })
 }
 
 window.addEventListener('message', (e) => {
@@ -287,7 +304,11 @@ document.getElementById('who').onchange = (e) => {
   setTimeout(() => log('now acting as ' + me.name), 100)
 }
 document.getElementById('theme').onclick = () => { theme = theme.mode === 'dark' ? light() : dark(); post({ type: 'env', theme }) }
-document.getElementById('lang').onclick = () => { lang = lang === 'zh' ? 'en' : 'zh'; post({ type: 'env', lang }) }
+// A two-way toggle could only ever exercise two of the nine languages a real
+// visitor can pick, which is not enough to find a world that only handles those.
+const langSel = document.getElementById('lang')
+langSel.value = lang
+langSel.onchange = () => { lang = langSel.value; post({ type: 'env', lang }) }
 document.getElementById('wipe').onclick = () => { rows = []; save(); for (const k of Object.keys(local)) delete local[k]; saveLocal(); frame.contentWindow.location.reload() }
 </script>
 <script src="/ajv.js"></script>
@@ -306,7 +327,10 @@ const server = createServer(async (req, res) => {
   res.end(
     harness
       .replace('__DOC__', doc.replace(/&/g, '&amp;').replace(/"/g, '&quot;'))
-      .replace('__MANIFEST__', JSON.stringify(manifest)),
+      // Function replacers: a `$&` or `$1` inside a schema or a base64 payload is
+      // a substitution pattern to `String.replace`, and would corrupt the value.
+      .replace('__MANIFEST__', () => JSON.stringify(manifest))
+      .replace('__ASSETS__', () => JSON.stringify(assets)),
   )
 })
 
