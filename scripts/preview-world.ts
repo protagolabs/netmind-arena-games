@@ -303,12 +303,25 @@ document.getElementById('who').onchange = (e) => {
   frame.contentWindow.location.reload()
   setTimeout(() => log('now acting as ' + me.name), 100)
 }
-document.getElementById('theme').onclick = () => { theme = theme.mode === 'dark' ? light() : dark(); post({ type: 'env', theme }) }
+/**
+ * Send the WHOLE environment on every change, exactly as the Arena host does.
+ *
+ * Posting one field at a time would be easier on a world than production is, and
+ * a preview that is easier than production certifies bugs. It hid a real one: the
+ * SDK used to assign-then-emit per field, so a callback registered on both theme
+ * and language observed a half-applied state — and only a host that sends both
+ * together could ever reach that path. Locally everything passed; on Arena the
+ * language came out wrong, and it read as an environment difference rather than
+ * as the defect it was.
+ */
+const sendEnv = () => post({ type: 'env', theme, lang })
+
+document.getElementById('theme').onclick = () => { theme = theme.mode === 'dark' ? light() : dark(); sendEnv() }
 // A two-way toggle could only ever exercise two of the nine languages a real
 // visitor can pick, which is not enough to find a world that only handles those.
 const langSel = document.getElementById('lang')
 langSel.value = lang
-langSel.onchange = () => { lang = langSel.value; post({ type: 'env', lang }) }
+langSel.onchange = () => { lang = langSel.value; sendEnv() }
 document.getElementById('wipe').onclick = () => { rows = []; save(); for (const k of Object.keys(local)) delete local[k]; saveLocal(); frame.contentWindow.location.reload() }
 </script>
 <script src="/ajv.js"></script>
