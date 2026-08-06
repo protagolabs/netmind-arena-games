@@ -32,11 +32,15 @@ const WORLDS_DIR = path.join(ROOT, 'worlds')
  * 512KB before handing it to an isolate), a world's document is inlined into
  * `index.json`, which the backend fetches on every refresh and holds in memory.
  * A few multi-megabyte worlds would make that payload the platform's problem.
+ *
+ * Exported because `validate-worlds` enforces the SAME numbers in CI. A cap that
+ * only exists here is a cap that fails on main, in the publish job, which is the
+ * one place an author cannot fix it.
  */
-const MAX_HTML_BYTES = 1_500_000
-const MAX_COVER_BYTES = 400_000
+export const MAX_HTML_BYTES = 1_500_000
+export const MAX_COVER_BYTES = 400_000
 /** Ceiling on `assets/**` combined. They ride inside index.json, same as the document. */
-const MAX_ASSETS_BYTES = 2_000_000
+export const MAX_ASSETS_BYTES = 2_000_000
 
 export interface WorldIndexEntry {
   type: string

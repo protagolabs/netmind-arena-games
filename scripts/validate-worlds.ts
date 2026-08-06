@@ -28,14 +28,14 @@ import path from 'node:path'
 // implies with an unhelpful "no schema with key or ref" error.
 import Ajv from 'ajv/dist/2020.js'
 import type { WorldManifest } from '@arena/world-sdk'
-import { bundleWorld, worldHtml } from './build-worlds.js'
+// The publish caps come from the build step rather than being restated here: a
+// second copy of a number is a second chance for CI to disagree with publish.
+import { bundleWorld, worldHtml, readAssets, MAX_HTML_BYTES, MAX_COVER_BYTES } from './build-worlds.js'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const WORLDS_DIR = path.join(ROOT, 'worlds')
 const GAMES_DIR = path.join(ROOT, 'games')
 const MANIFEST_SCHEMA = path.join(ROOT, 'packages/world-sdk/world.manifest.schema.json')
-
-const MAX_HTML_BYTES = 1_500_000
 
 /**
  * Networking a world tries to do itself. All of it is already blocked at runtime
@@ -147,6 +147,17 @@ async function validateWorld(dir: string, gameTypes: Set<string>, validateManife
   if (!existsSync(path.join(dir, manifest.entry))) {
     throw new Error(`entry '${manifest.entry}' not found`)
   }
+
+  // The cover and `assets/**` are inlined into index.json, so the build enforces
+  // a ceiling on both. Check them HERE too, or an oversized cover passes review,
+  // merges, and then fails the publish job on main — where the author who can fix
+  // it no longer has the wheel.
+  const coverBytes = (await readFile(path.join(dir, manifest.presentation.cover))).byteLength
+  if (coverBytes > MAX_COVER_BYTES) {
+    throw new Error(`cover is ${(coverBytes / 1024).toFixed(0)}kb; max ${(MAX_COVER_BYTES / 1024).toFixed(0)}kb (it is inlined into index.json)`)
+  }
+  // Throws with the byte count when `assets/**` exceeds its combined cap.
+  await readAssets(dir)
 
   const problems: string[] = []
   const srcDir = path.join(dir, 'src')

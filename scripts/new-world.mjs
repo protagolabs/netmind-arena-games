@@ -109,6 +109,23 @@ export default defineWorld({
     const input = document.createElement('input')
     input.placeholder = 'Leave a mark…'
     input.style.cssText = \`padding:10px;border-radius:8px;border:1px solid \${ctx.theme.border};background:\${ctx.theme.surface};color:\${ctx.theme.fg};font:inherit\`
+    root.appendChild(input)
+
+    // \`quota\`, \`rate-limited\` and \`conflict\` are ordinary outcomes in a shared
+    // world, not exceptional ones — so a world must always show them.
+    //
+    // It must show them in its OWN DOM: the sandbox is \`allow-scripts\` without
+    // \`allow-modals\`, so \`alert()\` / \`confirm()\` / \`prompt()\` are ignored by the
+    // browser and an error reported that way is an error nobody ever sees.
+    const status = document.createElement('p')
+    status.style.cssText = \`font-size:13px;min-height:18px;color:\${ctx.theme.fgSubtle}\`
+    root.appendChild(status)
+
+    const say = (msg: string, bad = false) => {
+      status.textContent = msg
+      status.style.color = bad ? ctx.theme.accent : ctx.theme.fgSubtle
+    }
+
     input.onkeydown = (e) => {
       if (e.key !== 'Enter' || !input.value.trim()) return
       void marks
@@ -119,11 +136,8 @@ export default defineWorld({
           // append the returned record instead.
           location.reload()
         })
-        // \`quota\`, \`rate-limited\` and \`conflict\` are ordinary outcomes in a
-        // shared world, not exceptional ones. Always show them.
-        .catch((err: Error) => alert(err.message))
+        .catch((err: Error) => say(err.message, true))
     }
-    root.appendChild(input)
   },
 })
 `

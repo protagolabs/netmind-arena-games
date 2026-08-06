@@ -337,11 +337,13 @@ const server = createServer(async (req, res) => {
   }
 
   res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' })
+  // Function replacers throughout: a `$&`, `` $` `` or `$1` inside minified world
+  // code, a schema or a base64 payload is a substitution pattern to
+  // `String.replace`, and a string replacer would splice the match back into the
+  // document instead of the value.
   res.end(
     harness
-      .replace('__DOC__', doc.replace(/&/g, '&amp;').replace(/"/g, '&quot;'))
-      // Function replacers: a `$&` or `$1` inside a schema or a base64 payload is
-      // a substitution pattern to `String.replace`, and would corrupt the value.
+      .replace('__DOC__', () => doc.replace(/&/g, '&amp;').replace(/"/g, '&quot;'))
       .replace('__MANIFEST__', () => JSON.stringify(manifest))
       .replace('__ASSETS__', () => JSON.stringify(assets)),
   )
