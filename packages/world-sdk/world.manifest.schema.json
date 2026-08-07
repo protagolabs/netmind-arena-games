@@ -127,6 +127,43 @@
       }
     },
 
-    "about": { "type": "string" }
+    "about": { "type": "string" },
+
+    "credits": {
+      "description": "Optional attribution, rendered by the HOST page — never by the world itself. A world document runs in a sandbox without allow-popups and with connect-src 'none', so a link the author draws inside it cannot open anything; attribution has to be manifest metadata for it to work at all. Every field is optional: worlds with nothing declared show nothing.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "author": {
+          "description": "Who made this world. Plain text — deliberately NOT an Arena account: publishing already goes through a reviewed PR, so identity is established by the PR, and linking it to a platform identity would turn a display string into something the platform must verify ownership of.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name"],
+          "properties": {
+            "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+            "url": { "$ref": "#/$defs/httpsUrl" }
+          }
+        },
+        "basedOn": {
+          "description": "The third-party site or work this world is a rendition of. `url` is required — an unlinked 'based on' is a claim nobody can check.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "url"],
+          "properties": {
+            "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+            "url": { "$ref": "#/$defs/httpsUrl" }
+          }
+        }
+      }
+    }
+  },
+
+  "$defs": {
+    "httpsUrl": {
+      "description": "https only. http is downgraded-in-transit and every other scheme (javascript:, data:) is an injection vector in an <a href> the visitor is invited to click.",
+      "type": "string",
+      "pattern": "^https://[^\\s]+$",
+      "maxLength": 300
+    }
   }
 }

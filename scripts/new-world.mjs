@@ -142,7 +142,16 @@ export default defineWorld({
 })
 `
 
-const cover = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 350">
+const cover = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 350" width="800" height="350">
+  <!--
+    800x350 (16:7) — keep this ratio. The home-page card renders a cover in a
+    16:7 box and crops from the CENTRE, so a taller drawing loses a band off the
+    top AND the bottom. (This is how the drift-bottle cover lost its title: it
+    was drawn 800x500.)
+
+    The card hangs its own badges in the TOP-RIGHT corner. Leave that corner to
+    the platform and put your title elsewhere — bottom-left, as below.
+  -->
   <rect width="800" height="350" fill="#0b0b0f"/>
   <circle cx="400" cy="150" r="60" fill="none" stroke="rgba(255,255,255,0.14)"/>
   <text x="60" y="285" fill="#f5f5f5" font-family="system-ui" font-size="30">${displayName}</text>

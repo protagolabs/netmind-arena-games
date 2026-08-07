@@ -116,6 +116,30 @@ async function validateWorld(dir: string, gameTypes: Set<string>, validateManife
     throw new Error(`supportedSchemaVersions must include schemaVersion (${manifest.schemaVersion})`)
   }
 
+  // Attribution is optional, but a declared link is one the platform will invite
+  // visitors to click, so it is held to more than the schema's `^https://` shape.
+  for (const [field, party] of Object.entries(manifest.credits ?? {})) {
+    if (!party?.url) continue
+    let url: URL
+    try {
+      url = new URL(party.url)
+    } catch {
+      throw new Error(`credits.${field}.url is not a URL: '${party.url}'`)
+    }
+    if (url.protocol !== 'https:') {
+      throw new Error(`credits.${field}.url must be https (got '${url.protocol}')`)
+    }
+    // `https://example.com@evil.example` is a valid URL that reads as one site
+    // and resolves to another. The host renders the hostname precisely so a
+    // visitor can see where a link goes; embedded credentials defeat that.
+    if (url.username || url.password) {
+      throw new Error(`credits.${field}.url must not contain credentials — '${url.hostname}' is where it actually goes`)
+    }
+    if (!url.hostname.includes('.')) {
+      throw new Error(`credits.${field}.url has no public hostname: '${url.hostname}'`)
+    }
+  }
+
   for (const [name, spec] of Object.entries(manifest.storage?.collections ?? {})) {
     // The JSON Schema already requires maxRecordBytes; restate the intent so the
     // failure explains itself rather than pointing at a schema path.

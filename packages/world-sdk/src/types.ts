@@ -427,6 +427,29 @@ export interface WorldPresentation {
   audio?: boolean
 }
 
+/** One attributed party: a name, and optionally somewhere it points. */
+export interface WorldCreditParty {
+  name: string
+  /** `https://` only — the host renders this as a real, clickable outbound link. */
+  url?: string
+}
+
+/**
+ * Optional attribution, rendered by the HOST page rather than by the world.
+ *
+ * Not a stylistic choice: the document runs in an `allow-scripts`-only iframe
+ * with no `allow-popups` and `connect-src 'none'`, so an `<a target="_blank">`
+ * an author draws inside the world simply does nothing when clicked. Declaring
+ * it here is what makes attribution work — and it also means the platform, not
+ * author code, decides how an outbound link is presented.
+ */
+export interface WorldCredits {
+  /** Who made the world. Plain text; not tied to an Arena account. */
+  author?: WorldCreditParty
+  /** The third-party site or work this world renders. `url` is required there. */
+  basedOn?: WorldCreditParty & { url: string }
+}
+
 export interface WorldManifest {
   type: string
   kind: 'world'
@@ -456,4 +479,6 @@ export interface WorldManifest {
   presentation: WorldPresentation
   /** Path to a markdown intro, published alongside the world. */
   about?: string
+  /** Omit entirely when there is nothing to attribute; the host then shows nothing. */
+  credits?: WorldCredits
 }

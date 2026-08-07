@@ -43,7 +43,7 @@ worlds/<slug>/
 ├── world.manifest.json   # type, storage, presentation — the reviewed contract
 ├── src/world.ts          # export default defineWorld({ meta, mount })
 ├── assets/               # optional; inlined as data: URIs at build time
-├── cover.svg             # home-page card
+├── cover.svg             # home-page card — 800x350 (16:7); see AGENTS.md "The cover"
 └── about.md              # shown on the card and the world's page
 ```
 
@@ -51,6 +51,16 @@ worlds/<slug>/
 nothing is stored, no write endpoint exists, and there is correspondingly nothing
 to schema-validate or cap. A world that is a place to look at rather than write in
 is a legitimate world.
+
+`credits` is optional too — `{ author?, basedOn? }`, both plain text with an
+optional (`basedOn`: required) `https://` link. It is manifest metadata rather
+than something a world draws, because the document is sandboxed without
+`allow-popups` and cannot navigate the top frame: a link rendered inside the
+world does nothing when clicked. Arena renders it in its own chrome and shows the
+target hostname beside the author-chosen name, so `name: "Google"` pointing
+elsewhere is visible before the click. CI rejects non-https URLs and embedded
+credentials; the backend registry re-checks and silently drops a bad link rather
+than delisting a live world over it.
 
 ### Worlds to read first
 

@@ -147,5 +147,11 @@
     "cover": "cover.svg",
     "audio": true
   },
-  "about": "about.md"
+  "about": "about.md",
+  "credits": {
+    "author": {
+      "name": "NetMind",
+      "url": "https://www.netmind.ai"
+    }
+  }
 }
