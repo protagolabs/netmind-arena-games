@@ -9,6 +9,10 @@
     "node": ">=22.13.0"
   },
   "packageManager": "pnpm@9.15.9",
+  "pnpm": {
+    "//": "Allowlist for install lifecycle scripts. A submission PR may freely edit games/<slug>/package.json and worlds/<slug>/package.json — path-guard stops infra edits, not dependency edits — and CI falls back to a non-frozen install when a new workspace member makes the lockfile stale. Without this, naming a dependency would run its postinstall in the runner before any gate has looked at the submission. esbuild is here because it fetches its own platform binary; nothing else in this repo needs a script.",
+    "onlyBuiltDependencies": ["esbuild"]
+  },
   "dependencies": {
     "@arena/game-sdk": "workspace:*",
     "@arena/world-sdk": "workspace:*"

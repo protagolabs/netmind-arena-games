@@ -31,6 +31,16 @@ export const WORLD_OPS = [
   'local.get',
   'local.set',
   'local.del',
+  /**
+   * One model call, billed to the SIGNED-IN VISITOR's own NetMind account — not
+   * to Arena, and not to the world's author.
+   *
+   * That is what lets this op carry free-form messages and tools while the rest
+   * of the list stays a closed vocabulary: there is no shared budget to drain.
+   * The host still refuses it for a world whose manifest does not declare
+   * `capabilities.ai`, and for anyone who is not signed in.
+   */
+  'ai.chat',
 ] as const
 
 export type WorldOp = (typeof WORLD_OPS)[number]
@@ -147,6 +157,20 @@ export interface HostInit {
   assets: Record<string, string>
   /** collection name → first page, pre-fetched by the host. */
   seed: Record<string, RecordPage>
+  /**
+   * Which declared capabilities this DEPLOYMENT can actually serve.
+   *
+   * Not a copy of the manifest: a world may declare `ai` and still find it
+   * absent because the platform has it switched off or has no model configured.
+   * Telling the world at mount lets it draw the version of itself that works,
+   * instead of offering a control that fails when pressed.
+   *
+   * Deliberately NOT a function of who is signed in. That changes mid-session,
+   * and a capability that appears and disappears under a running world is worse
+   * than one that is present and answers `unauthenticated` — which is a normal
+   * outcome every world already has to handle.
+   */
+  capabilities?: { ai?: boolean }
 }
 
 /** Reply to a {@link WorldRequest}. Exactly one of `result` / `error`. */

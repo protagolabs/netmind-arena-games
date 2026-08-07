@@ -36,7 +36,7 @@
       "minimum": 1
     },
     "supportedSchemaVersions": {
-      "description": "Every version this build can still render, including schemaVersion. A world is perpetual — its data outlives its releases — so CI rejects dropping a version that already exists in the store.",
+      "description": "Every version this build can still render, including schemaVersion. A world is perpetual — its data outlives its releases. CI enforces that this list contains schemaVersion; whether a dropped version still has live records is a review question, because the gate runs on a PR with no access to the store.",
       "type": "array",
       "items": { "type": "integer", "minimum": 1 },
       "minItems": 1,
@@ -107,6 +107,34 @@
           "properties": {
             "totalRecords": { "type": "integer", "minimum": 1 },
             "writesPerHourPerAuthor": { "type": "integer", "minimum": 1 }
+          }
+        }
+      }
+    },
+
+    "capabilities": {
+      "description": "What this world reaches for beyond storage. Omit and it reaches for nothing. Declaring does not grant: the platform's own switch and the visitor's session still decide whether a call happens. What the declaration buys is that the intent is reviewable, and that the host page can tell a visitor what they are about to spend their own credit on before the world runs.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ai": {
+          "description": "Model access through the platform, billed to the SIGNED-IN VISITOR's own NetMind account — not to Arena and not to the author. That is why free-form prompts are allowed here at all; it is also why a world must stay usable for a visitor who is signed out or who declines.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["purpose"],
+          "properties": {
+            "purpose": {
+              "description": "One line, in English, saying what the model is for — 'reads tactical orders and adjusts player policy', not 'AI features'. Shown VERBATIM to the visitor when asking them to approve spending their own credit, so it is the whole basis on which they decide.",
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 200
+            },
+            "maxTokens": {
+              "description": "Your own per-call output ceiling. Can only narrow the platform's cap, never raise it.",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 4096
+            }
           }
         }
       }

@@ -30,7 +30,12 @@ export interface MockCtxOptions {
   side?: number
   actor?: string
   oracle?: (key: string) => unknown
-  judge?: (prompt: string) => Promise<string>
+  /**
+   * Stand-in verdict. Synchronous, like the real one — author code has nowhere
+   * to `await`, so a test double that returned a promise would let a game pass
+   * its own tests and then score on `[object Promise]` in a real match.
+   */
+  judge?: (prompt: string) => string
 }
 
 /** Build a mock Ctx backed by a seeded RNG. */
@@ -41,7 +46,14 @@ export function makeCtx(opts: MockCtxOptions): Ctx {
     side: opts.side ?? 0,
     actor: opts.actor ?? '',
     oracle: opts.oracle ?? (() => undefined),
-    judge: opts.judge ?? (async () => ''),
+    // Throws rather than returning '', so a game that reaches for a verdict in a
+    // test without supplying one is told, instead of quietly scoring on an empty
+    // string it would never see in production.
+    judge:
+      opts.judge ??
+      (() => {
+        throw new Error('judge was called but no stub was supplied to makeCtx')
+      }),
     reject: (code: string) => {
       throw new Error(`REJECT:${code}`)
     },

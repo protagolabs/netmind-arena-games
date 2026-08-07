@@ -8,7 +8,7 @@
  * sequences that caused the bugs these cases pin down.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { WORLD_CHANNEL } from '../src/protocol'
 import { boot } from '../src/runtime'
 import type { HostMessage, RecordPage, StoredRecord, ThemeTokens, VisitorInfo } from '../src/protocol'
@@ -423,6 +423,25 @@ describe('collections', () => {
     expect(host.lastRequest()).toMatchObject({ op: 'list', args: { mine: true } })
   })
 
+  it('does not over-serve a list that asked for fewer records than the seed holds', async () => {
+    // The host seeds at ITS page size. Answering a smaller `limit` from the seed
+    // handed back whatever the host had decided — and did it without the round
+    // trip that would have corrected it, identically in preview and production.
+    const ctx = await bootWorld({ seed: { notes: page([record('s1'), record('s2'), record('s3')]) } })
+
+    void ctx.collection('notes').list({ limit: 2 })
+    await settle()
+    expect(host.lastRequest()).toMatchObject({ op: 'list', args: { limit: 2 } })
+  })
+
+  it('still answers from the seed when the limit cannot be exceeded', async () => {
+    const ctx = await bootWorld({ seed: { notes: page([record('s1')]) } })
+
+    const first = await ctx.collection('notes').list({ limit: 50 })
+    expect(first.items.map((r) => r.id)).toEqual(['s1'])
+    expect(host.requests()).toHaveLength(0)
+  })
+
   it('returns the same handle for a repeated collection() call', async () => {
     const ctx = await bootWorld()
     expect(ctx.collection('notes')).toBe(ctx.collection('notes'))
@@ -553,6 +572,67 @@ describe('errors', () => {
     expect(() => host.reply(9999, record('x'))).not.toThrow()
   })
 
+  it('gives up on a host that never answers, instead of hanging forever', async () => {
+    vi.useFakeTimers()
+    try {
+      const ctx = await bootWorld()
+      const p = ctx.collection('notes').add({ n: 1 })
+      // Attach the expectation before advancing: an unobserved rejection between
+      // the timer firing and the assertion is an unhandled rejection.
+      const settled = expect(p).rejects.toMatchObject({ code: 'unavailable' })
+      await vi.advanceTimersByTimeAsync(30_000)
+      await settled
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('gives a model call longer than an ordinary one, and longer than the host does', async () => {
+    /**
+     * The backstop has to sit OUTSIDE every legitimate wait, and `ai.chat` has
+     * two the other ops do not: the model itself (Arena allows it a minute), and
+     * a human — the first call shows the visitor what the model is for and asks
+     * whether to spend their own credit on it.
+     *
+     * Giving up at the ordinary deadline would not merely be impatient. The host
+     * is still working, so the call completes and the VISITOR IS BILLED for a
+     * reply nothing is listening for any more.
+     */
+    vi.useFakeTimers()
+    try {
+      const ctx = await bootWorld({ capabilities: { ai: true } })
+      let settled: string | null = null
+      void ctx
+        .ai!.chat({ messages: [{ role: 'user', content: 'hi' }] })
+        .then(() => (settled = 'resolved'))
+        .catch(() => (settled = 'rejected'))
+
+      // Past the ordinary deadline, and past the host's own ceiling for this op.
+      await vi.advanceTimersByTimeAsync(90_000)
+      expect(settled).toBeNull()
+
+      await vi.advanceTimersByTimeAsync(31_000)
+      expect(settled).toBe('rejected')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('does not time out a request the host did answer', async () => {
+    vi.useFakeTimers()
+    try {
+      const ctx = await bootWorld()
+      const p = ctx.collection('notes').get('r1')
+      await vi.advanceTimersByTimeAsync(0)
+      host.reply(host.lastRequest()!.id as number, record('r1'))
+      expect((await p)?.id).toBe('r1')
+      // Well past the timeout: a cleared timer must not reject a settled promise.
+      await vi.advanceTimersByTimeAsync(60_000)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('forwards uncaught errors and unhandled rejections to the host', async () => {
     await bootWorld()
     host.fire('error', { message: 'boom', filename: 'world.js', lineno: 12 })
@@ -631,6 +711,54 @@ describe('assets', () => {
   it('a missing asset is a wrong path, thrown as not-found', async () => {
     const ctx = await bootWorld()
     expect(() => ctx.asset('nope.png')).toThrow(/not published/)
+  })
+})
+
+/* ─────────────────────────── model access ─────────────────────────── */
+
+describe('ctx.ai', () => {
+  it('is null when the host announces no capabilities', async () => {
+    const ctx = await bootWorld()
+    expect(ctx.ai).toBeNull()
+  })
+
+  it('is null when the host announces ai: false', async () => {
+    // The deployment can have model access switched off even for a world whose
+    // manifest declares it, so `capabilities` present is not the same as granted.
+    const ctx = await bootWorld({ capabilities: { ai: false } })
+    expect(ctx.ai).toBeNull()
+  })
+
+  it('sends an ai.chat request with no collection', async () => {
+    const ctx = await bootWorld({ capabilities: { ai: true } })
+    void ctx.ai!.chat({ messages: [{ role: 'user', content: 'hi' }], maxTokens: 100 })
+    await settle()
+    expect(host.lastRequest()).toMatchObject({
+      op: 'ai.chat',
+      collection: undefined,
+      args: { messages: [{ role: 'user', content: 'hi' }], maxTokens: 100 },
+    })
+  })
+
+  it('surfaces unauthenticated as a typed error the world can fall back from', async () => {
+    // The single most common outcome in practice: nobody is signed in, so there
+    // is no account to bill. A world has to be able to tell that apart from a
+    // transport failure, because only one of the two is worth retrying.
+    const ctx = await bootWorld({ capabilities: { ai: true } })
+    const call = ctx.ai!.chat({ messages: [{ role: 'user', content: 'hi' }] })
+    await settle()
+    const id = Number(host.lastRequest()!.id)
+    host.replyError(id, { code: 'unauthenticated', message: 'sign in to do that' })
+    await expect(call).rejects.toMatchObject({ code: 'unauthenticated' })
+  })
+
+  it('surfaces rate-limited with its retry hint', async () => {
+    const ctx = await bootWorld({ capabilities: { ai: true } })
+    const call = ctx.ai!.chat({ messages: [{ role: 'user', content: 'hi' }] })
+    await settle()
+    const id = Number(host.lastRequest()!.id)
+    host.replyError(id, { code: 'rate-limited', message: 'slow down', retryAfterSec: 42 })
+    await expect(call).rejects.toMatchObject({ code: 'rate-limited', retryAfterSec: 42 })
   })
 })
 

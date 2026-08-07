@@ -112,6 +112,15 @@ const harness = /* html */ `<!doctype html>
     <option value="de">Deutsch</option>
     <option value="pt">Português</option>
   </select>
+  ${
+    manifest.capabilities?.ai
+      ? `<select id="ai" title="ctx.ai — no real model runs locally">
+    <option value="stub">model: stub</option>
+    <option value="off">model: off</option>
+    <option value="limited">model: rate-limited</option>
+  </select>`
+      : ''
+  }
   <button id="wipe">wipe store</button>
   <span id="log"></span>
 </div>
@@ -132,6 +141,8 @@ const saveLocal = () => localStorage.setItem('preview-local:' + MANIFEST.type, J
 let me = { id: 'hu_you', kind: 'human', name: 'You', avatar: null }
 let theme = dark()
 let lang = 'zh'
+/** 'stub' | 'off' | 'limited' — see the ai.chat case in ops(). */
+let aiMode = 'stub'
 
 function dark() {
   return { mode:'dark', bg:'#0b0b0f', surface:'#16161a', fg:'#f5f5f5', fgSubtle:'#a1a1aa',
@@ -197,9 +208,35 @@ function cmp(op, a, b) {
 
 function ops(name, op, args) {
   const spec = COLLECTIONS[name]
-  if (op.indexOf('local.') !== 0 && !spec) throw fail('not-found', "collection '" + name + "' is not declared")
+  if (op.indexOf('local.') !== 0 && op.indexOf('ai.') !== 0 && !spec)
+    throw fail('not-found', "collection '" + name + "' is not declared")
 
   switch (op) {
+    /**
+     * A stub verdict, never a real model.
+     *
+     * On Arena this spends the VISITOR's NetMind balance, and a local harness
+     * that quietly charged someone every time an author reloaded would be a
+     * trap. So it answers in the right SHAPE — content blocks and a stopReason —
+     * and says plainly that it is a stub.
+     *
+     * Which means the thing to test here is the shape and the failure paths, not
+     * the model's judgement. The model selector in the top bar switches
+     * between three answers, and the two that are not "ok" are the ones worth
+     * your attention: a world MUST stay usable when the visitor is signed out or
+     * declines, and that is the state most visitors arrive in.
+     */
+    case 'ai.chat': {
+      if (aiMode === 'off') throw fail('unauthenticated', 'sign in to use model features (preview: model = off)')
+      if (aiMode === 'limited') throw fail('rate-limited', 'preview: simulated rate limit', 30)
+      if (!me.id) throw fail('unauthenticated', 'this action requires an identity')
+      const asked = (args.messages || []).filter(m => m.role === 'user').pop()
+      const text = typeof (asked || {}).content === 'string' ? asked.content : '(structured message)'
+      return {
+        content: [{ type: 'text', text: '[preview stub] no model runs locally. You asked: ' + text }],
+        stopReason: 'end_turn',
+      }
+    }
     case 'get': {
       const r = live(name).find(r => r.id === args.id)
       return r ? view(r) : null
@@ -230,9 +267,16 @@ function ops(name, op, args) {
     }
     case 'count': {
       let items = live(name)
-      if (args.mine) items = items.filter(r => r.author.id === me.id)
-      for (const [p, f] of Object.entries(args.where || {}))
-        for (const [o, v] of Object.entries(f)) items = items.filter(r => cmp(o, readPath(r, p), v))
+      if (args.mine) { if (!me.id) throw fail('unauthenticated', 'mine=true needs an identity'); items = items.filter(r => r.author.id === me.id) }
+      for (const [p, f] of Object.entries(args.where || {})) {
+        // Same index rule as `list`. Without it, a `where` that counts fine
+        // locally fails `invalid` on the platform — and it fails on the ONE call
+        // an author is least likely to have a fallback for.
+        if (p !== 'createdAt' && p !== 'updatedAt' && !(spec.indexes || []).includes(p)) {
+          throw fail('invalid', "'" + p + "' is not an indexed field (declare it in the manifest's indexes)")
+        }
+        for (const [o, v] of Object.entries(f)) items = items.filter(r => cmp(o, p === 'createdAt' || p === 'updatedAt' ? r[p] : readPath(r, p), v))
+      }
       return items.length
     }
     case 'add': {
@@ -268,8 +312,17 @@ function ops(name, op, args) {
       return view(rec)
     }
     case 'del': {
+      // `write: 'none'` means append-only, and append-only has to include delete
+      // — otherwise the collection is not append-only, it is just awkward to
+      // edit. This mirrored `put`/`patch` incorrectly: locally a world could
+      // delete from an append-only collection and the platform would refuse it.
+      if (spec.write === 'none') throw fail('forbidden', "collection '" + name + "' is append-only")
       const rec = live(name).find(r => r.id === args.id)
       if (!rec) throw fail('not-found', 'record not found')
+      // An anonymous visitor has no records of their own to delete, so on
+      // `write: 'anyone'` the id check below passed vacuously and let them delete
+      // everyone else's.
+      if (!me.id) throw fail('unauthenticated', 'this action requires an identity')
       if (spec.write !== 'anyone' && rec.author.id !== me.id) throw fail('forbidden', 'you can only modify your own records')
       rec.deletedAt = new Date().toISOString(); save()
       return null
@@ -281,7 +334,33 @@ function ops(name, op, args) {
   throw fail('forbidden', 'operation not permitted')
 }
 
-const frame = document.getElementById('frame')
+let frame = document.getElementById('frame')
+const DOC = frame.getAttribute('srcdoc')
+
+/**
+ * Restart the world by replacing the iframe, NOT by reloading it.
+ *
+ * \`frame.contentWindow.location.reload()\` is the obvious thing and it does not
+ * work here: the frame is \`sandbox="allow-scripts"\` with no
+ * \`allow-same-origin\`, so its document has an opaque origin and is cross-origin
+ * to this page. A cross-origin \`Location\` exposes only the \`href\` setter and
+ * \`replace()\`; \`reload()\` throws SecurityError. That threw inside three button
+ * handlers — switch identity, switch model mode, wipe store — so all three
+ * looked like they did nothing, which is the worst way for a preview harness to
+ * be wrong.
+ *
+ * Rebuilding the element re-runs the world from its first line, which is exactly
+ * what these three need: identity changes what \`mine\` means on every record, and
+ * whether \`ctx.ai\` exists at all is decided in \`init\`.
+ */
+function remount() {
+  const next = document.createElement('iframe')
+  next.id = 'frame'
+  next.setAttribute('sandbox', 'allow-scripts')
+  next.srcdoc = DOC
+  frame.replaceWith(next)
+  frame = next
+}
 
 function post(msg) { frame.contentWindow.postMessage(Object.assign({ [CH]: true }, msg), '*') }
 
@@ -290,7 +369,12 @@ function sendInit() {
   for (const name of Object.keys(COLLECTIONS)) seed[name] = ops(name, 'list', { limit: 50 })
   post({ type: 'init',
          world: { type: MANIFEST.type, displayName: MANIFEST.displayName, schemaVersion: MANIFEST.schemaVersion },
-         me: me.id ? me : null, theme, lang, assets: ASSETS, seed })
+         me: me.id ? me : null, theme, lang, assets: ASSETS, seed,
+         // Mirrors the platform: ctx.ai exists only for a world that declared
+         // it AND a deployment that can serve it. Setting model to off is how
+         // an author sees the second half of that — the version of their world a
+         // signed-out visitor gets, which is most of them.
+         capabilities: { ai: !!(MANIFEST.capabilities && MANIFEST.capabilities.ai) && aiMode !== 'off' } })
 }
 
 window.addEventListener('message', (e) => {
@@ -316,9 +400,9 @@ window.addEventListener('message', (e) => {
 document.getElementById('who').onchange = (e) => {
   const [id, kind, name] = e.target.value.split('|')
   me = { id, kind, name: name || 'anonymous', avatar: null }
-  // Identity changes what 'mine' means on every record, so reload the world
+  // Identity changes what 'mine' means on every record, so restart the world
   // rather than trying to patch its state from outside.
-  frame.contentWindow.location.reload()
+  remount()
   setTimeout(() => log('now acting as ' + me.name), 100)
 }
 /**
@@ -340,7 +424,16 @@ document.getElementById('theme').onclick = () => { theme = theme.mode === 'dark'
 const langSel = document.getElementById('lang')
 langSel.value = lang
 langSel.onchange = () => { lang = langSel.value; sendEnv() }
-document.getElementById('wipe').onclick = () => { rows = []; save(); for (const k of Object.keys(local)) delete local[k]; saveLocal(); frame.contentWindow.location.reload() }
+const aiSel = document.getElementById('ai')
+if (aiSel) {
+  aiSel.value = aiMode
+  // Restart rather than re-post env: whether ctx.ai exists at all is decided
+  // in init, exactly as it is on the platform, so switching this has to start
+  // the world over — which is also the honest way to see what a visitor who
+  // arrives signed out actually gets.
+  aiSel.onchange = () => { aiMode = aiSel.value; remount() }
+}
+document.getElementById('wipe').onclick = () => { rows = []; save(); for (const k of Object.keys(local)) delete local[k]; saveLocal(); remount() }
 </script>
 <script src="/ajv.js"></script>
 </body></html>`

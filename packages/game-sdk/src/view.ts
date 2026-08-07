@@ -26,6 +26,24 @@ interface ViewMessage {
 }
 
 /**
+ * Only the parent frame drives a view.
+ *
+ * We do not check `origin`: the platform loads this document via `srcdoc`, so its
+ * origin is opaque and every message from the host arrives as `"null"` — an
+ * origin allowlist would reject all of them. `e.source === window.parent` is the
+ * check that actually holds here, and it is the same one `@arena/world-sdk`'s
+ * runtime makes on the identical setup.
+ *
+ * Without it, any frame or opener that can reach this window could post frames
+ * and seat identity. Inside the platform's sandbox there is nobody else to do so
+ * — but a view is author code shipped to a visitor's browser, and "there happens
+ * to be no other frame right now" is not a property of this file.
+ */
+function fromHost(e: MessageEvent): boolean {
+  return e.source === window.parent
+}
+
+/**
  * Register a draw callback. Called once per frame the platform posts in; also
  * signals readiness to the parent so it starts sending frames.
  *
@@ -36,6 +54,7 @@ interface ViewMessage {
  */
 export function onFrame(draw: (frame: unknown, root: HTMLElement) => void): void {
   window.addEventListener('message', (e: MessageEvent) => {
+    if (!fromHost(e)) return
     const d = e.data as ViewMessage | null
     if (d && d.__arenaView === true && d.type === 'frame') {
       try {
@@ -63,6 +82,7 @@ export function onFrame(draw: (frame: unknown, root: HTMLElement) => void): void
  */
 export function onPlayers(cb: (players: PlayerInfo[]) => void): void {
   window.addEventListener('message', (e: MessageEvent) => {
+    if (!fromHost(e)) return
     const d = e.data as ViewMessage | null
     if (d && d.__arenaView === true && d.type === 'players' && Array.isArray(d.players)) {
       try {

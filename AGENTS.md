@@ -396,7 +396,13 @@ Pass `version` to `put`/`patch` to make a write conditional; a stale token fails
 A world is perpetual: unlike a match it accumulates records across releases, so a
 renderer **MUST** expect payloads older than itself. Bump `schemaVersion` when the
 shape changes; keep every version you can still render in
-`supportedSchemaVersions`. CI rejects a release that drops one.
+`supportedSchemaVersions`.
+
+CI checks that `supportedSchemaVersions` contains `schemaVersion` — a build
+**MUST** be able to read back what it writes. It does **not** check the list
+against versions already in the store: the gate runs on a PR and has no access to
+production data. Dropping a version that live records still use is caught by
+review, not by a script, so call it out in the PR description when you drop one.
 
 ---
 

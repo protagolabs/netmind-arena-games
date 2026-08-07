@@ -16,6 +16,8 @@
  *   4. the entry bundles to ONE self-contained document, under the size ceiling
  *   5. the source makes no network calls of its own
  *   6. the cover exists
+ *   7. `meta.type` in the entry agrees with the manifest, and no two worlds
+ *      claim the same `type`
  *
  * Run: `pnpm validate` (worlds are validated alongside games).
  */
@@ -140,6 +142,24 @@ async function validateWorld(dir: string, gameTypes: Set<string>, validateManife
     }
   }
 
+  // A declared model capability spends the VISITOR's NetMind balance, and
+  // `purpose` is the entire text they are shown before agreeing to that. The
+  // schema already enforces a length; what it cannot check is whether the string
+  // says anything. A placeholder here is not a style problem — it is asking
+  // someone to approve a charge without telling them what for.
+  const purpose = manifest.capabilities?.ai?.purpose?.trim() ?? ''
+  if (manifest.capabilities?.ai) {
+    if (/^(ai|llm|model|chat|ai features?|llm features?)$/i.test(purpose)) {
+      throw new Error(
+        `capabilities.ai.purpose is a placeholder ('${purpose}') — it is shown verbatim to the visitor ` +
+          `who is being asked to spend their own NetMind credit, so it must say what the model actually does`,
+      )
+    }
+    if (!purpose.includes(' ')) {
+      throw new Error(`capabilities.ai.purpose must be a phrase, not a single word ('${purpose}')`)
+    }
+  }
+
   for (const [name, spec] of Object.entries(manifest.storage?.collections ?? {})) {
     // The JSON Schema already requires maxRecordBytes; restate the intent so the
     // failure explains itself rather than pointing at a schema path.
@@ -206,6 +226,28 @@ async function validateWorld(dir: string, gameTypes: Set<string>, validateManife
   await scanBundleInputs(inputs, (m) => problems.push(m))
   if (problems.length) throw new Error(problems.join('\n    '))
 
+  // The manifest's `type` and the entry's `meta.type` must agree.
+  //
+  // The runtime already refuses a mismatch (the host says one slug, the bundle
+  // declares another), but it refuses it in a visitor's browser: the world posts
+  // a `failed` message and renders nothing. So a one-character typo passed CI,
+  // passed review and shipped, and the first evidence was a blank frame in
+  // production. Games have checked this since they existed; worlds did not.
+  //
+  // Read rather than imported: the entry is browser code that calls `defineWorld`
+  // at module scope, and importing it under Node would boot a world with no
+  // `window`.
+  const entrySrc = await readFile(path.join(dir, manifest.entry), 'utf8')
+  const declared = /\bmeta\s*:\s*\{[^}]*\btype\s*:\s*['"`]([^'"`]+)['"`]/.exec(entrySrc)?.[1]
+  if (declared === undefined) {
+    throw new Error(
+      `could not find \`meta: { type: '...' }\` in ${manifest.entry} — every world's default export is defineWorld({ meta: { type }, mount })`,
+    )
+  }
+  if (declared !== manifest.type) {
+    throw new Error(`manifest.type '${manifest.type}' != meta.type '${declared}' in ${manifest.entry}`)
+  }
+
   const html = worldHtml(js, manifest.displayName)
   const bytes = Buffer.byteLength(html, 'utf8')
   if (bytes > MAX_HTML_BYTES) {
@@ -244,11 +286,20 @@ export async function validateWorlds(): Promise<number> {
   const dirs = (await readdir(WORLDS_DIR, { withFileTypes: true })).filter((d) => d.isDirectory())
   let ok = 0
   const failures: string[] = []
+  // Two worlds claiming one `type` is not caught by anything else: they overwrite
+  // each other's `dist/worlds/<type>.html`, land in `index.json` as two entries
+  // with the same key, and leave `/worlds/<type>` meaning whichever the backend
+  // read last. The game-type check above cannot see it — both sides are worlds.
+  const seen = new Map<string, string>()
   for (const d of dirs) {
     const dir = path.join(WORLDS_DIR, d.name)
     if (!existsSync(path.join(dir, 'world.manifest.json'))) continue
     try {
-      console.log(`✓ ${await validateWorld(dir, gameTypes, validateManifest)} — manifest + storage + self-contained build OK`)
+      const type = await validateWorld(dir, gameTypes, validateManifest)
+      const owner = seen.get(type)
+      if (owner) throw new Error(`type '${type}' is already declared by worlds/${owner}`)
+      seen.set(type, d.name)
+      console.log(`✓ ${type} — manifest + storage + self-contained build OK`)
       ok++
     } catch (err) {
       failures.push(`✗ ${d.name}: ${(err as Error).message}`)

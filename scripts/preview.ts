@@ -18,6 +18,7 @@ import http from 'node:http'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { readFile } from 'node:fs/promises'
+import { existsSync } from 'node:fs'
 import esbuild from 'esbuild'
 import type { Action } from '@arena/game-sdk'
 import { simMatch } from './sim.js'
@@ -104,6 +105,16 @@ async function main() {
     console.error('Usage: pnpm preview <slug> [--port N] [--pace strategy|turn-based] [--seed N] [--script file.json]')
     process.exit(1)
   }
+  // This repo publishes two kinds of thing and each has its own previewer.
+  // Without this check, asking for a world here fails deep inside the sim with
+  // an ENOENT for `games/<slug>/game.manifest.json` — a stack trace that names a
+  // missing file rather than the wrong command, and one that arrives in the
+  // BROWSER (the sim runs per request), so the terminal looks perfectly healthy.
+  if (!existsSync(path.join(ROOT, 'games', slug)) && existsSync(path.join(ROOT, 'worlds', slug))) {
+    console.error(`'${slug}' is a world, not a game.\n\n  pnpm preview-world ${slug}\n`)
+    process.exit(1)
+  }
+
   const flag = (name: string) => {
     const i = rest.indexOf(name)
     return i >= 0 ? rest[i + 1] : undefined

