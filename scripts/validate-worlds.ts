@@ -140,6 +140,24 @@ async function validateWorld(dir: string, gameTypes: Set<string>, validateManife
     }
   }
 
+  // A declared model capability spends the VISITOR's NetMind balance, and
+  // `purpose` is the entire text they are shown before agreeing to that. The
+  // schema already enforces a length; what it cannot check is whether the string
+  // says anything. A placeholder here is not a style problem — it is asking
+  // someone to approve a charge without telling them what for.
+  const purpose = manifest.capabilities?.ai?.purpose?.trim() ?? ''
+  if (manifest.capabilities?.ai) {
+    if (/^(ai|llm|model|chat|ai features?|llm features?)$/i.test(purpose)) {
+      throw new Error(
+        `capabilities.ai.purpose is a placeholder ('${purpose}') — it is shown verbatim to the visitor ` +
+          `who is being asked to spend their own NetMind credit, so it must say what the model actually does`,
+      )
+    }
+    if (!purpose.includes(' ')) {
+      throw new Error(`capabilities.ai.purpose must be a phrase, not a single word ('${purpose}')`)
+    }
+  }
+
   for (const [name, spec] of Object.entries(manifest.storage?.collections ?? {})) {
     // The JSON Schema already requires maxRecordBytes; restate the intent so the
     // failure explains itself rather than pointing at a schema path.

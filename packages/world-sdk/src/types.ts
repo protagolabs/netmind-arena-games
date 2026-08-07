@@ -248,6 +248,75 @@ export interface LocalStore {
   del(key: string): Promise<void>
 }
 
+/* ────────────────────────────── model access ────────────────────────────── */
+
+/** One piece of a message or a reply. `tool_result` only ever travels inbound. */
+export type AiBlock =
+  | { type: 'text'; text: string }
+  | { type: 'tool_use'; id: string; name: string; input: Json }
+  | { type: 'tool_result'; tool_use_id: string; content: Json }
+
+export interface AiMessage {
+  role: 'user' | 'assistant'
+  /** A plain string for ordinary turns; blocks when handing tool results back. */
+  content: string | AiBlock[]
+}
+
+/** A function the model may call. `input_schema` is JSON Schema for its arguments. */
+export interface AiTool {
+  name: string
+  description?: string
+  input_schema: JsonSchema
+}
+
+export interface AiRequest {
+  /** Instructions that frame the whole exchange. Not a message. */
+  system?: string
+  messages: AiMessage[]
+  tools?: AiTool[]
+  /** Clamped by the manifest's declared cap and then by the platform's. */
+  maxTokens?: number
+}
+
+export interface AiReply {
+  content: AiBlock[]
+  /** `tool_use` means the model wants a result back — reply and call again. */
+  stopReason: 'end_turn' | 'tool_use' | 'max_tokens' | 'stop_sequence' | null
+}
+
+/**
+ * A model, reached through the platform. The world never sees a key, and never
+ * chooses the model — Arena does, per deployment.
+ *
+ * ## Who pays
+ *
+ * The SIGNED-IN VISITOR does, from their own NetMind account. Not Arena, and not
+ * you. Two consequences worth designing around:
+ *
+ *  - **Signing in is required.** A signed-out visitor gets `unauthenticated`,
+ *    because there is no account to bill. This is the normal state of a world
+ *    someone has just opened, not an error condition.
+ *  - **Spend it like it is someone else's money, because it is.** A call inside
+ *    an animation frame, or a tool loop with no termination, spends a stranger's
+ *    balance. The platform rate-limits per visitor per world for exactly this,
+ *    and `rate-limited` is what a runaway loop feels like from in here.
+ *
+ * ## It can always be absent
+ *
+ * `ctx.ai` is `null` when the world's manifest declares no `capabilities.ai`, or
+ * when the deployment has model access switched off. A world MUST still work
+ * then — the type makes you handle it rather than trusting a paragraph of docs.
+ *
+ * ```ts
+ * const reply = await ctx.ai?.chat({ messages: [{ role: 'user', content: text }] })
+ *   .catch(() => null)
+ * if (!reply) showTheNonModelVersion()
+ * ```
+ */
+export interface WorldAi {
+  chat(request: AiRequest): Promise<AiReply>
+}
+
 /**
  * Everything a world can do. Injected — mirroring the games SDK's `ctx`, where
  * the only route to the outside is a capability the platform handed you.
@@ -273,6 +342,12 @@ export interface WorldCtx {
   collection<T = Json>(name: string): Collection<T>
 
   readonly local: LocalStore
+
+  /**
+   * A model, or `null` when this world did not declare one or the platform
+   * cannot serve it. See {@link WorldAi} — it spends the VISITOR's credit.
+   */
+  readonly ai: WorldAi | null
 
   /**
    * Resolve a path under the world's `assets/` directory to a usable URL.
@@ -412,6 +487,26 @@ export interface WorldQuota {
   writesPerHourPerAuthor?: number
 }
 
+/** Model access, as declared in the manifest. See {@link WorldManifest.capabilities}. */
+export interface WorldAiCapability {
+  /**
+   * One line, in English, saying what the model is for — "reads tactical orders
+   * and adjusts player policy", not "AI features".
+   *
+   * The host page shows this VERBATIM when it asks the visitor to approve
+   * spending their own NetMind credit, so it is the whole basis on which they
+   * decide. A world that declares `ai` without a usable purpose is refused the
+   * capability rather than granted a silent one.
+   */
+  purpose: string
+  /** Your own per-call output ceiling. Can only narrow the platform's, never raise it. */
+  maxTokens?: number
+}
+
+export interface WorldCapabilities {
+  ai?: WorldAiCapability
+}
+
 export interface WorldPresentation {
   /**
    * `fullscreen` gets its own `/worlds/<type>` route — required for immersive,
@@ -475,6 +570,18 @@ export interface WorldManifest {
     collections: Record<string, CollectionSpec>
     quota?: WorldQuota
   }
+
+  /**
+   * What this world reaches for beyond storage. Omit and `ctx.ai` is `null`.
+   *
+   * Declaring is not the same as being granted: the platform's own switch and
+   * the visitor's session still decide whether a call happens. What the
+   * declaration buys is that the intent is knowable BEFORE the world runs —
+   * review can see what a world wants a model for, and the host page can tell a
+   * visitor what they are about to spend their own credit on. Neither is
+   * possible if the first evidence is a request already in flight.
+   */
+  capabilities?: WorldCapabilities
 
   presentation: WorldPresentation
   /** Path to a markdown intro, published alongside the world. */

@@ -112,6 +112,15 @@ const harness = /* html */ `<!doctype html>
     <option value="de">Deutsch</option>
     <option value="pt">Português</option>
   </select>
+  ${
+    manifest.capabilities?.ai
+      ? `<select id="ai" title="ctx.ai — no real model runs locally">
+    <option value="stub">model: stub</option>
+    <option value="off">model: off</option>
+    <option value="limited">model: rate-limited</option>
+  </select>`
+      : ''
+  }
   <button id="wipe">wipe store</button>
   <span id="log"></span>
 </div>
@@ -132,6 +141,8 @@ const saveLocal = () => localStorage.setItem('preview-local:' + MANIFEST.type, J
 let me = { id: 'hu_you', kind: 'human', name: 'You', avatar: null }
 let theme = dark()
 let lang = 'zh'
+/** 'stub' | 'off' | 'limited' — see the ai.chat case in ops(). */
+let aiMode = 'stub'
 
 function dark() {
   return { mode:'dark', bg:'#0b0b0f', surface:'#16161a', fg:'#f5f5f5', fgSubtle:'#a1a1aa',
@@ -197,9 +208,35 @@ function cmp(op, a, b) {
 
 function ops(name, op, args) {
   const spec = COLLECTIONS[name]
-  if (op.indexOf('local.') !== 0 && !spec) throw fail('not-found', "collection '" + name + "' is not declared")
+  if (op.indexOf('local.') !== 0 && op.indexOf('ai.') !== 0 && !spec)
+    throw fail('not-found', "collection '" + name + "' is not declared")
 
   switch (op) {
+    /**
+     * A stub verdict, never a real model.
+     *
+     * On Arena this spends the VISITOR's NetMind balance, and a local harness
+     * that quietly charged someone every time an author reloaded would be a
+     * trap. So it answers in the right SHAPE — content blocks and a stopReason —
+     * and says plainly that it is a stub.
+     *
+     * Which means the thing to test here is the shape and the failure paths, not
+     * the model's judgement. The model selector in the top bar switches
+     * between three answers, and the two that are not "ok" are the ones worth
+     * your attention: a world MUST stay usable when the visitor is signed out or
+     * declines, and that is the state most visitors arrive in.
+     */
+    case 'ai.chat': {
+      if (aiMode === 'off') throw fail('unauthenticated', 'sign in to use model features (preview: model = off)')
+      if (aiMode === 'limited') throw fail('rate-limited', 'preview: simulated rate limit', 30)
+      if (!me.id) throw fail('unauthenticated', 'this action requires an identity')
+      const asked = (args.messages || []).filter(m => m.role === 'user').pop()
+      const text = typeof (asked || {}).content === 'string' ? asked.content : '(structured message)'
+      return {
+        content: [{ type: 'text', text: '[preview stub] no model runs locally. You asked: ' + text }],
+        stopReason: 'end_turn',
+      }
+    }
     case 'get': {
       const r = live(name).find(r => r.id === args.id)
       return r ? view(r) : null
@@ -290,7 +327,12 @@ function sendInit() {
   for (const name of Object.keys(COLLECTIONS)) seed[name] = ops(name, 'list', { limit: 50 })
   post({ type: 'init',
          world: { type: MANIFEST.type, displayName: MANIFEST.displayName, schemaVersion: MANIFEST.schemaVersion },
-         me: me.id ? me : null, theme, lang, assets: ASSETS, seed })
+         me: me.id ? me : null, theme, lang, assets: ASSETS, seed,
+         // Mirrors the platform: ctx.ai exists only for a world that declared
+         // it AND a deployment that can serve it. Setting model to off is how
+         // an author sees the second half of that — the version of their world a
+         // signed-out visitor gets, which is most of them.
+         capabilities: { ai: !!(MANIFEST.capabilities && MANIFEST.capabilities.ai) && aiMode !== 'off' } })
 }
 
 window.addEventListener('message', (e) => {
@@ -340,6 +382,15 @@ document.getElementById('theme').onclick = () => { theme = theme.mode === 'dark'
 const langSel = document.getElementById('lang')
 langSel.value = lang
 langSel.onchange = () => { lang = langSel.value; sendEnv() }
+const aiSel = document.getElementById('ai')
+if (aiSel) {
+  aiSel.value = aiMode
+  // Reload rather than re-post env: whether ctx.ai exists at all is decided
+  // in init, exactly as it is on the platform, so switching this has to start
+  // the world over — which is also the honest way to see what a visitor who
+  // arrives signed out actually gets.
+  aiSel.onchange = () => { aiMode = aiSel.value; frame.contentWindow.location.reload() }
+}
 document.getElementById('wipe').onclick = () => { rows = []; save(); for (const k of Object.keys(local)) delete local[k]; saveLocal(); frame.contentWindow.location.reload() }
 </script>
 <script src="/ajv.js"></script>

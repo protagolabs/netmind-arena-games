@@ -53,6 +53,8 @@ export interface WorldIndexEntry {
   schemaVersion: number
   supportedSchemaVersions: number[]
   storage: WorldManifest['storage'] | null
+  /** What the world reaches for beyond storage; `null` when it declares nothing. */
+  capabilities: WorldManifest['capabilities'] | null
   presentation: WorldManifest['presentation']
   aboutMarkdown: string | null
   /** Optional attribution; `null` when the manifest declares none. */
@@ -275,6 +277,7 @@ export async function buildWorlds(dist: string): Promise<WorldIndexEntry[]> {
       schemaVersion: manifest.schemaVersion,
       supportedSchemaVersions: manifest.supportedSchemaVersions,
       storage: manifest.storage ?? null,
+      capabilities: manifest.capabilities ?? null,
       presentation: manifest.presentation,
       aboutMarkdown,
       credits: manifest.credits ?? null,

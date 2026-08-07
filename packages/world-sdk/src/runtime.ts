@@ -19,10 +19,13 @@ import {
   type WorldOp,
 } from './protocol.js'
 import type {
+  AiReply,
+  AiRequest,
   ChangeEvent,
   Collection,
   Json,
   LocalStore,
+  WorldAi,
   Page,
   Rec,
   Unsubscribe,
@@ -367,6 +370,21 @@ function makeAudio(): () => Promise<AudioContext> {
 
 /* ─────────────────────────── boot ─────────────────────────── */
 
+/**
+ * The model handle, or `null` when the host says this deployment cannot serve
+ * one.
+ *
+ * Built from `init.capabilities` rather than attempted-and-caught: a world that
+ * has no model should be able to draw itself differently at mount, not discover
+ * it when a visitor presses something.
+ */
+function makeAi(transport: Transport, available: boolean): WorldAi | null {
+  if (!available) return null
+  return {
+    chat: (request: AiRequest) => transport.request<AiReply>('ai.chat', undefined, { ...request }),
+  }
+}
+
 function makeLocal(transport: Transport): LocalStore {
   return {
     get: <T = Json>(key: string) => transport.request<T | null>('local.get', undefined, { key }),
@@ -414,6 +432,7 @@ export async function boot(def: WorldDefinition): Promise<void> {
   const declared = new Set(Object.keys(init.seed))
   const audio = makeAudio()
   const local = makeLocal(transport)
+  const ai = makeAi(transport, init.capabilities?.ai === true)
 
 
   const ctx: WorldCtx = {
@@ -444,6 +463,8 @@ export async function boot(def: WorldDefinition): Promise<void> {
     },
 
     local,
+
+    ai,
 
     asset(path) {
       const key = path.replace(/^\.?\/+/, '')

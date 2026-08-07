@@ -99,8 +99,33 @@ export interface Ctx {
   actor: AgentId
   /** External data Arena pre-fetched and injected (prices, image URLs, …). */
   oracle(key: string): unknown
-  /** LLM judge via Arena's model (author never sees keys). */
-  judge(prompt: string): Promise<string>
+  /**
+   * Ask Arena's model about something the rules cannot decide alone, and get the
+   * answer back — synchronously.
+   *
+   * Synchronous because it has to be: `init`, `play`, `apply`, `reduce` and
+   * `score` are all sync, so there is nowhere in author code to `await`. The
+   * platform blocks the sandbox thread while it makes the call, and the string
+   * arrives as an ordinary return value.
+   *
+   * Three things follow from what this is:
+   *
+   *  - **It breaks determinism, and that is the point of the rest of the ctx.**
+   *    Everything else here — the seeded `random`, the banned clock — exists so a
+   *    match can be replayed and a disputed result checked. A model does not
+   *    answer the same way twice. Arena records every verdict with the match, so
+   *    a re-settle replays them and the result can be AUDITED; it cannot promise
+   *    the same match would have gone the same way if run again from scratch.
+   *  - **Arena pays**, so a match has a hard call budget. Past it, this THROWS.
+   *    Catch it and decide the move on your own rules, or let the settle fail
+   *    loudly — but do not score as if a verdict came back.
+   *  - **It is off unless the deployment enables it.** Calling it where it is not
+   *    available throws too.
+   *
+   * Keep prompts small and self-contained. The whole game state is rarely the
+   * question, and it is billed by the token.
+   */
+  judge(prompt: string): string
   /** Mark an action illegal with a stable code; throws. */
   reject(code: string): never
 }

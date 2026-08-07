@@ -162,6 +162,59 @@ things follow from that:
 - For a signed-in visitor it follows them across devices, because it lives on the
   platform rather than in one browser.
 
+### `ctx.ai` — a model, paid for by the visitor
+
+Declare it in the manifest, and say what it is for:
+
+```json
+"capabilities": {
+  "ai": { "purpose": "reads tactical orders and adjusts player policy", "maxTokens": 900 }
+}
+```
+
+Then call it:
+
+```ts
+const reply = await ctx.ai!.chat({
+  system: 'You are a football tactics coach. Answer only by calling the tool.',
+  messages: [{ role: 'user', content: 'push up, but do not dive under the tower' }],
+  tools: [{ name: 'set_tactics', input_schema: { /* JSON Schema */ } }],
+})
+for (const block of reply.content) {
+  if (block.type === 'tool_use') apply(block.input)
+}
+```
+
+Anthropic Messages shape, non-streaming. `stopReason === 'tool_use'` means the
+model is waiting for a result — push a `tool_result` block back and call again.
+
+**The signed-in visitor pays, from their own NetMind account.** Not Arena, and
+not you. Everything else here follows from that one fact:
+
+- **Signing in is required.** A signed-out visitor gets `unauthenticated`. That
+  is the normal state of a world someone just opened, not a failure.
+- **The first call asks permission.** The host page — not the world — shows the
+  visitor your `purpose` and asks them to approve spending their credit. They may
+  decline, and then every call fails.
+- **`ctx.ai` can be `null`**, when the manifest declares nothing or the
+  deployment has model access switched off. The type makes you handle it.
+- **Spend it like it is someone else's money.** A call inside an animation frame,
+  or a tool loop that never terminates, drains a stranger's balance. The platform
+  rate-limits per visitor per world, and `rate-limited` is what a runaway loop
+  feels like from in here.
+
+So a world **must stay usable with no model at all**. This is not a courtesy —
+signed out, declined, rate-limited and switched-off are four ordinary states, and
+between them they are most of the ways a visitor meets your world.
+`worlds/predictmy` is the worked example: its tactics chat calls a model when it
+can, and otherwise falls through to the rule parser the original site shipped, so
+the same orders still move the same numbers.
+
+You do not choose the model — Arena does, per deployment — and you never see a
+key. What you send is yours: free-form `system`, `messages` and `tools`. That
+freedom exists precisely BECAUSE the visitor pays; there is no shared budget for
+a prompt to drain.
+
 ### `ctx.onVisitor` — identity can change mid-session
 
 `ctx.me` is not fixed. Someone can open a world signed out and sign in without

@@ -634,6 +634,54 @@ describe('assets', () => {
   })
 })
 
+/* ─────────────────────────── model access ─────────────────────────── */
+
+describe('ctx.ai', () => {
+  it('is null when the host announces no capabilities', async () => {
+    const ctx = await bootWorld()
+    expect(ctx.ai).toBeNull()
+  })
+
+  it('is null when the host announces ai: false', async () => {
+    // The deployment can have model access switched off even for a world whose
+    // manifest declares it, so `capabilities` present is not the same as granted.
+    const ctx = await bootWorld({ capabilities: { ai: false } })
+    expect(ctx.ai).toBeNull()
+  })
+
+  it('sends an ai.chat request with no collection', async () => {
+    const ctx = await bootWorld({ capabilities: { ai: true } })
+    void ctx.ai!.chat({ messages: [{ role: 'user', content: 'hi' }], maxTokens: 100 })
+    await settle()
+    expect(host.lastRequest()).toMatchObject({
+      op: 'ai.chat',
+      collection: undefined,
+      args: { messages: [{ role: 'user', content: 'hi' }], maxTokens: 100 },
+    })
+  })
+
+  it('surfaces unauthenticated as a typed error the world can fall back from', async () => {
+    // The single most common outcome in practice: nobody is signed in, so there
+    // is no account to bill. A world has to be able to tell that apart from a
+    // transport failure, because only one of the two is worth retrying.
+    const ctx = await bootWorld({ capabilities: { ai: true } })
+    const call = ctx.ai!.chat({ messages: [{ role: 'user', content: 'hi' }] })
+    await settle()
+    const id = Number(host.lastRequest()!.id)
+    host.replyError(id, { code: 'unauthenticated', message: 'sign in to do that' })
+    await expect(call).rejects.toMatchObject({ code: 'unauthenticated' })
+  })
+
+  it('surfaces rate-limited with its retry hint', async () => {
+    const ctx = await bootWorld({ capabilities: { ai: true } })
+    const call = ctx.ai!.chat({ messages: [{ role: 'user', content: 'hi' }] })
+    await settle()
+    const id = Number(host.lastRequest()!.id)
+    host.replyError(id, { code: 'rate-limited', message: 'slow down', retryAfterSec: 42 })
+    await expect(call).rejects.toMatchObject({ code: 'rate-limited', retryAfterSec: 42 })
+  })
+})
+
 describe('teardown', () => {
   it('runs unmount when the document goes away', async () => {
     let torn = 0
