@@ -267,9 +267,16 @@ function ops(name, op, args) {
     }
     case 'count': {
       let items = live(name)
-      if (args.mine) items = items.filter(r => r.author.id === me.id)
-      for (const [p, f] of Object.entries(args.where || {}))
-        for (const [o, v] of Object.entries(f)) items = items.filter(r => cmp(o, readPath(r, p), v))
+      if (args.mine) { if (!me.id) throw fail('unauthenticated', 'mine=true needs an identity'); items = items.filter(r => r.author.id === me.id) }
+      for (const [p, f] of Object.entries(args.where || {})) {
+        // Same index rule as `list`. Without it, a `where` that counts fine
+        // locally fails `invalid` on the platform — and it fails on the ONE call
+        // an author is least likely to have a fallback for.
+        if (p !== 'createdAt' && p !== 'updatedAt' && !(spec.indexes || []).includes(p)) {
+          throw fail('invalid', "'" + p + "' is not an indexed field (declare it in the manifest's indexes)")
+        }
+        for (const [o, v] of Object.entries(f)) items = items.filter(r => cmp(o, p === 'createdAt' || p === 'updatedAt' ? r[p] : readPath(r, p), v))
+      }
       return items.length
     }
     case 'add': {
@@ -305,8 +312,17 @@ function ops(name, op, args) {
       return view(rec)
     }
     case 'del': {
+      // `write: 'none'` means append-only, and append-only has to include delete
+      // — otherwise the collection is not append-only, it is just awkward to
+      // edit. This mirrored `put`/`patch` incorrectly: locally a world could
+      // delete from an append-only collection and the platform would refuse it.
+      if (spec.write === 'none') throw fail('forbidden', "collection '" + name + "' is append-only")
       const rec = live(name).find(r => r.id === args.id)
       if (!rec) throw fail('not-found', 'record not found')
+      // An anonymous visitor has no records of their own to delete, so on
+      // `write: 'anyone'` the id check below passed vacuously and let them delete
+      // everyone else's.
+      if (!me.id) throw fail('unauthenticated', 'this action requires an identity')
       if (spec.write !== 'anyone' && rec.author.id !== me.id) throw fail('forbidden', 'you can only modify your own records')
       rec.deletedAt = new Date().toISOString(); save()
       return null
@@ -318,7 +334,33 @@ function ops(name, op, args) {
   throw fail('forbidden', 'operation not permitted')
 }
 
-const frame = document.getElementById('frame')
+let frame = document.getElementById('frame')
+const DOC = frame.getAttribute('srcdoc')
+
+/**
+ * Restart the world by replacing the iframe, NOT by reloading it.
+ *
+ * \`frame.contentWindow.location.reload()\` is the obvious thing and it does not
+ * work here: the frame is \`sandbox="allow-scripts"\` with no
+ * \`allow-same-origin\`, so its document has an opaque origin and is cross-origin
+ * to this page. A cross-origin \`Location\` exposes only the \`href\` setter and
+ * \`replace()\`; \`reload()\` throws SecurityError. That threw inside three button
+ * handlers — switch identity, switch model mode, wipe store — so all three
+ * looked like they did nothing, which is the worst way for a preview harness to
+ * be wrong.
+ *
+ * Rebuilding the element re-runs the world from its first line, which is exactly
+ * what these three need: identity changes what \`mine\` means on every record, and
+ * whether \`ctx.ai\` exists at all is decided in \`init\`.
+ */
+function remount() {
+  const next = document.createElement('iframe')
+  next.id = 'frame'
+  next.setAttribute('sandbox', 'allow-scripts')
+  next.srcdoc = DOC
+  frame.replaceWith(next)
+  frame = next
+}
 
 function post(msg) { frame.contentWindow.postMessage(Object.assign({ [CH]: true }, msg), '*') }
 
@@ -358,9 +400,9 @@ window.addEventListener('message', (e) => {
 document.getElementById('who').onchange = (e) => {
   const [id, kind, name] = e.target.value.split('|')
   me = { id, kind, name: name || 'anonymous', avatar: null }
-  // Identity changes what 'mine' means on every record, so reload the world
+  // Identity changes what 'mine' means on every record, so restart the world
   // rather than trying to patch its state from outside.
-  frame.contentWindow.location.reload()
+  remount()
   setTimeout(() => log('now acting as ' + me.name), 100)
 }
 /**
@@ -385,13 +427,13 @@ langSel.onchange = () => { lang = langSel.value; sendEnv() }
 const aiSel = document.getElementById('ai')
 if (aiSel) {
   aiSel.value = aiMode
-  // Reload rather than re-post env: whether ctx.ai exists at all is decided
+  // Restart rather than re-post env: whether ctx.ai exists at all is decided
   // in init, exactly as it is on the platform, so switching this has to start
   // the world over — which is also the honest way to see what a visitor who
   // arrives signed out actually gets.
-  aiSel.onchange = () => { aiMode = aiSel.value; frame.contentWindow.location.reload() }
+  aiSel.onchange = () => { aiMode = aiSel.value; remount() }
 }
-document.getElementById('wipe').onclick = () => { rows = []; save(); for (const k of Object.keys(local)) delete local[k]; saveLocal(); frame.contentWindow.location.reload() }
+document.getElementById('wipe').onclick = () => { rows = []; save(); for (const k of Object.keys(local)) delete local[k]; saveLocal(); remount() }
 </script>
 <script src="/ajv.js"></script>
 </body></html>`

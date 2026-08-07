@@ -23,7 +23,10 @@ jobs:
           version: 9.15.9
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # Matches package.json `engines.node`. Running CI a major version below
+          # what the repo declares means every author develops against a runtime
+          # the gate never exercises.
+          node-version: 22
           cache: pnpm
       - name: Install deps
         # Prefer the committed lockfile for reproducibility. But an external game
@@ -33,6 +36,14 @@ jobs:
         # is stale, regenerate it in-job (NOT committed) so the game can still be
         # validated. The fallback reuses existing pinned resolutions and only adds
         # the missing importer, so already-locked deps stay pinned.
+        #
+        # The fallback is what makes install lifecycle scripts worth thinking
+        # about: a submission PR may freely edit games/<slug>/package.json and
+        # worlds/<slug>/package.json (path-guard stops infra edits, not dependency
+        # edits), so a PR can name any dependency and the non-frozen path will
+        # fetch it. Root package.json's `pnpm.onlyBuiltDependencies` allowlists
+        # which packages may run scripts at all, so that fetch is not also a
+        # code-execution primitive handed out before any gate has run.
         run: pnpm install --frozen-lockfile || pnpm install --no-frozen-lockfile
       - name: Typecheck (SDK + all games)
         run: pnpm -r typecheck

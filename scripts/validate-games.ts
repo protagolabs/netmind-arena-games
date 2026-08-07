@@ -5,7 +5,8 @@
  *
  * Per game it checks:
  *   1. manifest ↔ meta.type agreement + required manifest fields
- *   2. source has no disallowed patterns (eval/require/globalThis/Date/…)
+ *   2. the code that actually SHIPS (esbuild's module graph from `entry`, not a
+ *      directory) has no disallowed patterns (eval/require/globalThis/Date/…)
  *   3. determinism + termination + score-bounds over N seeds (testkit)
  *
  * Run: `pnpm validate`  (exits non-zero on any failure)
@@ -17,6 +18,7 @@ import path from 'node:path'
 import { assertMatchSane, clampParams } from '@arena/game-sdk'
 import type { GameDefinition } from '@arena/game-sdk'
 import { validateWorlds } from './validate-worlds.js'
+import { bundleGameWithInputs } from './build-bundles.js'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const GAMES_DIR = path.join(ROOT, 'games')
@@ -51,13 +53,36 @@ interface Manifest {
   pace: string
 }
 
-async function scanSources(dir: string): Promise<void> {
-  for (const e of await readdir(dir, { withFileTypes: true })) {
-    const full = path.join(dir, e.name)
-    if (e.isDirectory()) await scanSources(full)
-    else if (e.name.endsWith('.ts') && !e.name.endsWith('.test.ts')) {
-      const src = await readFile(full, 'utf8')
-      for (const p of DANGEROUS) if (p.test(src)) throw new Error(`${full}: disallowed pattern ${p.source}`)
+/**
+ * Scan the files the BUNDLE contains, not a directory.
+ *
+ * `games/<slug>/src/` made this gate opt-in: `manifest.entry` is only required to
+ * exist, so a game with its logic at the package root — or under `lib/` — was
+ * never scanned at all, which is exactly the shape a submission would take to
+ * dodge the check. A game's scores become credits, so that hole was the more
+ * expensive of the two; `validate-worlds` closed the identical one first and this
+ * follows it.
+ *
+ * `packages/` is skipped: the SDK is maintainer code, reviewed on its own, and it
+ * legitimately contains things this list forbids in author logic. Anything an
+ * author vendors lives under `games/<slug>/` and IS scanned.
+ */
+async function scanBundleInputs(inputs: string[]): Promise<void> {
+  for (const full of inputs) {
+    if (!/\.(ts|tsx|js|mjs)$/.test(full) || full.includes('.test.')) continue
+    if (full.includes(`${path.sep}node_modules${path.sep}`)) continue
+    if (full.startsWith(path.join(ROOT, 'packages') + path.sep)) continue
+
+    // Strip comments first. A comment explaining WHY a game must not reach for
+    // `Math.random` is the documentation this rule wants to exist, and failing
+    // the build for it teaches authors to delete the explanation. (Worlds have
+    // stripped comments since their scanner was written; games did not, so the
+    // two gates disagreed about the same sentence.)
+    const src = (await readFile(full, 'utf8'))
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/(^|[^:])\/\/.*$/gm, '$1')
+    for (const p of DANGEROUS) {
+      if (p.test(src)) throw new Error(`${path.relative(ROOT, full)}: disallowed pattern ${p.source}`)
     }
   }
 }
@@ -69,8 +94,9 @@ async function validateGame(dir: string): Promise<string> {
   }
   if (!/^[a-z0-9-]+$/.test(manifest.type)) throw new Error(`${dir}: type must be kebab-case`)
 
-  const srcDir = path.join(dir, 'src')
-  if (existsSync(srcDir)) await scanSources(srcDir)
+  if (!existsSync(path.join(dir, manifest.entry))) throw new Error(`${dir}: entry '${manifest.entry}' not found`)
+  const { inputs } = await bundleGameWithInputs(path.join(dir, manifest.entry))
+  await scanBundleInputs(inputs)
 
   const mod = (await import(path.join(dir, manifest.entry))) as { default: GameDefinition<unknown, Record<string, number>> }
   const def = mod.default

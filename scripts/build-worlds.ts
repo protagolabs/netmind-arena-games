@@ -47,7 +47,22 @@ export interface WorldIndexEntry {
   slug: string
   displayName: string
   sdkVersion: string
+  /** sha256 of `html`. Pins the code that runs in the visitor's browser. */
   contentHash: string
+  /**
+   * sha256 of EVERYTHING this world ships in the index — the document plus the
+   * cover, assets, about text, storage rules, capabilities, credits and
+   * presentation.
+   *
+   * `contentHash` cannot do this job: it covers the document alone, and a world's
+   * shipped surface is much wider than its code. Raising `maxRecordBytes`,
+   * rewriting `about.md`, redrawing the cover or changing the `ai.purpose` a
+   * visitor is asked to approve are all real, published changes that leave the
+   * document byte-identical — so a release gate watching `contentHash` saw
+   * nothing and shipped nothing. This is the world-side counterpart of
+   * `rulesContentHash`, which exists on games for exactly the same reason.
+   */
+  releaseHash: string
   /** The whole document, inlined. */
   html: string
   schemaVersion: number
@@ -165,7 +180,12 @@ export async function bundleWorldWithInputs(
  * depth, since a response-header CSP does not apply to srcdoc documents.
  */
 export function worldHtml(js: string, displayName: string): string {
-  const safe = js.replace(/<\/script>/gi, '<\\/script>')
+  // `</script` ends a script element when followed by whitespace, `/` or `>` —
+  // not only by `>`. Matching the full `</script>` therefore let `</script foo>`
+  // and `</script\n>` through, and either one closes the tag early and spills the
+  // rest of the bundle into the document as markup. Match the OPENING of the end
+  // tag instead and let the terminator be whatever it is.
+  const safe = js.replace(/<\/(script)/gi, '<\\/$1')
   const title = displayName.replace(/[<>&]/g, '')
   return `<!doctype html><html><head><meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: https:; media-src data: https:; font-src data:; connect-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'">
@@ -240,6 +260,26 @@ async function readCover(dir: string, rel: string): Promise<string> {
   return `data:${mimeOf(full)};base64,${buf.toString('base64')}`
 }
 
+/**
+ * Hash every shipped field of an entry, with object keys sorted at every level.
+ *
+ * Sorting matters because the manifest's key order is whatever the author typed:
+ * without it, reformatting `world.manifest.json` — reordering two properties,
+ * running a formatter — would change the hash and cut a release that ships
+ * nothing new. `releaseHash` is excluded because it is the output.
+ */
+function hashEntry(entry: WorldIndexEntry): string {
+  const canonical = JSON.stringify(entry, (key, value) => {
+    if (key === 'releaseHash') return undefined
+    return value && typeof value === 'object' && !Array.isArray(value)
+      ? Object.fromEntries(
+          Object.entries(value as Record<string, unknown>).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)),
+        )
+      : value
+  })
+  return createHash('sha256').update(canonical).digest('hex')
+}
+
 export async function buildWorlds(dist: string): Promise<WorldIndexEntry[]> {
   if (!existsSync(WORLDS_DIR)) return []
   await mkdir(path.join(dist, 'worlds'), { recursive: true })
@@ -267,12 +307,14 @@ export async function buildWorlds(dist: string): Promise<WorldIndexEntry[]> {
         ? await readFile(path.join(dir, manifest.about), 'utf8')
         : null
 
-    entries.push({
+    const entry: WorldIndexEntry = {
       type: manifest.type,
       slug: d.name,
       displayName: manifest.displayName,
       sdkVersion: manifest.sdkVersion ?? '0.0.0',
       contentHash,
+      // Filled in below, once every other field is known.
+      releaseHash: '',
       html,
       schemaVersion: manifest.schemaVersion,
       supportedSchemaVersions: manifest.supportedSchemaVersions,
@@ -283,7 +325,9 @@ export async function buildWorlds(dist: string): Promise<WorldIndexEntry[]> {
       credits: manifest.credits ?? null,
       cover: await readCover(dir, manifest.presentation.cover),
       assets: await readAssets(dir),
-    })
+    }
+    entry.releaseHash = hashEntry(entry)
+    entries.push(entry)
 
     const collections = Object.keys(manifest.storage?.collections ?? {})
     console.log(

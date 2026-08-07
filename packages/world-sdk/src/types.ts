@@ -559,9 +559,13 @@ export interface WorldManifest {
    */
   schemaVersion: number
   /**
-   * Every version this build can still RENDER, including `schemaVersion`. A world
-   * outlives its own releases: data written months ago must keep drawing, so CI
-   * rejects a release that drops support for a version already in the store.
+   * Every version this build can still RENDER, including `schemaVersion`.
+   *
+   * A world outlives its own releases: data written months ago must keep drawing.
+   * CI enforces the half of that it can see — this list must contain
+   * `schemaVersion`, so a build can always read back what it writes. It cannot
+   * enforce the other half, because the gate runs on a PR with no access to the
+   * store: dropping a version that live records still use is caught by review.
    */
   supportedSchemaVersions: number[]
 

@@ -36,7 +36,7 @@
       "minimum": 1
     },
     "supportedSchemaVersions": {
-      "description": "Every version this build can still render, including schemaVersion. A world is perpetual — its data outlives its releases — so CI rejects dropping a version that already exists in the store.",
+      "description": "Every version this build can still render, including schemaVersion. A world is perpetual — its data outlives its releases. CI enforces that this list contains schemaVersion; whether a dropped version still has live records is a review question, because the gate runs on a PR with no access to the store.",
       "type": "array",
       "items": { "type": "integer", "minimum": 1 },
       "minItems": 1,

@@ -136,7 +136,13 @@ there first; with it, you get `conflict` and a chance to merge.
 A world is perpetual. Unlike a match, it accumulates records across releases, so
 a renderer must expect payloads older than itself. Bump `schemaVersion` when the
 shape changes; keep every version you can still render in
-`supportedSchemaVersions`. CI rejects a release that drops one.
+`supportedSchemaVersions`.
+
+CI checks that `supportedSchemaVersions` contains `schemaVersion` — a build must
+be able to read back what it writes. It does **not** check the list against
+versions already in the store: the gate runs on a PR, with no access to
+production data. Dropping a version that real records still use is caught by
+review, not by a script, so say so in the PR when you drop one.
 
 ## The rest of `ctx`
 

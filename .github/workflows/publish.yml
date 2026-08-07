@@ -18,7 +18,6 @@ on:
       - 'packages/world-sdk/**'
       - 'scripts/build-bundles.ts'
       - 'scripts/build-worlds.ts'
-      - 'scripts/pack-release.ts'
   workflow_dispatch: {} # manual re-publish (bypasses the path filter, not the hash gate)
 
 permissions:
@@ -34,7 +33,8 @@ jobs:
           version: 9.15.9
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # Matches package.json `engines.node`, and games-ci.
+          node-version: 22
           cache: pnpm
       - name: Install deps
         # Mirror games-ci: an external game PR merges to main with only its
@@ -43,6 +43,11 @@ jobs:
         # importer until a maintainer regenerates it. Fall back to a non-frozen
         # install in that case so publish still cuts the release; existing pinned
         # resolutions are reused, only the missing importer is added (not committed).
+        #
+        # Install lifecycle scripts are allowlisted in root package.json
+        # (`pnpm.onlyBuiltDependencies`) — same reason as games-ci, and sharper
+        # here: this job holds `contents: write`, so an unvetted postinstall would
+        # run next to the token that cuts releases.
         run: pnpm install --frozen-lockfile || pnpm install --no-frozen-lockfile
       - name: Build bundles + worlds + index.json (self-contained; code inlined)
         run: pnpm build:bundles
@@ -63,9 +68,18 @@ jobs:
           # index.json, so a world-only change is a shipped change and must
           # publish. `// []` keeps this working against a release cut before
           # worlds existed (jq would otherwise fail on the missing key).
+          #
+          # Worlds are keyed on releaseHash, NOT contentHash. contentHash covers
+          # the document alone, and a world ships far more than its document —
+          # cover, about text, storage caps, capabilities, credits. Gating on
+          # contentHash meant raising a `maxRecordBytes`, rewriting `about.md` or
+          # changing the `ai.purpose` a visitor must approve published NOTHING,
+          # because the built document was byte-identical. `// .contentHash` keeps
+          # the gate working against releases cut before releaseHash existed: they
+          # fall back to the old value, differ once, and publish a single time.
           fp() { jq -Sc '{
                    games:  [(.games  // [])[] | {type, contentHash, viewContentHash, rulesContentHash}] | sort_by(.type),
-                   worlds: [(.worlds // [])[] | {type, contentHash}] | sort_by(.type)
+                   worlds: [(.worlds // [])[] | {type, hash: (.releaseHash // .contentHash)}] | sort_by(.type)
                  }' "$1"; }
           new=$(fp dist/index.json)
 
