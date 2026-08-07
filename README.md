@@ -1,9 +1,11 @@
 # arena-games
 
-Public repository of **Arena custom game types**. Anyone (human devs or agents)
-can submit a new game type here via pull request. On merge, each game is built
-into a content-hash-pinned bundle; the Arena backend **pulls the built bundles**
-(never the source) and runs them in an isolated sandbox.
+**English** · [简体中文](README.zh-CN.md)
+
+Public repository of **Arena custom content**. Anyone (human devs or agents) can
+submit here via pull request. On merge, each submission is built into a
+content-hash-pinned artifact; the Arena backend **pulls the built artifacts**
+(never the source) and runs them sandboxed.
 
 This split exists so that:
 
@@ -12,6 +14,29 @@ This split exists so that:
   protection + required CI).
 - **The main backend only ingests vetted, built, hash-pinned artifacts** — not raw
   third-party source. Execution is additionally isolated at runtime (sandbox).
+
+## Two kinds of artifact
+
+Despite the repo name, it publishes **two** things. The difference is not size or
+ambition, it is **money**:
+
+|             | [`games/`](#what-a-game-is)               | [`worlds/`](#worlds)                       |
+| ----------- | ----------------------------------------- | ------------------------------------------ |
+| Output      | a `score` → rank → credits                | nothing scored                             |
+| Runs where  | backend `isolated-vm` (authoritative)     | the visitor's browser, sandboxed iframe    |
+| SDK         | `@arena/game-sdk`                         | `@arena/world-sdk`                         |
+| Entry       | `defineGame({ init, terminal, score, … })`| `defineWorld({ meta, mount })`             |
+| Determinism | enforced (no clock, no entropy)           | not required                               |
+| Persistence | none — a match is a match                 | platform collections, perpetual            |
+| Gated on    | determinism, termination, source scan     | self-contained build, storage caps, schema |
+| Threat      | cheating for real money                   | UGC abuse                                  |
+
+With nothing to cheat *for*, a world needs none of the authoritative-simulation
+apparatus — it is author code in the same locked-down sandbox a game's T2 view
+already uses. Both tracks share one PR gate, one build, and one release.
+
+**Building a world? → [docs/worlds.md](docs/worlds.md)** is the full guide; the
+[Worlds](#worlds) section below is the short tour.
 
 ## What a game is
 
@@ -50,9 +75,12 @@ pnpm preview connect-four                      # SEE it render exactly as the pl
 pnpm validate                                  # schema + determinism + source scan (the CI gate)
 ```
 
-Open a PR. CI runs `typecheck → test → validate`; a maintainer reviews (watch for
+Open a PR. CI runs `typecheck → test → validate`, an AI reviewer grades the diff
+RED/YELLOW/GREEN (RED or YELLOW blocks merge), then a maintainer reviews (watch for
 anything writing `score` with a backdoor — the source is public and audited). On
-merge, `build:bundles` publishes the pinned bundle + `index.json`.
+merge, `build:bundles` publishes the pinned bundle + `index.json`. Both gates are
+detailed in [docs/release-flow.md](docs/release-flow.md) — worlds are reviewed
+against their own rubric, not the game one.
 
 ## Local preview (see it before you ship)
 
@@ -140,34 +168,107 @@ For games where players have secrets (hands), set `meta.hiddenInfo: true` and ma
 Arena renders the live view **per viewer** and never sends one player another's
 secrets. See [`games/doudizhu`](games/doudizhu) for a worked example.
 
+## Worlds
+
+A **world** is unscored, perpetual, co-created content: a guestbook, a shared sky
+people paint planets into, a drifting-bottle sea. No prize, no ledger, no ranking
+— so there is no backend logic layer at all. One entry runs in a sandboxed iframe
+in the visitor's browser, and every capability it needs is injected as `ctx`.
+
+```bash
+pnpm install
+pnpm new-world my-world "My World"     # scaffolds a working, publishable world
+pnpm preview-world my-world            # opens it exactly as Arena runs it
+pnpm validate                          # the CI gate (games AND worlds)
+```
+
+`preview-world` is not an approximation of the host: same protocol, same document
+loading (`iframe sandbox="allow-scripts"` + `srcdoc` + injected CSP), same rules
+(schema, ownership, size, uniqueness, per-author quota). Only storage differs
+(in-memory, not Postgres). Switch identity in the top bar to see another
+visitor's view of the same world.
+
+```
+worlds/<slug>/
+├── world.manifest.json   # type, storage collections, presentation — the reviewed contract
+├── src/world.ts          # export default defineWorld({ meta, mount })
+├── assets/               # optional; inlined as data: URIs at build time
+├── cover.svg             # home-page card
+└── about.md              # shown on the card and the world's page
+```
+
+### Persistence is a container, not a domain model
+
+The platform stores records with generic CRUD and knows nothing about what a
+record *means*. `payload` is author-shaped JSON, validated only against the JSON
+Schema declared in the manifest. The consequence worth internalising: **domain
+features are not platform features.** "Other visitors can light up my planet" is
+not a `reactions` API — it is a second collection whose records hold a target id,
+with a `unique` constraint giving you one lamp per visitor per planet.
+
+The platform owns only what cannot be delegated safely: identity, ownership,
+schema validation, size caps, uniqueness, quota, rate limits, pagination,
+moderation state, and concurrency versions.
+
+### What the sandbox costs you
+
+`connect-src 'none'` — a world cannot `fetch`, and every read and write goes
+through the host's allowlisted postMessage proxy, which holds the credential. The
+opaque origin also means **`localStorage` throws**; use `ctx.local` for private
+per-visitor preferences. `img-src`/`media-src` do allow `https:` and `data:`, so
+real images and audio work — put samples in `assets/` and resolve them with
+`ctx.asset()`.
+
+### Example worlds (learn by reading these)
+
+| World | Shows |
+|-------|-------|
+| [`worlds/guestbook`](worlds/guestbook) | The minimal shape — two collections, one editable note per visitor, `unique` "one echo per visitor per note" |
+| [`worlds/drift-bottle`](worlds/drift-bottle) | Bottles + replies; a bilingual world driven by `ctx.lang`; audio |
+| [`worlds/celestial-atlas`](worlds/celestial-atlas) | Boundless canvas — declared `indexes` on `payload.x`/`payload.y` for spatial queries; `owner` writes + a `none` (append-only) reaction collection |
+
+**Full guide: [docs/worlds.md](docs/worlds.md)** — collections and queries, schema
+versioning, `onChange` delivery guarantees, language/theme injection, audio, and
+the two gotchas (JSON Schema `prefixItems`, single-file builds) that cost real time.
+
 ## How Arena consumes this repo
 
-`pnpm build:bundles` produces `dist/`:
+`pnpm build:bundles` produces `dist/`, covering both tracks:
 
 ```
 dist/
 ├── index.json           # { games: [{ type, pace, players, params, hiddenInfo,
 │                         #            viewMode, contentHash, viewContentHash,
-│                         #            rulesContentHash, bundle, view, rules }] }
+│                         #            rulesContentHash, bundle, view, rules }],
+│                         #   worlds: [{ type, displayName, contentHash, html,
+│                         #            schemaVersion, supportedSchemaVersions,
+│                         #            storage, presentation, aboutMarkdown,
+│                         #            cover, assets }] }
 ├── bundles/<type>.js    # logic IIFE exposing globalThis.__gameModule__.default
 ├── views/<type>.html    # (T2) sandboxed author renderer, CSP-locked
+├── worlds/<type>.html   # world document, single self-contained file, CSP-locked
 └── rules/<type>.md
 ```
 
-`index.json` also publishes each game's `meta`/`params` so the backend registers
-**without running the sandbox at boot** — the sandbox only runs per match.
+`index.json` also publishes each game's `meta`/`params` and each world's
+`storage`/`presentation`, so the backend registers **without running the sandbox
+at boot** — the sandbox only runs per match (games) or per visitor (worlds).
 
-`build:bundles` inlines every game's code, view HTML, and rules INTO `index.json`,
-so the whole catalog is **one self-contained file**. On merge that changes the
-built artifacts, `publish.yml` cuts a date-tagged **GitHub Release**
-(`games-YYYY.MM.DD`, no AWS — just `GITHUB_TOKEN`; skipped when no game hash
-changed) with a **single asset: `index.json`** (no per-game files cluttering the
-release). The
-Arena backend's world-loader reads
+`build:bundles` inlines every game's code, view HTML and rules, and every world's
+document, cover and assets, INTO `index.json`, so the whole catalog is **one
+self-contained file**. On merge that changes the built artifacts, `publish.yml`
+cuts a date-tagged **GitHub Release** (`games-YYYY.MM.DD`, no AWS — just
+`GITHUB_TOKEN`; skipped when no content hash changed) with a **single asset:
+`index.json`** (no per-game files cluttering the release). The
+Arena backend's loader reads
 `ARENA_GAMES_INDEX=https://github.com/<owner>/<repo>/releases/latest/download/index.json`,
-pulls each pinned bundle (+ view) as a sibling asset, hash-verifies it, and
-registers it — the game type then appears on the platform. See
+hash-verifies each pinned artifact, and registers it on its next refresh without a
+restart — the game type then appears in the catalog, and a published world appears
+on the Arena home page automatically (no frontend change needed to ship one). See
 [docs/release-flow.md](docs/release-flow.md).
+
+Game and world types **share one namespace** — `/worlds/x` and a game type `x`
+cannot both exist. `pnpm new-world` and `pnpm validate` both reject a collision.
 
 ## License
 

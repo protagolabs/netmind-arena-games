@@ -47,6 +47,19 @@ worlds/<slug>/
 └── about.md              # shown on the card and the world's page
 ```
 
+`storage` is optional. Omit the block entirely and the world is **read-only**:
+nothing is stored, no write endpoint exists, and there is correspondingly nothing
+to schema-validate or cap. A world that is a place to look at rather than write in
+is a legitimate world.
+
+### Worlds to read first
+
+| World | Shows |
+|-------|-------|
+| [`worlds/guestbook`](../worlds/guestbook) | The minimal shape — one editable note per visitor, plus an append-only `echoes` collection with `unique [author.id, payload.target]` |
+| [`worlds/drift-bottle`](../worlds/drift-bottle) | Bottles + replies; bilingual via `ctx.lang`; audio |
+| [`worlds/celestial-atlas`](../worlds/celestial-atlas) | Boundless canvas — `indexes` on `payload.x`/`payload.y` for spatial queries; `owner` writes plus a `none` (append-only) reaction collection |
+
 ## Persistence is a container, not a domain model
 
 The platform stores records with generic CRUD and knows nothing about what a
@@ -82,6 +95,31 @@ another database migration — and world authors have no database access.
 So the manifest declares paths, and the platform copies those values, in order,
 into a fixed set of pre-created index slots. One set of indexes, created once,
 serves every world. Undeclared paths are simply not queryable.
+
+### Failure is an ordinary outcome
+
+Every collection method rejects with a `WorldError` carrying a `code`. In a shared
+world these are not exceptional — they are what a second person being there looks
+like:
+
+| code | means |
+|------|-------|
+| `conflict` | someone wrote first; your `version` was stale — re-read and retry |
+| `quota` | `maxRecordsPerAuthor` or the world's total-record ceiling is exhausted |
+| `rate-limited` | slow down; honour `retryAfterSec` |
+| `unique` | violates a declared `unique` constraint |
+| `unauthenticated` | anonymous visitor, and this collection needs an identity to write |
+| `forbidden` | not the owner, or the collection is append-only |
+| `invalid` / `too-large` | failed the declared schema / exceeded `maxRecordBytes` |
+| `not-found` / `moderated` | absent, or hidden by moderation |
+| `unavailable` | transport or platform failure; retryable |
+
+Handling them is not defensive politeness — a world that lets one of these reach
+the visitor as a dead button is a YELLOW at review. Say what happened.
+
+Concurrency is opt-in: pass the record's `version` to `put`/`patch` to make the
+write conditional. Without it, last-write-wins and you silently clobber whoever got
+there first; with it, you get `conflict` and a chance to merge.
 
 ### Schema versions — data outlives code
 
@@ -233,11 +271,23 @@ the rest.
 
 ## Publishing
 
-Same pipeline as games: PR → CODEOWNERS review → merge → `build:bundles` →
-GitHub Release. Worlds ride in the same `index.json` under `worlds[]`, pinned by
-content hash, and the Arena backend picks them up on its next refresh without a
-restart. A published world appears on the Arena home page automatically — no
-frontend change is needed to ship one.
+Same pipeline as games: PR → `validate` → AI review → CODEOWNERS review → merge →
+`build:bundles` → GitHub Release. Worlds ride in the same `index.json` under
+`worlds[]`, pinned by content hash, and the Arena backend picks them up on its next
+refresh without a restart. A published world appears on the Arena home page
+automatically — no frontend change is needed to ship one.
+
+Because the document, its cover and its assets are all inlined into that single
+`index.json` — which the backend holds in memory — both the built document and the
+cover have byte caps. `pnpm validate` reports the actual number against the limit,
+so you find out locally rather than in CI.
+
+The AI reviewer grades worlds against a **different rubric than games**: it does not
+check determinism (a world has no score to rig), and instead looks for sandbox
+escape, exfiltration through a remote URL, protocol subversion, phishing UI, and
+storage abuse. The single most common blocking finding is rendering another
+visitor's stored text with `innerHTML` instead of `textContent`. The full rubric is
+in [release-flow.md](release-flow.md).
 
 Submission PRs may only touch `games/` or `worlds/`. A world's document runs in a
 visitor's browser, so an author who could also edit the CSP or the op allowlist
