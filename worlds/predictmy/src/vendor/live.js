@@ -1,0 +1,21 @@
+import{L as w,c as b,a as L}from"./navIcons.js";let t=null;function c(){t==null||t.remove(),t=null,document.removeEventListener("click",v,!0),window.removeEventListener("resize",c)}function v(e){t&&!t.contains(e.target)&&c()}function C(){if(document.getElementById("lang-menu-style"))return;const e=document.createElement("style");e.id="lang-menu-style",e.textContent=`
+    .lang-menu { position: fixed; z-index: 300; min-width: 150px; padding: 5px; border-radius: 10px;
+      background: linear-gradient(178deg, #262a31 0%, #16181d 60%, #101115 100%);
+      border: 1px solid rgba(255,255,255,0.14);
+      box-shadow: 0 0 0 1px #0a0b0d, inset 0 1px 0 rgba(255,255,255,0.12),
+        0 18px 44px -10px rgba(0,0,0,0.7);
+      display: flex; flex-direction: column; gap: 2px; }
+    .lang-item { display: flex; align-items: center; justify-content: space-between; gap: 16px;
+      background: transparent; border: 0; color: #d8dee9; font: 600 13px ui-sans-serif, system-ui, "PingFang SC", sans-serif;
+      letter-spacing: 0.2px; padding: 8px 14px; border-radius: 7px; cursor: pointer; text-align: left; white-space: nowrap;
+      transition: background 0.12s, color 0.12s; }
+    .lang-item:hover { background: rgba(255,255,255,0.09); color: #ffd23f; }
+    .lang-item.active { color: #ffd23f; }
+    .lang-item .tick { color: #ffd23f; font-weight: 700; }
+    .lang-item .lbl { display: inline-flex; align-items: center; gap: 9px; }
+    .lang-item .ico { display: inline-flex; opacity: 0.85; }
+    .lang-item .ico svg { width: 15px; height: 15px; display: block; }
+    /* compact variant — matches the remote's small toggle buttons (.rtoggles .rbtn) */
+    .lang-menu.compact { min-width: 96px; padding: 4px; border-radius: 9px; }
+    .lang-menu.compact .lang-item { font: 600 10px ui-sans-serif, system-ui, "PingFang SC", sans-serif; padding: 6px 10px; gap: 10px; border-radius: 6px; }
+  `,document.head.appendChild(e)}function y(e,l,r,i){if(C(),t){c();return}const a=document.createElement("div");a.className="lang-menu"+(i!=null&&i.compact?" compact":"");for(const o of l){const n=document.createElement("button");n.className="lang-item"+(o.active?" active":"");const g=document.createElement("span");if(g.className="lbl",o.icon){const s=document.createElement("span");s.className="ico",s.innerHTML=o.icon,g.appendChild(s)}if(g.appendChild(document.createTextNode(o.label)),n.appendChild(g),o.active){const s=document.createElement("span");s.className="tick",s.textContent="✓",n.appendChild(s)}n.addEventListener("click",s=>{s.stopPropagation(),r(o.value),c()}),a.appendChild(n)}document.body.appendChild(a);const d=e.getBoundingClientRect();a.style.right=`${Math.round(window.innerWidth-d.right)}px`,a.style.top=`${Math.round(d.bottom+6)}px`;const p=a.getBoundingClientRect().height;d.bottom+6+p>window.innerHeight-8&&(a.style.top=`${Math.round(d.top-6-p)}px`),t=a,setTimeout(()=>{document.addEventListener("click",v,!0),window.addEventListener("resize",c)},0)}function M(e,l,r){let i=null,a=0;const d=()=>{i!=null&&(clearTimeout(i),i=null)},p=()=>{d(),i=window.setTimeout(()=>{(t==null?void 0:t.dataset.owner)===e.id&&c()},160)},o=()=>{if(d(),(t==null?void 0:t.dataset.owner)!==e.id&&(t&&c(),y(e,l(),r),t)){const n=t;n.dataset.owner=e.id,n.addEventListener("pointerenter",d),n.addEventListener("pointerleave",p),a=Date.now()}};e.addEventListener("pointerenter",n=>{n.pointerType==="mouse"&&o()}),e.addEventListener("pointerleave",n=>{n.pointerType==="mouse"&&p()}),e.addEventListener("click",n=>{n.stopPropagation(),(t==null?void 0:t.dataset.owner)===e.id&&Date.now()-a>350?c():o()})}function T(e,l){e.addEventListener("click",r=>{r.stopPropagation(),y(e,w.map(i=>({label:b[i],value:i,active:L()===i})),i=>l(i))})}const f="aa_live",E=6e4;function k(){let e=arenaSS.getItem(f);return e||(e=crypto.randomUUID(),arenaSS.setItem(f,e)),e}let x=!1,m=null,h=!0;async function u(){if(!(x||document.hidden))try{const e=h,r=await(await arenaFetch("/api/ping",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({sessionId:k(),page:location.pathname,first:e})})).json().catch(()=>({}));r&&r.ok===!1?(x=!0,m&&clearInterval(m)):e&&(h=!1)}catch{}}function I(){m||(u(),m=setInterval(()=>void u(),E),document.addEventListener("visibilitychange",()=>{document.hidden||u()}))}export{T as a,M as b,I as s,y as t};

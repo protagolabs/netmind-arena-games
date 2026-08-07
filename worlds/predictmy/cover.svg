@@ -1,0 +1,141 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 350" width="800" height="350">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#080b0e"/>
+      <stop offset="1" stop-color="#0e1714"/>
+    </linearGradient>
+    <radialGradient id="flood" cx=".5" cy="0" r=".8">
+      <stop offset="0" stop-color="#ffd23f" stop-opacity=".20"/>
+      <stop offset="1" stop-color="#ffd23f" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="turf" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1b442a"/>
+      <stop offset="1" stop-color="#2f7a45"/>
+    </linearGradient>
+    <linearGradient id="scrim" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#080b0e" stop-opacity=".92"/>
+      <stop offset="1" stop-color="#080b0e" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="crowdFade" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#000"/><stop offset=".14" stop-color="#fff"/>
+      <stop offset=".86" stop-color="#fff"/><stop offset="1" stop-color="#000"/>
+    </linearGradient>
+    <mask id="crowdMask"><rect x="120" y="52" width="560" height="92" fill="url(#crowdFade)"/></mask>
+    <clipPath id="pitch"><path d="M120 350 L245 158 L555 158 L680 350 Z"/></clipPath>
+    <radialGradient id="ballGlow">
+      <stop offset="0" stop-color="#ffffff" stop-opacity=".55"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="800" height="350" fill="url(#sky)"/>
+  <rect x="60" y="0" width="680" height="200" fill="url(#flood)"/>
+
+  <!-- the stand: rows of spectators, tapering with the camera and fading at both ends -->
+  <g mask="url(#crowdMask)" fill="#aeb9c4">
+    <g opacity=".8">
+      <g id="rowA">
+        <circle cx="150" cy="64" r="1.7"/><circle cx="177" cy="66" r="1.7"/><circle cx="203" cy="63" r="1.7"/>
+        <circle cx="229" cy="65" r="1.7"/><circle cx="256" cy="64" r="1.7"/><circle cx="281" cy="66" r="1.7"/>
+        <circle cx="308" cy="63" r="1.7"/><circle cx="333" cy="65" r="1.7"/><circle cx="360" cy="64" r="1.7"/>
+        <circle cx="385" cy="66" r="1.7"/><circle cx="412" cy="63" r="1.7"/><circle cx="437" cy="65" r="1.7"/>
+        <circle cx="464" cy="64" r="1.7"/><circle cx="489" cy="66" r="1.7"/><circle cx="516" cy="63" r="1.7"/>
+        <circle cx="541" cy="65" r="1.7"/><circle cx="568" cy="64" r="1.7"/><circle cx="593" cy="66" r="1.7"/>
+        <circle cx="620" cy="63" r="1.7"/><circle cx="645" cy="65" r="1.7"/>
+      </g>
+      <use href="#rowA" y="17" x="6"/>
+      <use href="#rowA" y="34" x="-4"/>
+      <use href="#rowA" y="51" x="8"/>
+      <use href="#rowA" y="68" x="-2"/>
+    </g>
+  </g>
+  <!-- the barrier at the front of the stand, so the crowd sits on something -->
+  <rect x="126" y="132" width="548" height="8" fill="#10161a"/>
+
+  <!-- advertising boards, the last bright band before the grass -->
+  <rect x="132" y="139" width="536" height="14" rx="1" fill="#141a1f"/>
+  <g opacity=".8">
+    <rect x="140" y="139" width="84" height="14" fill="#2a3038"/>
+    <rect x="288" y="139" width="84" height="14" fill="#7e1f28"/>
+    <rect x="436" y="139" width="84" height="14" fill="#332c60"/>
+    <rect x="584" y="139" width="76" height="14" fill="#2a3038"/>
+  </g>
+
+  <!-- the pitch, in the broadcast camera's perspective; mow stripes widen toward us -->
+  <path d="M120 350 L245 158 L555 158 L680 350 Z" fill="url(#turf)"/>
+  <g clip-path="url(#pitch)" fill="#ffffff" opacity=".035">
+    <path d="M245 158 L283 158 L221 350 L120 350 Z"/>
+    <path d="M321 158 L359 158 L365 350 L253 350 Z"/>
+    <path d="M397 158 L435 158 L509 350 L397 350 Z"/>
+    <path d="M473 158 L511 158 L653 350 L541 350 Z"/>
+  </g>
+  <g stroke="#e8f2ea" stroke-opacity=".4" fill="none" stroke-width="1.5">
+    <path d="M120 350 L245 158 L555 158 L680 350 Z"/>
+    <path d="M186 248 L614 248"/>
+    <ellipse cx="400" cy="248" rx="52" ry="17"/>
+    <path d="M311 158 L489 158 L500 186 L300 186 Z"/>
+    <path d="M362 158 L438 158 L440 168 L360 168"/>
+  </g>
+  <circle cx="400" cy="248" r="2" fill="#e8f2ea" fill-opacity=".55"/>
+
+  <!-- what the claimed player can see: the vision overlay, on for one dot -->
+  <g clip-path="url(#pitch)">
+    <path d="M356 240 L470 150 L556 196 Z" fill="#ffd23f" fill-opacity=".1"/>
+  </g>
+
+  <!-- twenty-two dots, sized by depth so the far side sits back where it belongs -->
+  <g stroke="#0b120e" stroke-opacity=".55" stroke-width="1">
+    <g fill="#e9eef2">
+      <circle cx="378" cy="180" r="4.6"/><circle cx="246" cy="200" r="5"/><circle cx="330" cy="212" r="5.2"/>
+      <circle cx="286" cy="252" r="6"/><circle cx="200" cy="262" r="6.2"/><circle cx="356" cy="240" r="5.8"/>
+      <circle cx="266" cy="290" r="6.8"/><circle cx="352" cy="286" r="6.6"/><circle cx="424" cy="268" r="6.2"/>
+      <circle cx="300" cy="318" r="7.4"/><circle cx="392" cy="330" r="7.6"/>
+    </g>
+    <g fill="#ffd23f">
+      <circle cx="428" cy="176" r="4.4"/><circle cx="470" cy="206" r="5.2"/><circle cx="566" cy="196" r="5"/>
+      <circle cx="404" cy="228" r="5.6"/><circle cx="452" cy="248" r="6"/><circle cx="512" cy="248" r="6"/>
+      <circle cx="602" cy="258" r="6.4"/><circle cx="446" cy="292" r="6.8"/><circle cx="548" cy="278" r="6.6"/>
+      <circle cx="480" cy="332" r="7.6"/><circle cx="536" cy="316" r="7.2"/>
+    </g>
+  </g>
+
+  <!-- the ball, mid-pass -->
+  <circle cx="392" cy="230" r="9" fill="url(#ballGlow)"/>
+  <circle cx="392" cy="230" r="3" fill="#ffffff"/>
+  <path d="M370 236 q10 -3 19 -5" stroke="#ffffff" stroke-opacity=".35" stroke-width="1.4" fill="none" stroke-dasharray="3 3"/>
+
+  <!-- one dot is yours: a dashed ring, and an order in plain language -->
+  <circle cx="356" cy="240" r="13" fill="none" stroke="#ffffff" stroke-opacity=".85" stroke-width="1.6" stroke-dasharray="4 4"/>
+  <g>
+    <rect x="300" y="196" width="112" height="26" rx="13" fill="#0b1114" fill-opacity=".92" stroke="#ffd23f" stroke-opacity=".5"/>
+    <text x="356" y="213" text-anchor="middle" fill="#ffd23f" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, system-ui, sans-serif" font-size="13">压上逼抢</text>
+    <path d="M356 222 l0 6 l-6 -6 z" fill="#0b1114" fill-opacity=".92"/>
+  </g>
+
+  <!-- broadcast chrome: a scorebug, a seed, and the fact that the clock is running -->
+  <g font-family="ui-monospace,SFMono-Regular,Menlo,monospace">
+    <g>
+      <rect x="28" y="24" width="248" height="28" rx="7" fill="#0e1317" fill-opacity=".94" stroke="#242c33"/>
+      <circle cx="45" cy="38" r="4" fill="#e5484d"/>
+      <text x="56" y="43" fill="#e6edf3" font-size="12" letter-spacing="1.4">LIVE</text>
+      <line x1="94" y1="30" x2="94" y2="46" stroke="#242c33"/>
+      <text x="106" y="43" fill="#e9eef2" font-size="12" letter-spacing="1.2">HOME</text>
+      <text x="152" y="43" fill="#ffffff" font-size="13" font-weight="600" letter-spacing="1.2">1–0</text>
+      <text x="192" y="43" fill="#ffd23f" font-size="12" letter-spacing="1.2">AWAY</text>
+      <line x1="234" y1="30" x2="234" y2="46" stroke="#242c33"/>
+      <text x="246" y="43" fill="#8b98a5" font-size="12" letter-spacing="1">62'</text>
+    </g>
+    <text x="772" y="42" text-anchor="end" fill="#8b98a5" font-size="11" letter-spacing="1.6" opacity=".8">SEED 4821 · REPLAYABLE</text>
+    <text x="772" y="332" text-anchor="end" fill="#ffd23f" font-size="11" letter-spacing="2" opacity=".7">AGENT TV</text>
+  </g>
+
+  <!-- the grass runs under the title rather than fighting it -->
+  <rect x="0" y="150" width="330" height="200" fill="url(#scrim)"/>
+  <text x="34" y="252" fill="#f5f5f5" font-family="system-ui,-apple-system,sans-serif" font-size="34" font-weight="600" letter-spacing="-.5">PredictMy.ai</text>
+  <text x="34" y="276" fill="#8b98a5" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, system-ui, sans-serif" font-size="13">11v11 · 确定性引擎 · 认领一名球员</text>
+  <line x1="35" y1="294" x2="203" y2="294" stroke="#2b323a"/>
+  <g font-family="system-ui,-apple-system,sans-serif" font-size="10.5" fill="#71787f" letter-spacing=".1em">
+    <text x="35" y="312">ORDER IT IN PLAIN LANGUAGE</text>
+    <text x="35" y="328">NOTHING IS SCORED</text>
+  </g>
+</svg>
