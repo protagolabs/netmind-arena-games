@@ -39,6 +39,51 @@ import type {
 
 const SDK_VERSION = '0.0.1'
 
+/**
+ * How long a request waits for the host before it gives up.
+ *
+ * The protocol says the host answers every request, and it does — but "the host
+ * always replies" is an assumption about someone else's code, and the failure it
+ * hides is the worst-shaped one available: a promise that never settles, a
+ * spinner that never stops, and a `pending` entry that is never collected. A
+ * world cannot even show its own error state, because nothing told it there was
+ * one.
+ *
+ * `unavailable` is deliberate — it is the code the SDK already documents as
+ * retryable, so a world that handles a transport failure at all handles this too.
+ *
+ * ## This is a backstop, so it must sit OUTSIDE every legitimate wait
+ *
+ * The host runs its own deadline per operation and answers with a typed error
+ * when it expires. That is the timeout a world should normally see. This one
+ * only exists for the case where no answer comes at all — a host that crashed, a
+ * frame torn down mid-flight — so it has to be longer than anything the host
+ * might honestly still be working on.
+ *
+ * Get that ordering wrong and the failure is not "a world waits too long", it is
+ * a world giving up on work that then COMPLETES: for `ai.chat` the platform bills
+ * the visitor for a reply nobody is listening for any more.
+ */
+const REQUEST_TIMEOUT_MS = 30_000
+
+/**
+ * `ai.chat`'s backstop, which has to be much larger, for two reasons that
+ * compound.
+ *
+ * A model call is slow by nature — Arena allows it a minute of its own. And the
+ * host may spend part of the same request WAITING FOR A PERSON: the first time a
+ * world asks for a model, the visitor is shown what it is for and asked whether
+ * to spend their own credit on it. Reading that and deciding is not a transport
+ * delay, and the people slowest to answer it are exactly the ones seeing it for
+ * the first time.
+ *
+ * So this sits above the host's own ceiling for the op, not below it.
+ */
+const AI_REQUEST_TIMEOUT_MS = 120_000
+
+/** Ordinary ops are fast and the host bounds them tightly; the model call is not. */
+const timeoutFor = (op: WorldOp): number => (op === 'ai.chat' ? AI_REQUEST_TIMEOUT_MS : REQUEST_TIMEOUT_MS)
+
 function fail(code: WorldErrorCode, message: string, retryAfterSec?: number): WorldError {
   const err = new Error(message) as WorldError
   err.name = 'WorldError'
@@ -145,6 +190,14 @@ class Transport {
         // every single re-init. Comparing `me` by `id` alone had the mirror-image
         // problem: a visitor who renamed themselves or changed their avatar was
         // reported as no change at all.
+        //
+        // What a re-init does NOT refresh: `seed`, `assets` and `capabilities`.
+        // All three are bootstrap-only ON PURPOSE. The seed is a one-shot saving
+        // of a round trip that `list()` has already superseded; assets are pinned
+        // to the build; and `capabilities` is documented as a property of the
+        // DEPLOYMENT rather than of the session precisely so `ctx.ai` cannot
+        // appear and vanish under a running world (see HostInit). Only the three
+        // fields below are live.
         const first = this.env.theme === null
         const changed = {
           theme: !sameContent(this.env.theme, msg.theme),
@@ -220,7 +273,23 @@ class Transport {
   request<T>(op: WorldOp, collection?: string, args?: Record<string, unknown>): Promise<T> {
     const id = ++this.seq
     return new Promise<T>((resolve, reject) => {
-      this.pending.set(id, { resolve: resolve as (v: unknown) => void, reject })
+      const limit = timeoutFor(op)
+      const timer = setTimeout(() => {
+        if (!this.pending.delete(id)) return
+        reject(fail('unavailable', `the host did not answer '${op}' within ${limit}ms`))
+      }, limit)
+
+      this.pending.set(id, {
+        resolve: (v) => {
+          clearTimeout(timer)
+          resolve(v as T)
+        },
+        reject: (e) => {
+          clearTimeout(timer)
+          reject(e)
+        },
+      })
+
       window.parent.postMessage(
         { [WORLD_CHANNEL]: true, type: 'request', id, op, collection, args },
         '*',
@@ -278,7 +347,22 @@ function makeCollection<T>(
     },
 
     async list(query) {
-      if (pristine && !query?.cursor && !query?.where && !query?.mine && !query?.sort) {
+      // `limit` belongs in this guard as much as the rest of the query does.
+      //
+      // The host pre-fetches the seed at ITS OWN page size, so answering
+      // `list({ limit: 10 })` from it returned whatever the host had decided —
+      // fifty records for a world that asked for ten — without a round trip that
+      // could have corrected it. Local preview seeds the same way, so the world
+      // was over-served identically in both places and there was nothing to
+      // notice.
+      if (
+        pristine &&
+        !query?.cursor &&
+        !query?.where &&
+        !query?.mine &&
+        !query?.sort &&
+        (query?.limit === undefined || query.limit >= pristine.items.length)
+      ) {
         const page = pristine
         pristine = undefined
         return toPage<T>(page)
@@ -347,12 +431,23 @@ function makeAudio(): () => Promise<AudioContext> {
       const ac = new Ctor()
 
       const unlock = () => {
-        void ac.resume().then(() => {
-          if (ac.state === 'running') {
-            for (const type of GESTURES) window.removeEventListener(type, unlock, true)
-            resolve(ac)
-          }
-        })
+        // `.catch` is not politeness. An unhandled rejection here is caught by
+        // boot's `unhandledrejection` handler and forwarded to the host as a
+        // world FAILURE — so a browser that refuses to resume (or a gesture that
+        // does not count as activation) made the host render "this world crashed"
+        // when the only thing that actually happened is that there is no sound.
+        // Swallow it and wait for the next gesture instead.
+        void ac
+          .resume()
+          .then(() => {
+            if (ac.state === 'running') {
+              for (const type of GESTURES) window.removeEventListener(type, unlock, true)
+              resolve(ac)
+            }
+          })
+          .catch(() => {
+            /* not unlocked yet; the next gesture gets another go */
+          })
       }
 
       const GESTURES = ['pointerdown', 'touchend', 'keydown'] as const
@@ -433,7 +528,6 @@ export async function boot(def: WorldDefinition): Promise<void> {
   const audio = makeAudio()
   const local = makeLocal(transport)
   const ai = makeAi(transport, init.capabilities?.ai === true)
-
 
   const ctx: WorldCtx = {
     get me() {
