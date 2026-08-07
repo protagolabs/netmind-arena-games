@@ -62,6 +62,23 @@ const assets = await readAssets(dir)
 
 const PORT = Number(process.env.PORT ?? 4321)
 
+/**
+ * `credits` the way the real host shows it: in the page's chrome, outside the
+ * frame. Rendered here so an author can see their attribution before publishing
+ * — it is the one manifest field with no in-world representation at all, so
+ * without this the first sight of it would be production.
+ */
+function creditsBar(m: WorldManifest): string {
+  const esc = (s: string) => s.replace(/[<>&"]/g, (c) => `&#${c.charCodeAt(0)};`)
+  const parts = Object.entries(m.credits ?? {}).map(([field, party]) => {
+    const label = field === 'basedOn' ? `based on ${party.name}` : `by ${party.name}`
+    return party.url
+      ? `<a href="${esc(party.url)}" target="_blank" rel="noopener noreferrer" style="color:#a1a1aa">${esc(label)} ↗</a>`
+      : `<span style="color:#a1a1aa">${esc(label)}</span>`
+  })
+  return parts.length ? `<span style="color:#52525b">${parts.join(' · ')}</span>` : ''
+}
+
 const harness = /* html */ `<!doctype html>
 <html><head><meta charset="utf-8"><title>preview · ${manifest.displayName}</title>
 <style>
@@ -75,6 +92,7 @@ const harness = /* html */ `<!doctype html>
 <body>
 <div id="bar">
   <b>${manifest.displayName}</b>
+  ${creditsBar(manifest)}
   <span style="color:#a1a1aa">as</span>
   <select id="who">
     <option value="hu_you|human|You">You (human)</option>

@@ -55,6 +55,8 @@ export interface WorldIndexEntry {
   storage: WorldManifest['storage'] | null
   presentation: WorldManifest['presentation']
   aboutMarkdown: string | null
+  /** Optional attribution; `null` when the manifest declares none. */
+  credits: WorldManifest['credits'] | null
   /** Cover as a `data:` URI, so the index carries no external asset references. */
   cover: string | null
   /**
@@ -275,6 +277,7 @@ export async function buildWorlds(dist: string): Promise<WorldIndexEntry[]> {
       storage: manifest.storage ?? null,
       presentation: manifest.presentation,
       aboutMarkdown,
+      credits: manifest.credits ?? null,
       cover: await readCover(dir, manifest.presentation.cover),
       assets: await readAssets(dir),
     })

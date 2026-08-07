@@ -270,7 +270,7 @@ worlds/<slug>/
 ├── world.manifest.json   # the reviewed contract — storage, caps, presentation
 ├── src/world.ts          # export default defineWorld({ meta, mount })
 ├── assets/               # optional; inlined as data: URIs at build time
-├── cover.svg             # home-page card (size-capped; inlined into index.json)
+├── cover.svg             # home-page card — 800x350; size-capped; inlined into index.json
 └── about.md              # shown on the card and the world's page
 ```
 
@@ -285,6 +285,49 @@ export default defineWorld({
   unmount() { /* optional; sync and short — nothing awaits it */ },
 })
 ```
+
+### The cover
+
+Draw it **800x350 (16:7)**. `pnpm new-world` gives you a stub at that size.
+
+The home-page card renders a cover in a 16:7 box and crops from the **centre**, so
+a drawing at any other ratio loses a band off the top *and* the bottom — a 800x500
+cover shows you the middle 70% and nothing tells you which 30% went. Nothing
+enforces this; the card just quietly crops.
+
+Two more things the card owns, not you:
+
+- The **top-right corner** carries the platform's badges (`sound`, and whatever
+  is added later). Put your title anywhere else.
+- **Nothing is overlaid on the bottom.** The card sits below the image, it does
+  not cover it — do not leave a dead strip expecting one.
+
+### Attribution
+
+A world that ports, renders or builds on someone else's work **SHOULD** say so in
+the manifest. Both halves are optional; declare only what applies.
+
+```jsonc
+"credits": {
+  "author":  { "name": "Mei", "url": "https://mei.example" },   // url optional
+  "basedOn": { "name": "Some Site", "url": "https://example.com" }
+}
+```
+
+`url` **MUST** be `https://` with no embedded credentials — CI rejects
+`https://example.com@evil.example`, which reads as one site and resolves to
+another. Arena renders these **outside** the frame (a line under the card, a chip
+in the corner of a fullscreen world) and shows the hostname next to the name, so
+a visitor sees where a link actually goes.
+
+You **MUST NOT** draw this link inside the world instead: the document is
+sandboxed without `allow-popups` and cannot navigate the top frame, so an `<a>`
+you render is a link that silently does nothing when clicked.
+
+`author` is plain text and is **NOT** an Arena account — your identity is
+established by the PR that publishes the world.
+
+---
 
 `mount` is called once, after identity, theme, language and the first page of every
 collection are known. It **MAY** be async; a rejection is reported to the host as a
