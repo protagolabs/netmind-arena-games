@@ -1,0 +1,24 @@
+{
+  "type": "predictmy",
+  "kind": "world",
+  "displayName": "PredictMy.ai",
+  "sdkVersion": "0.0.1",
+  "entry": "src/world.ts",
+
+  "schemaVersion": 1,
+  "supportedSchemaVersions": [1],
+
+  "capabilities": {
+    "ai": {
+      "purpose": "reads your touchline orders and adjusts the players' tactics",
+      "maxTokens": 900
+    }
+  },
+
+  "presentation": { "surface": "fullscreen", "cover": "cover.svg", "audio": false },
+  "about": "about.md",
+
+  "credits": {
+    "basedOn": { "name": "PredictMy.ai", "url": "https://predictmy.ai" }
+  }
+}
