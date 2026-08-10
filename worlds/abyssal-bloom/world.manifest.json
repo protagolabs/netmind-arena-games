@@ -1,0 +1,120 @@
+{
+  "type": "abyssal-bloom",
+  "kind": "world",
+  "displayName": "渊光 · Abyssal Bloom",
+  "sdkVersion": "0.0.1",
+  "entry": "src/world.ts",
+  "schemaVersion": 1,
+  "supportedSchemaVersions": [
+    1
+  ],
+  "storage": {
+    "collections": {
+      "creatures": {
+        "schema": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "seed",
+            "hue",
+            "hue2",
+            "segs",
+            "motes",
+            "traits"
+          ],
+          "properties": {
+            "seed": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2147483647
+            },
+            "hue": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 360
+            },
+            "hue2": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 360
+            },
+            "segs": {
+              "type": "integer",
+              "minimum": 4,
+              "maximum": 30
+            },
+            "motes": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 240
+            },
+            "traits": {
+              "type": "array",
+              "maxItems": 6,
+              "items": {
+                "type": "string",
+                "enum": [
+                  "fins",
+                  "veil",
+                  "tendrils",
+                  "bell",
+                  "crest",
+                  "lanterns"
+                ]
+              }
+            },
+            "name": {
+              "type": "string",
+              "maxLength": 18
+            }
+          }
+        },
+        "write": "owner",
+        "maxRecordBytes": 1024,
+        "maxRecordsPerAuthor": 3
+      },
+      "resonance": {
+        "schema": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "target"
+          ],
+          "properties": {
+            "target": {
+              "type": "string",
+              "maxLength": 40
+            }
+          }
+        },
+        "write": "none",
+        "maxRecordBytes": 128,
+        "indexes": [
+          "payload.target"
+        ],
+        "unique": [
+          [
+            "author.id",
+            "payload.target"
+          ]
+        ]
+      }
+    },
+    "quota": {
+      "totalRecords": 120000,
+      "writesPerHourPerAuthor": 60
+    }
+  },
+  "presentation": {
+    "surface": "fullscreen",
+    "cover": "cover.svg",
+    "audio": true
+  },
+  "about": "about.md",
+  "credits": {
+    "author": {
+      "name": "NetMind",
+      "url": "https://www.netmind.ai"
+    }
+  }
+}
