@@ -300,6 +300,11 @@ collection; put live delivery on the channel. Then a refresh replays the
 collection and re-joins, and someone arriving at minute 70 sees the first 69. A
 world built on the channel alone loses its match to a reload.
 
+`onPresence` fires with the roster on every join, including a reconnect, so a
+world can draw its seats from it alone and never read what `join()` returned. And
+a handle survives being left: `leave()` then `join()` on the same room resumes
+delivery to the callbacks already on it, which is what a rematch needs.
+
 Two details worth knowing before you design around them:
 
 - **`send` is echoed to you.** Not an inefficiency — it is what lets a

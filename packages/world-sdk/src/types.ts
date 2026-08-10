@@ -395,6 +395,10 @@ export interface Channel {
    * not declared), `quota` (the room is full) or `unavailable` (realtime is not
    * being served right now). Every one of those is an ordinary outcome a world
    * has to be able to draw.
+   *
+   * A handle may be left and joined again — playing a second match in the same
+   * room is the ordinary thing to do — and the callbacks registered on it
+   * survive that round trip.
    */
   join(): Promise<Peer[]>
 
@@ -410,7 +414,12 @@ export interface Channel {
   /** Fires per message. Subscribe BEFORE `join()` or you will miss the first ones. */
   onMessage<T = Json>(cb: (message: ChannelMessage<T>) => void): Unsubscribe
 
-  /** Fires whenever the roster changes, and once with the roster on join. */
+  /**
+   * Fires whenever the roster changes, and once with the roster on join —
+   * including on a reconnect, since the host writes the roster as the first
+   * frame of every stream. A world can therefore draw its seats from this alone
+   * and never read `join()`'s return value.
+   */
   onPresence(cb: (peers: Peer[]) => void): Unsubscribe
 
   /**
@@ -420,7 +429,12 @@ export interface Channel {
    */
   onClosed(cb: (reason: 'error' | 'evicted' | 'unavailable') => void): Unsubscribe
 
-  /** Leave. The seat is released rather than waiting out its timeout. */
+  /**
+   * Leave. The seat is released rather than waiting out its timeout.
+   *
+   * The handle stays usable: `join()` again and the same callbacks resume. What
+   * stops between the two is delivery, not registration.
+   */
   leave(): Promise<void>
 }
 
@@ -457,13 +471,18 @@ export interface WorldCtx {
   readonly ai: WorldAi | null
 
   /**
-   * Join a live channel, or `null` when this world declared no
-   * `capabilities.realtime` or the platform cannot serve it.
+   * A handle on a live channel. ALWAYS returned — unlike {@link WorldCtx.ai},
+   * this is never null, so do not branch on it.
    *
-   * The namespace must be one the manifest declared; an undeclared one throws
-   * immediately, exactly as an undeclared collection does. See {@link Channel}
-   * for what delivery does and does not promise — it is much weaker than
-   * storage, on purpose.
+   * Throws only for a malformed name: it must be `<namespace>/<room>`. Whether
+   * the namespace is one the manifest declared is decided by the HOST, not
+   * here, so an undeclared one is a `forbidden` from {@link Channel.join} — and
+   * a deployment that does not serve realtime at all is an `unavailable` from
+   * the same place. Both are outcomes to draw, which is why they surface where
+   * a world is already handling failure rather than as a null to test for.
+   *
+   * See {@link Channel} for what delivery does and does not promise — it is
+   * much weaker than storage, on purpose.
    */
   channel(name: string): Channel
 

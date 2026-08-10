@@ -544,9 +544,38 @@ function makeChannel(transport: Transport, name: string, available: boolean): Ch
   let attempt = 0
   let retryTimer: ReturnType<typeof setTimeout> | null = null
 
-  const unsubscribe = transport.subscribeSignal(name, (event) => {
+  /**
+   * The transport subscription, established on `join` and dropped on `leave`.
+   *
+   * It used to be taken once when the handle was built and dropped for good by
+   * `leave()` — while `ctx.channel(name)` caches handles forever. So the second
+   * match in one room went silently deaf: `join()` resolved, the host really did
+   * put the visitor back in, presence came through on the join result, and not
+   * one message ever arrived, because the transport no longer routed that name
+   * anywhere. Playing again in the same room is the ordinary thing to do with
+   * this primitive, and the failure is the worst shape there is — everything
+   * reports success.
+   *
+   * Tying the subscription to what the world WANTS, rather than to when the
+   * handle happened to be built, makes the handle reusable. Which it has to be:
+   * evicting it from the cache would still leave a stale one in the hands of
+   * anyone who kept `const room = ctx.channel(...)` across the two matches.
+   */
+  let unsubscribe: Unsubscribe | null = null
+
+  const listen = (): void => {
+    if (unsubscribe) return
+    unsubscribe = transport.subscribeSignal(name, onFrame)
+  }
+
+  const onFrame = (event: HostSignal['event']): void => {
     switch (event.op) {
       case 'message':
+        // Any frame proves the link is up, so the next outage starts its backoff
+        // from the beginning. Presence alone missed a busy room whose roster
+        // never changes — it would carry the last outage's delay for the rest of
+        // the match.
+        attempt = 0
         emit(messageListeners as Set<(m: unknown) => void>, {
           from: event.from,
           data: event.data,
@@ -570,7 +599,7 @@ function makeChannel(transport: Transport, name: string, available: boolean): Ch
         if (wanted) scheduleRetry()
         return
     }
-  })
+  }
 
   function scheduleRetry(): void {
     if (retryTimer !== null) return
@@ -581,9 +610,14 @@ function makeChannel(transport: Transport, name: string, available: boolean): Ch
       if (!wanted) return
       void transport
         .request<{ peers: Peer[] }>('channel.join', undefined, { name })
-        .then((result) => {
+        .then(() => {
           attempt = 0
-          emit(presenceListeners, result?.peers ?? [])
+          // No `emit` here. The host writes the roster as the FIRST frame of
+          // every stream, including a reconnected one, so `onPresence` fires
+          // through the ordinary path — announcing it again from the join result
+          // gave subscribers the same roster twice, and only on reconnects,
+          // which is exactly the kind of difference between two paths that a
+          // world ends up working around.
         })
         .catch(() => {
           // Still down. `closed` was already reported for this outage, so the
@@ -604,6 +638,9 @@ function makeChannel(transport: Transport, name: string, available: boolean): Ch
         throw fail('unavailable', 'this deployment does not serve realtime channels')
       }
       wanted = true
+      // Before the request, not after: the host writes the roster as the first
+      // frame of the stream, and a subscription taken afterwards could miss it.
+      listen()
       try {
         const result = await transport.request<{ peers: Peer[] }>('channel.join', undefined, { name })
         attempt = 0
@@ -613,11 +650,19 @@ function makeChannel(transport: Transport, name: string, available: boolean): Ch
         // will not fix itself — so this does NOT start the retry loop. Only a
         // stream that opened and then died does.
         wanted = false
+        unsubscribe?.()
+        unsubscribe = null
         throw err
       }
     },
 
     send<T = Json>(data: T): Promise<void> {
+      // Same reasoning as `join`: a capability this deployment cannot serve
+      // should fail as something a world can draw, not as a request the host
+      // will refuse a moment later for a reason it has to translate.
+      if (!available) {
+        return Promise.reject(fail('unavailable', 'this deployment does not serve realtime channels'))
+      }
       return transport.request<void>('channel.send', undefined, { name, data })
     },
 
@@ -639,14 +684,24 @@ function makeChannel(transport: Transport, name: string, available: boolean): Ch
 
     async leave(): Promise<void> {
       wanted = false
+      attempt = 0
       if (retryTimer !== null) {
         clearTimeout(retryTimer)
         retryTimer = null
       }
-      unsubscribe()
-      messageListeners.clear()
-      presenceListeners.clear()
-      closedListeners.clear()
+      unsubscribe?.()
+      unsubscribe = null
+      /**
+       * The author's callbacks are NOT cleared.
+       *
+       * They belong to whoever registered them, and this handle is reusable —
+       * clearing them would mean `onMessage(fn); await leave(); await join()`
+       * quietly stopped calling `fn`, which is the same silent deafness that
+       * dropping the subscription used to cause, just by another route. Nothing
+       * reaches them while the channel is left, because the subscription above
+       * is gone.
+       */
+      if (!available) return
       await transport.request<void>('channel.leave', undefined, { name })
     },
   }

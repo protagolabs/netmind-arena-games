@@ -800,6 +800,23 @@ function signal(channel: string, event: Record<string, unknown>): Record<string,
 
 const CAPS = { capabilities: { realtime: true } }
 
+/**
+ * Join a channel and settle, the way every real sequence starts.
+ *
+ * Frames only reach a world once it has joined — a host does not push into a
+ * room nobody is in — so a test that pushes without joining is testing a
+ * sequence that cannot happen, and would have kept passing when `join()` stopped
+ * subscribing at all.
+ */
+async function joined(ctx: WorldCtx, name: string, peers: unknown[] = []) {
+  const room = ctx.channel(name)
+  void room.join()
+  await Promise.resolve()
+  host.reply(host.lastRequest()!.id as number, { peers })
+  await Promise.resolve()
+  return room
+}
+
 describe('ctx.channel', () => {
   it('is refused for a deployment that does not serve realtime', async () => {
     const ctx = await bootWorld()
@@ -838,7 +855,7 @@ describe('ctx.channel', () => {
   it('marks a message from the current visitor as mine', async () => {
     const ctx = await bootWorld(CAPS)
     const seen: Array<{ mine: boolean; data: unknown }> = []
-    ctx.channel('versus/ab').onMessage((m) => seen.push({ mine: m.mine, data: m.data }))
+    ;(await joined(ctx, 'versus/ab')).onMessage((m) => seen.push({ mine: m.mine, data: m.data }))
 
     host.send(
       signal('versus/ab', { op: 'message', from: ALICE, data: { n: 1 }, seq: 1, at: 'now' }) as never,
@@ -857,7 +874,7 @@ describe('ctx.channel', () => {
   it('recomputes mine after the visitor changes', async () => {
     const ctx = await bootWorld(CAPS)
     const seen: boolean[] = []
-    ctx.channel('versus/ab').onMessage((m) => seen.push(m.mine))
+    ;(await joined(ctx, 'versus/ab')).onMessage((m) => seen.push(m.mine))
 
     host.send(signal('versus/ab', { op: 'message', from: BOT, data: {}, seq: 1, at: 'now' }) as never)
     host.send({ [WORLD_CHANNEL]: true, type: 'env', me: BOT } as never)
@@ -868,7 +885,7 @@ describe('ctx.channel', () => {
 
   it('delivers presence and closed to their own subscribers', async () => {
     const ctx = await bootWorld(CAPS)
-    const room = ctx.channel('versus/ab')
+    const room = await joined(ctx, 'versus/ab')
     const rosters: number[] = []
     const closes: string[] = []
     room.onPresence((peers) => rosters.push(peers.length))
@@ -885,8 +902,8 @@ describe('ctx.channel', () => {
     const ctx = await bootWorld(CAPS)
     const a: unknown[] = []
     const b: unknown[] = []
-    ctx.channel('versus/aa').onMessage((m) => a.push(m.data))
-    ctx.channel('versus/bb').onMessage((m) => b.push(m.data))
+    ;(await joined(ctx, 'versus/aa')).onMessage((m) => a.push(m.data))
+    ;(await joined(ctx, 'versus/bb')).onMessage((m) => b.push(m.data))
 
     host.send(signal('versus/aa', { op: 'message', from: ALICE, data: 1, seq: 1, at: 'now' }) as never)
 

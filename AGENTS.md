@@ -479,6 +479,13 @@ What a channel does **not** promise, all of it load-bearing:
   channel traffic passes nobody and leaves nothing to review. `purpose` is what
   review weighs that against, so write it as a sentence about what is relayed.
 - **It needs an identity.** Signed out gives `unauthenticated` from `join()`.
+- **`ctx.channel(name)` never returns null.** Unlike `ctx.ai`, there is nothing
+  to branch on: a deployment that cannot serve realtime, and a namespace you did
+  not declare, both surface as a rejected `join()` (`unavailable` / `forbidden`).
+
+A handle survives being left. `leave()` then `join()` on the same room — a
+rematch — resumes delivery to the callbacks you already registered; you do not
+re-subscribe, and you must not assume a fresh handle.
 
 **Use both primitives together.** Durable truth — the room, its seed, the log of
 what has been decided — belongs in a **collection**, so a refresh can replay it
