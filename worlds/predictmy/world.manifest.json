@@ -12,7 +12,92 @@
     "ai": {
       "purpose": "reads your touchline orders and adjusts the players' tactics",
       "maxTokens": 900
+    },
+    "realtime": {
+      "purpose": "relays each coach's tactical orders to the other side of a versus match",
+      "channels": ["versus"],
+      "maxMessageBytes": 512,
+      "maxPeers": 8,
+      "maxHz": 10
     }
+  },
+
+  "storage": {
+    "collections": {
+      "rooms": {
+        "schema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["code", "seed", "halfLength"],
+          "properties": {
+            "code": { "type": "string", "pattern": "^[A-Z0-9]{4}$" },
+            "seed": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+            "halfLength": { "type": "integer", "minimum": 1, "maximum": 600 },
+            "startedAt": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "write": "owner",
+        "maxRecordBytes": 512,
+        "maxRecordsPerAuthor": 1,
+        "indexes": ["payload.code"],
+        "unique": [["payload.code"]]
+      },
+
+      "seats": {
+        "schema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["room", "side"],
+          "properties": {
+            "room": { "type": "string", "pattern": "^[A-Z0-9]{4}$" },
+            "side": { "type": "integer", "enum": [0, 1] }
+          }
+        },
+        "write": "owner",
+        "maxRecordBytes": 256,
+        "indexes": ["payload.room", "payload.side"],
+        "unique": [
+          ["author.id", "payload.room"],
+          ["payload.room", "payload.side"]
+        ]
+      },
+
+      "logs": {
+        "schema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["room", "side", "orders"],
+          "properties": {
+            "room": { "type": "string", "pattern": "^[A-Z0-9]{4}$" },
+            "side": { "type": "integer", "enum": [0, 1] },
+            "orders": {
+              "type": "array",
+              "maxItems": 120,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["tick", "delta"],
+                "properties": {
+                  "tick": { "type": "integer", "minimum": 0 },
+                  "delta": { "type": "object" },
+                  "text": { "type": "string", "maxLength": 60 }
+                }
+              }
+            }
+          }
+        },
+        "write": "owner",
+        "maxRecordBytes": 12288,
+        "maxRecordsPerAuthor": 20,
+        "indexes": ["payload.room"],
+        "unique": [["author.id", "payload.room"]]
+      }
+    },
+
+    "quota": { "writesPerHourPerAuthor": 400 }
   },
 
   "presentation": { "surface": "fullscreen", "cover": "cover.svg", "audio": false },
