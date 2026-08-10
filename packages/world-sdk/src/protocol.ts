@@ -243,6 +243,23 @@ export interface HostSignal {
   channel: string
   event:
     | { op: 'message'; from: ChannelPeer; data: unknown; seq: number; at: string }
+    /**
+     * Who is in the channel.
+     *
+     * The host **MUST** deliver one of these as the FIRST frame of every stream
+     * it opens for a channel, including a stream opened by a reconnect, and then
+     * again whenever the membership changes.
+     *
+     * This is a cross-repository obligation, and it is written here rather than
+     * in the SDK's type docs because this is the file a host-side change is read
+     * against. The SDK relies on it: `Channel.onPresence` promises to fire with
+     * the roster on join, and the runtime deliberately does NOT synthesise that
+     * from `channel.join`'s reply — doing so announced the roster twice on a
+     * reconnect and once on a first join, which is the sort of difference
+     * between two paths that a world ends up working around. Stop sending the
+     * opening frame and a world that draws its seats from `onPresence` alone
+     * comes up empty, with nothing failing anywhere.
+     */
     | { op: 'presence'; peers: ChannelPeer[] }
     /**
      * The stream died and this world is now deaf on that channel. Synthesized by

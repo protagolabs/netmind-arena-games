@@ -1003,3 +1003,128 @@ describe('ctx.channel', () => {
     })
   })
 })
+
+/* ─────────────────────────── leaving and coming back ─────────────────────────── */
+
+describe('a channel is reusable', () => {
+  /**
+   * The bug this whole section exists for, and the worst shape available.
+   *
+   * `ctx.channel(name)` caches handles forever, while `leave()` used to drop the
+   * transport subscription for good. So the second match in one room went
+   * silently deaf: `join()` resolved, the host really did seat the visitor
+   * again, presence came back on the join result — and not one message ever
+   * arrived. Every single step reported success.
+   *
+   * One case pins both halves of the fix: nothing is delivered while the channel
+   * is left, and the callbacks registered before leaving are the ones called
+   * after rejoining.
+   */
+  it('resumes delivery after leave and rejoin', async () => {
+    const ctx = await bootWorld(CAPS)
+    const seen: unknown[] = []
+    const room = await joined(ctx, 'versus/ab')
+    room.onMessage((m) => seen.push(m.data))
+
+    void room.leave()
+    await Promise.resolve()
+    host.reply(host.lastRequest()!.id as number, null)
+    await Promise.resolve()
+
+    host.send(signal('versus/ab', { op: 'message', from: BOT, data: 1, seq: 1, at: 'now' }) as never)
+    expect(seen, 'a channel that has been left must not deliver').toEqual([])
+
+    void room.join()
+    await Promise.resolve()
+    host.reply(host.lastRequest()!.id as number, { peers: [] })
+    await Promise.resolve()
+
+    host.send(signal('versus/ab', { op: 'message', from: BOT, data: 2, seq: 2, at: 'now' }) as never)
+    expect(seen, 'a rejoined channel must call the callbacks it already had').toEqual([2])
+  })
+
+  /**
+   * A world may call `join()` again on a handle that is already live — a
+   * defensive re-entry on `visibilitychange`, say. If that second call fails
+   * (the 30s backstop, a hiccup), the stream it did NOT open must survive.
+   *
+   * Tearing down the live subscription there, and clearing `wanted` with it,
+   * reproduced the exact deafness above by another door: delivery stops, and so
+   * does the reconnect loop that would have repaired it.
+   */
+  it('a failed re-entrant join does not kill the stream it did not open', async () => {
+    const ctx = await bootWorld(CAPS)
+    const seen: unknown[] = []
+    const room = await joined(ctx, 'versus/ab')
+    room.onMessage((m) => seen.push(m.data))
+
+    const second = room.join()
+    await Promise.resolve()
+    host.replyError(host.lastRequest()!.id as number, { code: 'unavailable', message: 'hiccup' })
+    await expect(second).rejects.toMatchObject({ code: 'unavailable' })
+
+    host.send(signal('versus/ab', { op: 'message', from: BOT, data: 'still here', seq: 1, at: 'now' }) as never)
+    expect(seen, 'the first join opened this stream and nothing has closed it').toEqual(['still here'])
+  })
+
+  /** A FIRST join that fails owns the subscription it took, and must give it back. */
+  it('a failed first join leaves nothing subscribed', async () => {
+    const ctx = await bootWorld(CAPS)
+    const seen: unknown[] = []
+    const room = ctx.channel('versus/zz')
+    room.onMessage((m) => seen.push(m.data))
+
+    const first = room.join()
+    await Promise.resolve()
+    host.replyError(host.lastRequest()!.id as number, { code: 'forbidden', message: 'no' })
+    await expect(first).rejects.toMatchObject({ code: 'forbidden' })
+
+    host.send(signal('versus/zz', { op: 'message', from: BOT, data: 1, seq: 1, at: 'now' }) as never)
+    expect(seen).toEqual([])
+  })
+
+  /**
+   * The host writes the roster as the first frame of EVERY stream, including a
+   * reconnected one, so announcing it again from the join result gave
+   * subscribers the same roster twice — and only on reconnects, which is the
+   * kind of difference between two paths a world ends up working around.
+   */
+  it('does not announce the roster twice on a reconnect', async () => {
+    vi.useFakeTimers()
+    try {
+      const ctx = await bootWorld(CAPS)
+      const room = ctx.channel('versus/ab')
+      const rosters: number[] = []
+      room.onPresence((peers) => rosters.push(peers.length))
+
+      void room.join()
+      await Promise.resolve()
+      host.reply(host.lastRequest()!.id as number, { peers: [] })
+      await Promise.resolve()
+
+      host.send(signal('versus/ab', { op: 'closed', reason: 'error' }) as never)
+      await vi.advanceTimersByTimeAsync(1_000)
+      host.reply(host.lastRequest()!.id as number, { peers: [ALICE, BOT] })
+      await Promise.resolve()
+
+      // Nothing yet: the roster arrives as a frame, exactly as on a first join,
+      // and that is the only place it is announced.
+      expect(rosters).toEqual([])
+      host.send(signal('versus/ab', { op: 'presence', peers: [ALICE, BOT] }) as never)
+      expect(rosters).toEqual([2])
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})
+
+describe('a deployment that does not serve realtime', () => {
+  /** `join` already failed as a drawable outcome; these two used to reach the host. */
+  it('refuses send, and leaves locally without asking the host', async () => {
+    const ctx = await bootWorld()
+    const room = ctx.channel('versus/ab')
+    await expect(room.send({ x: 1 })).rejects.toMatchObject({ code: 'unavailable' })
+    await expect(room.leave()).resolves.toBeUndefined()
+    expect(host.requests().filter((r) => String(r.op).startsWith('channel.'))).toEqual([])
+  })
+})

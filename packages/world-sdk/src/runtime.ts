@@ -637,6 +637,20 @@ function makeChannel(transport: Transport, name: string, available: boolean): Ch
         // typed, drawable outcome rather than as a request that hangs.
         throw fail('unavailable', 'this deployment does not serve realtime channels')
       }
+      /**
+       * Did THIS call open the stream, or was one already running?
+       *
+       * A world may join a handle that is already live — a defensive re-entry on
+       * `visibilitychange`, or its own repair logic. If that call then fails (the
+       * 30s backstop, a hiccup), it must not take down the stream it did not
+       * open. Unwinding unconditionally reproduced the deafness this release
+       * fixes, by another door: the live subscription was torn down and `wanted`
+       * cleared with it, so delivery stopped AND the reconnect loop that would
+       * have repaired it was switched off.
+       *
+       * What failed is this request, not that stream.
+       */
+      const fresh = !unsubscribe
       wanted = true
       // Before the request, not after: the host writes the roster as the first
       // frame of the stream, and a subscription taken afterwards could miss it.
@@ -649,9 +663,11 @@ function makeChannel(transport: Transport, name: string, available: boolean): Ch
         // A refusal is final — an undeclared namespace or a signed-out visitor
         // will not fix itself — so this does NOT start the retry loop. Only a
         // stream that opened and then died does.
-        wanted = false
-        unsubscribe?.()
-        unsubscribe = null
+        if (fresh) {
+          wanted = false
+          unsubscribe?.()
+          unsubscribe = null
+        }
         throw err
       }
     },
