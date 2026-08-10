@@ -1084,6 +1084,51 @@ describe('a channel is reusable', () => {
   })
 
   /**
+   * Two joins overlapping — the permutation the `fresh` guard structurally
+   * cannot see, because it is a snapshot taken before the await.
+   *
+   * The first sees no subscription and takes ownership; the second sees the
+   * first's and does not. So if the SECOND succeeds and the FIRST fails — a
+   * stalled request the 30s backstop eventually rejects, while a re-entrant one
+   * is answered at once — the loser used to unwind the winner's stream. The
+   * world was told it was in, half a minute earlier, and then went quiet with
+   * nothing failing anywhere.
+   */
+  it('a second join rides on the one in flight instead of racing it', async () => {
+    const ctx = await bootWorld(CAPS)
+    const room = ctx.channel('versus/ab')
+    const seen: unknown[] = []
+    room.onMessage((m) => seen.push(m.data))
+
+    const first = room.join()
+    const second = room.join()
+    await Promise.resolve()
+
+    // One request, not two: a defensive re-join is a no-op rather than a second
+    // `channel.join` for a room the visitor is already in.
+    expect(host.requests().filter((r) => r.op === 'channel.join')).toHaveLength(1)
+
+    host.reply(host.lastRequest()!.id as number, { peers: [ALICE] })
+    expect((await first).map((p) => p.id)).toEqual(['u1'])
+    expect((await second).map((p) => p.id)).toEqual(['u1'])
+
+    // And the one stream both of them share is live.
+    host.send(signal('versus/ab', { op: 'message', from: BOT, data: 'ok', seq: 1, at: 'now' }) as never)
+    expect(seen).toEqual(['ok'])
+  })
+
+  /** A join that has settled must not be handed out again to the next caller. */
+  it('starts a real attempt when the previous one has already finished', async () => {
+    const ctx = await bootWorld(CAPS)
+    const room = await joined(ctx, 'versus/ab')
+
+    void room.join()
+    await Promise.resolve()
+    expect(host.requests().filter((r) => r.op === 'channel.join')).toHaveLength(2)
+    host.reply(host.lastRequest()!.id as number, { peers: [] })
+  })
+
+  /**
    * The host writes the roster as the first frame of EVERY stream, including a
    * reconnected one, so announcing it again from the join result gave
    * subscribers the same roster twice — and only on reconnects, which is the

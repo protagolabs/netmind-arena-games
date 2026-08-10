@@ -542,6 +542,8 @@ function makeChannel(transport: Transport, name: string, available: boolean): Ch
   /** What the WORLD wants, as opposed to what the connection is doing. */
   let wanted = false
   let attempt = 0
+  /** The join in flight, if any. A second call rides on it — see `join`. */
+  let inFlight: Promise<Peer[]> | null = null
   let retryTimer: ReturnType<typeof setTimeout> | null = null
 
   /**
@@ -569,13 +571,14 @@ function makeChannel(transport: Transport, name: string, available: boolean): Ch
   }
 
   const onFrame = (event: HostSignal['event']): void => {
+    // Any frame at all proves the link is up, so the next outage starts its
+    // backoff from the beginning. Once done per branch, which meant a busy room
+    // whose roster never changed carried the last outage's delay for the rest of
+    // the match.
+    attempt = 0
+
     switch (event.op) {
       case 'message':
-        // Any frame proves the link is up, so the next outage starts its backoff
-        // from the beginning. Presence alone missed a busy room whose roster
-        // never changes — it would carry the last outage's delay for the rest of
-        // the match.
-        attempt = 0
         emit(messageListeners as Set<(m: unknown) => void>, {
           from: event.from,
           data: event.data,
@@ -588,10 +591,6 @@ function makeChannel(transport: Transport, name: string, available: boolean): Ch
         })
         return
       case 'presence':
-        // A frame arriving proves the connection works, so the next failure
-        // starts its backoff from the beginning rather than from wherever the
-        // last outage left it.
-        attempt = 0
         emit(presenceListeners, event.peers)
         return
       case 'closed':
@@ -631,23 +630,38 @@ function makeChannel(transport: Transport, name: string, available: boolean): Ch
   return {
     name,
 
-    async join(): Promise<Peer[]> {
+    join(): Promise<Peer[]> {
       if (!available) {
         // Matches `ctx.ai`: a capability the deployment cannot serve fails as a
         // typed, drawable outcome rather than as a request that hangs.
-        throw fail('unavailable', 'this deployment does not serve realtime channels')
+        return Promise.reject(fail('unavailable', 'this deployment does not serve realtime channels'))
       }
+      /**
+       * A second join while one is still in flight rides on the first.
+       *
+       * Not only an optimisation — it removes a race that the `fresh` guard
+       * below cannot see. `fresh` is a snapshot taken before the await, so two
+       * overlapping joins disagree about it: the first sees no subscription and
+       * takes ownership, the second sees the first's and does not. If the
+       * SECOND then succeeds and the FIRST fails — a stalled request that the
+       * 30s backstop eventually rejects, while a re-entrant one answered at
+       * once — the loser unwinds the winner's stream. The world was told it was
+       * in, half a minute earlier, and then goes quiet with nothing failing.
+       *
+       * That is exactly the shape of the two bugs this release already fixes,
+       * and the guard was itself written for re-entry, so overlap is just one of
+       * its ordinary permutations rather than a contrived one. Sharing the
+       * promise also makes a defensive re-join a true no-op instead of a second
+       * `channel.join` for a room the visitor is already in.
+       */
+      if (inFlight) return inFlight
+
       /**
        * Did THIS call open the stream, or was one already running?
        *
-       * A world may join a handle that is already live — a defensive re-entry on
-       * `visibilitychange`, or its own repair logic. If that call then fails (the
-       * 30s backstop, a hiccup), it must not take down the stream it did not
-       * open. Unwinding unconditionally reproduced the deafness this release
-       * fixes, by another door: the live subscription was torn down and `wanted`
-       * cleared with it, so delivery stopped AND the reconnect loop that would
-       * have repaired it was switched off.
-       *
+       * Still needed with the deduplication above, which only covers CONCURRENT
+       * joins: a world that joins again after one has settled runs this body
+       * afresh, and a failure there must not take down a stream it did not open.
        * What failed is this request, not that stream.
        */
       const fresh = !unsubscribe
@@ -655,21 +669,38 @@ function makeChannel(transport: Transport, name: string, available: boolean): Ch
       // Before the request, not after: the host writes the roster as the first
       // frame of the stream, and a subscription taken afterwards could miss it.
       listen()
-      try {
-        const result = await transport.request<{ peers: Peer[] }>('channel.join', undefined, { name })
-        attempt = 0
-        return result?.peers ?? []
-      } catch (err) {
-        // A refusal is final — an undeclared namespace or a signed-out visitor
-        // will not fix itself — so this does NOT start the retry loop. Only a
-        // stream that opened and then died does.
-        if (fresh) {
-          wanted = false
-          unsubscribe?.()
-          unsubscribe = null
-        }
-        throw err
-      }
+
+      /**
+       * Cleared inside the handlers that produce the outcome, not in a
+       * `finally`.
+       *
+       * A `finally` runs a microtask LATER than the value it follows, so a world
+       * that joined, awaited, and joined again would be handed the promise from
+       * the previous attempt — already settled, and carrying that attempt's
+       * result rather than starting the new one it asked for.
+       */
+      const attempt$ = transport.request<{ peers: Peer[] }>('channel.join', undefined, { name }).then(
+        (result) => {
+          inFlight = null
+          attempt = 0
+          return result?.peers ?? []
+        },
+        (err: unknown) => {
+          inFlight = null
+          // A refusal is final — an undeclared namespace or a signed-out visitor
+          // will not fix itself — so this does NOT start the retry loop. Only a
+          // stream that opened and then died does.
+          if (fresh) {
+            wanted = false
+            unsubscribe?.()
+            unsubscribe = null
+          }
+          throw err
+        },
+      )
+
+      inFlight = attempt$
+      return attempt$
     },
 
     send<T = Json>(data: T): Promise<void> {
@@ -701,6 +732,10 @@ function makeChannel(transport: Transport, name: string, available: boolean): Ch
     async leave(): Promise<void> {
       wanted = false
       attempt = 0
+      // A join still in flight must not hand its subscription back to a channel
+      // the world has since left: dropping the reference means the next `join()`
+      // starts a real one rather than riding on a promise from the last session.
+      inFlight = null
       if (retryTimer !== null) {
         clearTimeout(retryTimer)
         retryTimer = null
