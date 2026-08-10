@@ -41,6 +41,22 @@ export const WORLD_OPS = [
    * `capabilities.ai`, and for anyone who is not signed in.
    */
   'ai.chat',
+  /**
+   * Ephemeral fan-out between the visitors inside this world right now.
+   *
+   * The other odd ones out, for a different reason from `ai.chat`: that one
+   * spends money, these three relay one visitor's bytes to another WITHOUT
+   * passing moderation — because nothing is stored, there is no record to
+   * moderate and nothing afterwards to review. What keeps the vocabulary closed
+   * here is the manifest: a world may only broadcast on a namespace it declared
+   * and had reviewed, and both the host and the backend refuse anything else.
+   *
+   * The world still opens nothing itself. `connect-src 'none'` is unchanged —
+   * the host holds the connection and posts frames in, exactly as for records.
+   */
+  'channel.join',
+  'channel.send',
+  'channel.leave',
 ] as const
 
 export type WorldOp = (typeof WORLD_OPS)[number]
@@ -170,7 +186,7 @@ export interface HostInit {
    * than one that is present and answers `unauthenticated` — which is a normal
    * outcome every world already has to handle.
    */
-  capabilities?: { ai?: boolean }
+  capabilities?: { ai?: boolean; realtime?: boolean }
 }
 
 /** Reply to a {@link WorldRequest}. Exactly one of `result` / `error`. */
@@ -203,7 +219,58 @@ export interface HostEnv {
   me?: VisitorInfo | null
 }
 
-export type HostMessage = HostInit | HostResult | HostChange | HostEnv
+/** A member of a channel, as everyone else in it sees them. */
+export interface ChannelPeer {
+  id: string
+  kind: VisitorInfo['kind']
+  name: string
+  avatar: string | null
+}
+
+/**
+ * One frame off a channel. Deliberately NOT a {@link HostChange}: nothing here
+ * was stored, so there is no record, no version, and no `list()` to fall back
+ * on. Miss a frame and it is gone.
+ *
+ * `message` is delivered to the SENDER too. That is the property a deterministic
+ * world depends on: if each side applied its own actions locally and only
+ * received the other's through here, the two would order a crossing pair of
+ * events differently and diverge. One stream, one order, everybody.
+ */
+export interface HostSignal {
+  [WORLD_CHANNEL]: true
+  type: 'signal'
+  channel: string
+  event:
+    | { op: 'message'; from: ChannelPeer; data: unknown; seq: number; at: string }
+    /**
+     * Who is in the channel.
+     *
+     * The host **MUST** deliver one of these as the FIRST frame of every stream
+     * it opens for a channel, including a stream opened by a reconnect, and then
+     * again whenever the membership changes.
+     *
+     * This is a cross-repository obligation, and it is written here rather than
+     * in the SDK's type docs because this is the file a host-side change is read
+     * against. The SDK relies on it: `Channel.onPresence` promises to fire with
+     * the roster on join, and the runtime deliberately does NOT synthesise that
+     * from `channel.join`'s reply — doing so announced the roster twice on a
+     * reconnect and once on a first join, which is the sort of difference
+     * between two paths that a world ends up working around. Stop sending the
+     * opening frame and a world that draws its seats from `onPresence` alone
+     * comes up empty, with nothing failing anywhere.
+     */
+    | { op: 'presence'; peers: ChannelPeer[] }
+    /**
+     * The stream died and this world is now deaf on that channel. Synthesized by
+     * the HOST, not sent by the backend — the backend is, by definition, the
+     * thing that stopped talking. A world that ignores this sits waiting for a
+     * peer who is still speaking into a room nobody is reading.
+     */
+    | { op: 'closed'; reason: 'error' | 'evicted' | 'unavailable' }
+}
+
+export type HostMessage = HostInit | HostResult | HostChange | HostEnv | HostSignal
 
 /* ─────────────────────────── shared record shape ─────────────────────────── */
 

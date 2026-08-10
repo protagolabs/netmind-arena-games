@@ -253,6 +253,73 @@ past that, an absent record cannot be told apart from one that has simply aged
 out of the newest page. `list()` remains the source of truth; `onChange` is how
 you avoid re-reading it constantly.
 
+## `ctx.channel` — the other people, right now
+
+A collection is how a world remembers. A channel is how it *is present*. They are
+separate primitives because they answer opposite questions, and a world that
+tries to make one do the other's job does it badly: `onChange` at ten-second
+granularity is not a conversation, and a record written twenty times a second is
+a database being used as a message bus.
+
+```jsonc
+"capabilities": {
+  "realtime": {
+    "purpose": "relays tactical orders between the two coaches in a versus room",
+    "channels": ["versus"],
+    "maxMessageBytes": 512, "maxPeers": 4, "maxHz": 20
+  }
+}
+```
+
+```ts
+const room = ctx.channel(`versus/${code}`)
+room.onMessage((m) => applyOrder(m.data, m.mine))
+room.onPresence((peers) => drawSeats(peers))
+room.onClosed(() => showReconnecting())     // the SDK retries on its own
+await room.join()
+```
+
+`channels` declares **namespaces**, not names. A live channel is
+`<namespace>/<room>` — the room half is a code your world invents while it runs,
+which is exactly why it is not the part that gets reviewed. `pnpm validate`
+checks that every namespace your code names literally is one you declared.
+
+What you give up, and why each one is the price of the speed:
+
+| | collection | channel |
+|---|---|---|
+| survives a refresh | yes | no |
+| delivery | guaranteed, `list()` is truth | at-most-once, nothing is truth |
+| arriving late | you read the history | you see nothing |
+| moderated | yes | **no** |
+| ordering | by `createdAt` | per sender only |
+| needs an identity | to write | to join at all |
+
+**Use both.** Put the room, its seed and the log of what has been decided in a
+collection; put live delivery on the channel. Then a refresh replays the
+collection and re-joins, and someone arriving at minute 70 sees the first 69. A
+world built on the channel alone loses its match to a reload.
+
+`onPresence` fires with the roster on every join, including a reconnect, so a
+world can draw its seats from it alone and never read what `join()` returned. And
+a handle survives being left: `leave()` then `join()` on the same room resumes
+delivery to the callbacks already on it, which is what a rematch needs.
+
+Two details worth knowing before you design around them:
+
+- **`send` is echoed to you.** Not an inefficiency — it is what lets a
+  deterministic world stay deterministic. If each side applied its own actions
+  locally and received only the other's, a crossing pair of events would be
+  ordered differently on the two screens. Wait for your own echo and both sides
+  consume one identical stream.
+- **Nothing is moderated.** There is no record to moderate and nothing afterwards
+  to review. Review reads `purpose` and weighs it against that, so write it as a
+  sentence about what actually crosses the wire.
+
+The sandbox is unchanged by any of this. A world still opens nothing: the host
+page holds the connection and posts frames in, the same way it does for records,
+which is why realtime needs no CSP exception.
+
 ## Language and theme
 
 The platform injects both, and **the world decides whether to use them**.
