@@ -12,6 +12,7 @@ import {
   isHostMessage,
   type HostInit,
   type HostMessage,
+  type HostSignal,
   type RecordPage,
   type StoredRecord,
   type ThemeTokens,
@@ -22,9 +23,12 @@ import type {
   AiReply,
   AiRequest,
   ChangeEvent,
+  Channel,
+  ChannelMessage,
   Collection,
   Json,
   LocalStore,
+  Peer,
   WorldAi,
   Page,
   Rec,
@@ -136,6 +140,7 @@ class Transport {
   private seq = 0
   private readonly pending = new Map<number, Pending>()
   private readonly changeListeners = new Map<string, Set<(e: ChangeEvent<never>) => void>>()
+  private readonly signalListeners = new Map<string, Set<(e: HostSignal['event']) => void>>()
 
   readonly onInit: Promise<HostInit>
   private resolveInit!: (init: HostInit) => void
@@ -244,6 +249,16 @@ class Transport {
         return
       }
 
+      case 'signal': {
+        const set = this.signalListeners.get(msg.channel)
+        // A frame for a channel this world is not listening to is dropped in
+        // silence. It happens legitimately: `leave()` unsubscribes locally
+        // while a frame is already in flight from the host.
+        if (!set) return
+        emit(set as Set<(e: unknown) => void>, msg.event)
+        return
+      }
+
       case 'env':
         // Commit EVERY field before notifying anyone.
         //
@@ -305,6 +320,22 @@ class Transport {
     }
     set.add(cb)
     return () => set!.delete(cb)
+  }
+
+  subscribeSignal(channel: string, cb: (e: HostSignal['event']) => void): Unsubscribe {
+    let set = this.signalListeners.get(channel)
+    if (!set) {
+      set = new Set()
+      this.signalListeners.set(channel, set)
+    }
+    set.add(cb)
+    return () => {
+      set!.delete(cb)
+      // Unlike collections, a channel's listener set is removed when it empties:
+      // a world may open a room per match, and a map that only ever grows would
+      // keep every code anyone ever typed for the life of the page.
+      if (set!.size === 0) this.signalListeners.delete(channel)
+    }
   }
 
   announceReady(): void {
@@ -480,6 +511,147 @@ function makeAi(transport: Transport, available: boolean): WorldAi | null {
   }
 }
 
+/* ─────────────────────────── channel handle ─────────────────────────── */
+
+/**
+ * Backoff between reconnect attempts, in ms.
+ *
+ * A channel dies for two very different reasons and the same schedule has to
+ * serve both: a blip that is over before the first retry, and a backend that is
+ * down and will stay down for minutes. Growing steps handle the first quickly
+ * without a world hammering the second. It stops growing rather than stopping —
+ * a match interrupted for five minutes should still reconnect if the visitor
+ * left the tab open.
+ */
+const RECONNECT_MS = [500, 1_000, 2_000, 5_000, 10_000, 20_000] as const
+
+/**
+ * One channel handle, with reconnection.
+ *
+ * The reconnect loop lives here rather than in the host on purpose. The host
+ * knows a stream ended; only this side knows whether the WORLD still wants the
+ * channel — a world that called `leave()` must not be dragged back into a room
+ * it left, and one whose stream died mid-match must not have to write its own
+ * retry loop to survive a deploy.
+ */
+function makeChannel(transport: Transport, name: string, available: boolean): Channel {
+  const messageListeners = new Set<(m: ChannelMessage<never>) => void>()
+  const presenceListeners = new Set<(peers: Peer[]) => void>()
+  const closedListeners = new Set<(reason: 'error' | 'evicted' | 'unavailable') => void>()
+
+  /** What the WORLD wants, as opposed to what the connection is doing. */
+  let wanted = false
+  let attempt = 0
+  let retryTimer: ReturnType<typeof setTimeout> | null = null
+
+  const unsubscribe = transport.subscribeSignal(name, (event) => {
+    switch (event.op) {
+      case 'message':
+        emit(messageListeners as Set<(m: unknown) => void>, {
+          from: event.from,
+          data: event.data,
+          seq: event.seq,
+          at: event.at,
+          // Resolved here rather than by the host: `me` changes when someone
+          // signs in mid-session, and the frame was addressed to a channel, not
+          // to a person.
+          mine: transport.env.me?.id === event.from.id,
+        })
+        return
+      case 'presence':
+        // A frame arriving proves the connection works, so the next failure
+        // starts its backoff from the beginning rather than from wherever the
+        // last outage left it.
+        attempt = 0
+        emit(presenceListeners, event.peers)
+        return
+      case 'closed':
+        emit(closedListeners, event.reason)
+        if (wanted) scheduleRetry()
+        return
+    }
+  })
+
+  function scheduleRetry(): void {
+    if (retryTimer !== null) return
+    const delay = RECONNECT_MS[Math.min(attempt, RECONNECT_MS.length - 1)]!
+    attempt++
+    retryTimer = setTimeout(() => {
+      retryTimer = null
+      if (!wanted) return
+      void transport
+        .request<{ peers: Peer[] }>('channel.join', undefined, { name })
+        .then((result) => {
+          attempt = 0
+          emit(presenceListeners, result?.peers ?? [])
+        })
+        .catch(() => {
+          // Still down. `closed` was already reported for this outage, so the
+          // world is not told again on every attempt — it would turn one
+          // disconnection into a stream of identical events.
+          if (wanted) scheduleRetry()
+        })
+    }, delay)
+  }
+
+  return {
+    name,
+
+    async join(): Promise<Peer[]> {
+      if (!available) {
+        // Matches `ctx.ai`: a capability the deployment cannot serve fails as a
+        // typed, drawable outcome rather than as a request that hangs.
+        throw fail('unavailable', 'this deployment does not serve realtime channels')
+      }
+      wanted = true
+      try {
+        const result = await transport.request<{ peers: Peer[] }>('channel.join', undefined, { name })
+        attempt = 0
+        return result?.peers ?? []
+      } catch (err) {
+        // A refusal is final — an undeclared namespace or a signed-out visitor
+        // will not fix itself — so this does NOT start the retry loop. Only a
+        // stream that opened and then died does.
+        wanted = false
+        throw err
+      }
+    },
+
+    send<T = Json>(data: T): Promise<void> {
+      return transport.request<void>('channel.send', undefined, { name, data })
+    },
+
+    onMessage<T = Json>(cb: (m: ChannelMessage<T>) => void): Unsubscribe {
+      const fn = cb as (m: ChannelMessage<never>) => void
+      messageListeners.add(fn)
+      return () => messageListeners.delete(fn)
+    },
+
+    onPresence(cb): Unsubscribe {
+      presenceListeners.add(cb)
+      return () => presenceListeners.delete(cb)
+    },
+
+    onClosed(cb): Unsubscribe {
+      closedListeners.add(cb)
+      return () => closedListeners.delete(cb)
+    },
+
+    async leave(): Promise<void> {
+      wanted = false
+      if (retryTimer !== null) {
+        clearTimeout(retryTimer)
+        retryTimer = null
+      }
+      unsubscribe()
+      messageListeners.clear()
+      presenceListeners.clear()
+      closedListeners.clear()
+      await transport.request<void>('channel.leave', undefined, { name })
+    },
+  }
+}
+
 function makeLocal(transport: Transport): LocalStore {
   return {
     get: <T = Json>(key: string) => transport.request<T | null>('local.get', undefined, { key }),
@@ -528,6 +700,8 @@ export async function boot(def: WorldDefinition): Promise<void> {
   const audio = makeAudio()
   const local = makeLocal(transport)
   const ai = makeAi(transport, init.capabilities?.ai === true)
+  const channels = new Map<string, Channel>()
+  const realtimeAvailable = init.capabilities?.realtime === true
 
   const ctx: WorldCtx = {
     get me() {
@@ -559,6 +733,32 @@ export async function boot(def: WorldDefinition): Promise<void> {
     local,
 
     ai,
+
+    /**
+     * One handle per channel name, cached.
+     *
+     * Two calls with the same name MUST give the same object, or a world that
+     * asks for its room in two places gets two handles, two listener sets and
+     * two independent reconnect loops racing to rejoin the same room.
+     *
+     * The name is normalised the way the platform normalises it, so
+     * `versus/AB` and `versus/ab` are one cache entry rather than two handles
+     * onto one room.
+     */
+    channel(name: string): Channel {
+      const key = name.trim().toLowerCase()
+      const existing = channels.get(key)
+      if (existing) return existing
+      // Shape only. WHICH namespaces are allowed is the manifest's business and
+      // the host's to enforce — checking it here would need the manifest inside
+      // the sandbox, and would be a second copy of the rule to drift.
+      if (!/^[a-z][a-z0-9_-]{0,31}\/[a-z0-9_-]{1,64}$/.test(key)) {
+        throw fail('invalid', `channel '${name}' must be '<namespace>/<room>'`)
+      }
+      const made = makeChannel(transport, key, realtimeAvailable)
+      channels.set(key, made)
+      return made
+    },
 
     asset(path) {
       const key = path.replace(/^\.?\/+/, '')

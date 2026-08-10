@@ -136,6 +136,46 @@
               "maximum": 4096
             }
           }
+        },
+        "realtime": {
+          "description": "Ephemeral fan-out between the visitors inside this world right now. The opposite of storage: a channel message is not stored, not owned, not versioned and NOT MODERATED — it is relayed to whoever is in the same channel and then forgotten, leaving nothing to review afterwards. Channel traffic is therefore the one thing a world can put in front of another visitor without moderation, which is what `purpose` is weighed against at review. Nothing is billed to anyone, so unlike `ai` no visitor is asked to consent.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["purpose", "channels", "maxMessageBytes", "maxPeers", "maxHz"],
+          "properties": {
+            "purpose": {
+              "description": "One line, in English, saying what is relayed — 'tactical orders between the two coaches in a versus room', not 'multiplayer'. The reader is REVIEW, not the visitor.",
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 200
+            },
+            "channels": {
+              "description": "NAMESPACES, not channel names. A live channel is `<namespace>/<room>`: the room half is a code your world invents at runtime, which is exactly why it cannot be the part that is reviewed. ['versus'] admits versus/7qk4 and refuses lobby/7qk4. An empty list is rejected rather than read as 'no restriction'.",
+              "type": "array",
+              "items": { "type": "string", "pattern": "^[a-z][a-z0-9_-]{0,31}$" },
+              "minItems": 1,
+              "maxItems": 4,
+              "uniqueItems": true
+            },
+            "maxMessageBytes": {
+              "description": "Cap on one serialized message. Can only narrow the platform's cap, never raise it.",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 4096
+            },
+            "maxPeers": {
+              "description": "Simultaneous members of one channel. A join past this is refused with `quota`.",
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 32
+            },
+            "maxHz": {
+              "description": "Sends per second, per visitor, per channel. Enforced server-side, so it bounds a world across every tab it is open in.",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 30
+            }
+          }
         }
       }
     },

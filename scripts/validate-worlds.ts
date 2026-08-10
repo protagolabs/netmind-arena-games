@@ -98,6 +98,25 @@ async function scanBundleInputs(inputs: string[], report: (msg: string) => void)
   }
 }
 
+/**
+ * Channel namespaces the shipped code names literally.
+ *
+ * Matches `ctx.channel('ns/…')` and the template form `` ctx.channel(`ns/${x}`) ``,
+ * which is the shape a room code actually takes. The namespace is the literal
+ * prefix in both, which is the half that has to be declared.
+ */
+async function channelNamespacesUsed(inputs: string[]): Promise<Set<string>> {
+  const found = new Set<string>()
+  for (const full of inputs) {
+    if (!/\.(ts|tsx|js|mjs)$/.test(full) || full.includes('.test.')) continue
+    const src = (await readFile(full, 'utf8')).replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1')
+    for (const m of src.matchAll(/\.channel\s*\(\s*['"`]([a-z][a-z0-9_-]{0,31})\//gi)) {
+      found.add(m[1]!.toLowerCase())
+    }
+  }
+  return found
+}
+
 async function validateWorld(dir: string, gameTypes: Set<string>, validateManifest: ReturnType<Ajv['compile']>): Promise<string> {
   const manifest = JSON.parse(await readFile(path.join(dir, 'world.manifest.json'), 'utf8')) as WorldManifest
 
@@ -157,6 +176,29 @@ async function validateWorld(dir: string, gameTypes: Set<string>, validateManife
     }
     if (!purpose.includes(' ')) {
       throw new Error(`capabilities.ai.purpose must be a phrase, not a single word ('${purpose}')`)
+    }
+  }
+
+  /**
+   * A declared realtime capability relays one visitor's bytes to another WITHOUT
+   * passing moderation — nothing is stored, so there is no record to moderate and
+   * nothing afterwards to review. `purpose` is what a reviewer weighs that
+   * against, so the same placeholder check applies, for a sharper reason than it
+   * does to `ai`: there, a vague string costs the visitor money they agreed to
+   * spend; here, it is the only description of an unmoderated channel between
+   * strangers that anyone will ever read.
+   */
+  const realtime = manifest.capabilities?.realtime
+  if (realtime) {
+    const said = realtime.purpose?.trim() ?? ''
+    if (/^(realtime|multiplayer|live|chat|sync|versus|online)$/i.test(said)) {
+      throw new Error(
+        `capabilities.realtime.purpose is a placeholder ('${said}') — a channel is unmoderated and ` +
+          `unlogged, so this sentence is the whole of what review has to go on`,
+      )
+    }
+    if (!said.includes(' ')) {
+      throw new Error(`capabilities.realtime.purpose must be a phrase, not a single word ('${said}')`)
     }
   }
 
@@ -225,6 +267,30 @@ async function validateWorld(dir: string, gameTypes: Set<string>, validateManife
   const problems: string[] = []
   await scanBundleInputs(inputs, (m) => problems.push(m))
   if (problems.length) throw new Error(problems.join('\n    '))
+
+  /**
+   * Every channel namespace the shipped code addresses must be declared.
+   *
+   * The schema constrains what a namespace looks like; only the source says
+   * which ones a world actually uses. A world declaring `versus` and calling
+   * `ctx.channel('lobby/x')` is refused at runtime with `forbidden` — which
+   * reads as a permissions problem rather than as the typo it is, and reads that
+   * way inside a sandbox where nobody can see the console. Here the fix is one
+   * character and the failure has the world's name on it.
+   *
+   * Literal names only, deliberately. `ctx.channel(\`versus/${'${code}'}\`)` is the normal
+   * shape and its namespace is still a literal; a fully computed name cannot be
+   * checked and is left to the host, which refuses it the same way.
+   */
+  for (const used of await channelNamespacesUsed(inputs)) {
+    const allowed = manifest.capabilities?.realtime?.channels ?? []
+    if (!allowed.includes(used)) {
+      throw new Error(
+        `ctx.channel('${used}/…') is used, but '${used}' is not in capabilities.realtime.channels ` +
+          `(declared: ${allowed.join(', ') || 'none'})`,
+      )
+    }
+  }
 
   // The manifest's `type` and the entry's `meta.type` must agree.
   //

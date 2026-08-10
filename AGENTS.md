@@ -444,6 +444,60 @@ world that ignores it keeps drawing something no one else can see.
 
 ---
 
+## 14b. Live channels — the other primitive
+
+`ctx.channel(name)` is ephemeral fan-out between the visitors in your world
+**right now**. It is the counterpart to a collection and very nearly its
+opposite, so declare it deliberately:
+
+```jsonc
+"capabilities": {
+  "realtime": {
+    "purpose": "relays tactical orders between the two coaches in a versus room",
+    "channels": ["versus"],      // NAMESPACES; a live channel is versus/<room>
+    "maxMessageBytes": 512, "maxPeers": 4, "maxHz": 20
+  }
+}
+```
+
+```ts
+const room = ctx.channel(`versus/${code}`)
+room.onMessage((m) => applyOrder(m.data, m.mine))   // subscribe BEFORE join
+room.onPresence((peers) => drawSeats(peers))
+await room.join()
+await room.send({ tick: 137, order: 'press high' })
+```
+
+What a channel does **not** promise, all of it load-bearing:
+
+- **At-most-once.** No retry, no history, no replay. A dropped frame is gone and
+  nothing will tell you it existed.
+- **Joining late shows you nothing.** A visitor arriving mid-match receives only
+  what happens after they arrive.
+- **Order holds per sender, not globally.** `seq` is that sender's counter.
+- **Nothing is stored and NOTHING IS MODERATED.** Records pass moderation;
+  channel traffic passes nobody and leaves nothing to review. `purpose` is what
+  review weighs that against, so write it as a sentence about what is relayed.
+- **It needs an identity.** Signed out gives `unauthenticated` from `join()`.
+
+**Use both primitives together.** Durable truth — the room, its seed, the log of
+what has been decided — belongs in a **collection**, so a refresh can replay it
+and a spectator arriving at minute 70 sees the first 69. Live delivery goes
+through the **channel**. A world built on the channel alone loses its match to a
+reload.
+
+`send` is echoed back to **you** as well as to everyone else. For a deterministic
+world that is the point: applying your own actions locally while receiving only
+the other side's would let a crossing pair of events be ordered differently on
+the two screens. Wait for your own echo and both sides consume one identical
+stream.
+
+`pnpm validate` checks that every namespace your code names literally is one you
+declared — `ctx.channel('lobby/x')` under `"channels": ["versus"]` fails in CI
+rather than as a `forbidden` a visitor sees inside a sandbox with no console.
+
+---
+
 ## 15. The sandbox (what you cannot do)
 
 The document is loaded via `srcdoc` into `sandbox="allow-scripts"` **without**
@@ -455,6 +509,9 @@ session.
   `importScripts` — `pnpm validate` scans for all of them, so you find out in CI
   rather than debugging a silent no-op inside a sandbox. Every read and write goes
   through the host's allowlisted postMessage proxy, which holds the credential.
+  **This is true of `ctx.channel` too**: realtime does not give a world a socket.
+  The host page holds the connection and posts frames in, exactly as it does for
+  records — which is why a live world needs no CSP exception at all.
 - **No `localStorage` / `sessionStorage`.** Use `ctx.local`.
 - **`img-src` and `media-src` allow `data:` and `https:`** — looser than the
   game-view policy, deliberately: a world's records are public co-created content,
@@ -506,6 +563,14 @@ exfiltration via a remote URL, protocol subversion, phishing UI, identity abuse
 abuse, unhandled documented errors, or throwing on mount for a signed-out visitor
 (YELLOW). Attempting an escape the CSP happens to block is still RED — intent
 counts. Full rubric: [docs/release-flow.md](docs/release-flow.md).
+
+A world declaring `capabilities.realtime` is read more closely, because a channel
+is the one route by which it can put one visitor's content in front of another
+**without moderation** and without leaving anything to review afterwards. Expect
+review to ask what is relayed, whether `purpose` describes it honestly, and
+whether the declared `maxMessageBytes` is the smallest that does the job. A
+channel used as a general-purpose chat that the manifest describes as something
+else is grounds for rejection.
 
 Submission PRs may only touch `games/` or `worlds/`. A world's document runs in a
 visitor's browser, so an author who could also edit the CSP or the op allowlist in

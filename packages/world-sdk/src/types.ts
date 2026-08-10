@@ -317,6 +317,113 @@ export interface WorldAi {
   chat(request: AiRequest): Promise<AiReply>
 }
 
+/* ────────────────────────────── realtime ────────────────────────────── */
+
+/** A member of a channel, as everyone else in it sees them. */
+export interface Peer {
+  id: string
+  kind: 'agent' | 'human' | 'anon'
+  name: string
+  avatar: string | null
+}
+
+/** One message somebody sent. `mine` is true when that somebody was you. */
+export interface ChannelMessage<T = Json> {
+  from: Peer
+  data: T
+  /**
+   * Per-SENDER, monotonic. Two senders have unrelated counters, so this orders
+   * one person's messages and detects a gap in them — it is not a global clock,
+   * because allocating one would need the round trip this whole primitive exists
+   * to avoid.
+   */
+  seq: number
+  at: string
+  mine: boolean
+}
+
+/**
+ * A live channel: ephemeral fan-out between the visitors in this world *now*.
+ *
+ * The counterpart to {@link Collection}, and almost its opposite. A collection
+ * is durable, owned, versioned, validated against a schema and moderated. A
+ * channel is none of those things. Read this list before designing against it,
+ * because none of it is a limitation to be worked around — it is what makes a
+ * channel fast enough to be worth having:
+ *
+ *  - **Delivery is at-most-once.** No retry, no history, no replay. A dropped
+ *    frame is gone; nothing will tell you it existed.
+ *  - **Joining late shows you nothing.** A visitor who arrives mid-match
+ *    receives only what happens after they arrive. Rebuilding the past is your
+ *    job — from a collection.
+ *  - **Order holds per sender, not globally.** See {@link ChannelMessage.seq}.
+ *  - **Nothing is stored and nothing is moderated.** Do not relay anything you
+ *    would not want relayed unreviewed between two strangers.
+ *  - **It needs an identity.** A signed-out visitor gets `unauthenticated` from
+ *    `join()`, so a world MUST stay usable without it.
+ *
+ * ## The pattern this is designed for
+ *
+ * Use the two primitives together. Durable truth — the room, its seed, the log
+ * of what has been decided — goes in a **collection**, where it survives a
+ * refresh and can be replayed. Live delivery goes through a **channel**. A world
+ * built this way reconnects by replaying the collection and then re-joining,
+ * and a spectator who arrives at minute 70 sees the first 69.
+ *
+ * Note that `send` is echoed back to YOU as well as to everyone else. For a
+ * deterministic world that is the point: if each side applied its own actions
+ * locally and only received the other's, a crossing pair of events would be
+ * ordered differently on the two screens and the simulations would diverge. Wait
+ * for your own echo and both sides consume one identical stream.
+ *
+ * ```ts
+ * const room = ctx.channel(`versus/${code}`)
+ * room.onMessage((m) => applyOrder(m.data, m.mine))
+ * room.onPresence((peers) => drawSeats(peers))
+ * await room.join()
+ * await room.send({ tick: 137, order: 'press high' })
+ * ```
+ */
+export interface Channel {
+  /** `<namespace>/<room>`, normalised to lower case. */
+  readonly name: string
+
+  /**
+   * Enter the channel and start receiving. Resolves with who is already here.
+   *
+   * Rejects with `unauthenticated` (signed out), `forbidden` (the namespace was
+   * not declared), `quota` (the room is full) or `unavailable` (realtime is not
+   * being served right now). Every one of those is an ordinary outcome a world
+   * has to be able to draw.
+   */
+  join(): Promise<Peer[]>
+
+  /**
+   * Relay one message to everyone here, including yourself.
+   *
+   * Rejects `too-large` past the manifest's `maxMessageBytes` and `rate-limited`
+   * past its `maxHz` — both are the author's own declared numbers, so hitting
+   * one is a design mismatch rather than bad luck.
+   */
+  send<T = Json>(data: T): Promise<void>
+
+  /** Fires per message. Subscribe BEFORE `join()` or you will miss the first ones. */
+  onMessage<T = Json>(cb: (message: ChannelMessage<T>) => void): Unsubscribe
+
+  /** Fires whenever the roster changes, and once with the roster on join. */
+  onPresence(cb: (peers: Peer[]) => void): Unsubscribe
+
+  /**
+   * Fires when the connection dies. The SDK reconnects on its own and a fresh
+   * `presence` follows — this exists so a world can say "reconnecting" rather
+   * than sit there looking like the other player went quiet.
+   */
+  onClosed(cb: (reason: 'error' | 'evicted' | 'unavailable') => void): Unsubscribe
+
+  /** Leave. The seat is released rather than waiting out its timeout. */
+  leave(): Promise<void>
+}
+
 /**
  * Everything a world can do. Injected — mirroring the games SDK's `ctx`, where
  * the only route to the outside is a capability the platform handed you.
@@ -348,6 +455,17 @@ export interface WorldCtx {
    * cannot serve it. See {@link WorldAi} — it spends the VISITOR's credit.
    */
   readonly ai: WorldAi | null
+
+  /**
+   * Join a live channel, or `null` when this world declared no
+   * `capabilities.realtime` or the platform cannot serve it.
+   *
+   * The namespace must be one the manifest declared; an undeclared one throws
+   * immediately, exactly as an undeclared collection does. See {@link Channel}
+   * for what delivery does and does not promise — it is much weaker than
+   * storage, on purpose.
+   */
+  channel(name: string): Channel
 
   /**
    * Resolve a path under the world's `assets/` directory to a usable URL.
@@ -503,8 +621,43 @@ export interface WorldAiCapability {
   maxTokens?: number
 }
 
+/**
+ * Live channels, as declared in the manifest. See {@link Channel} for what a
+ * channel is and what it deliberately does not promise.
+ *
+ * Every number here is a ceiling you may narrow and never raise; the platform
+ * clamps anything larger at publish time. The list of namespaces is the whole of
+ * what this world may ever broadcast on, so declaring none is refused rather
+ * than read as "no restriction".
+ */
+export interface WorldRealtimeCapability {
+  /**
+   * One line, in English, saying what is relayed — "tactical orders between the
+   * two coaches in a versus room", not "multiplayer".
+   *
+   * Nobody's money is spent, so no visitor is shown this; the reader is REVIEW.
+   * Channel traffic is the one thing a world can put in front of another visitor
+   * without it passing moderation, so this sentence is what a reviewer weighs
+   * that against.
+   */
+  purpose: string
+  /**
+   * Namespaces, NOT channel names. A live channel is `<namespace>/<room>`: the
+   * room is a code your world invents at runtime, which is precisely why it
+   * cannot be the part that is reviewed. `['versus']` admits `versus/7qk4`.
+   */
+  channels: string[]
+  /** Cap on one serialized message. Platform ceiling: 4096. */
+  maxMessageBytes: number
+  /** Simultaneous members of one channel. Platform ceiling: 32. */
+  maxPeers: number
+  /** Sends per second, per visitor, per channel. Platform ceiling: 30. */
+  maxHz: number
+}
+
 export interface WorldCapabilities {
   ai?: WorldAiCapability
+  realtime?: WorldRealtimeCapability
 }
 
 export interface WorldPresentation {
