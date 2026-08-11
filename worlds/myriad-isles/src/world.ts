@@ -1,6 +1,6 @@
 import { defineWorld } from '@arena/world-sdk'
 import { dayString, hashStr, ihash } from './seed.js'
-import { makeIsland, newGame, draftPick, placeAt, canPlaceAt, scoreAt, goldAt, dayProgress, ROUNDS, type BType, type GameState } from './sim.js'
+import { makeIsland, newGame, draftPick, placeAt, canPlaceAt, scoreAt, bonusZoneAt, dayProgress, ROUNDS, type BType, type GameState } from './sim.js'
 import { createScene, type IsleScene } from './scene.js'
 import { makeUi, applyStateToUi, type Ui } from './ui.js'
 import { makeI18n } from './i18n.js'
@@ -28,9 +28,8 @@ export default defineWorld({
     const sfx = makeSfx(() => ctx.audio())
 
     const tierAt = (x: number, z: number): 0 | 1 | 2 => {
-      if (!canPlaceAt(island, state.placed, x, z)) return 0
-      if (selected && goldAt(island, state.placed, selected, x, z)) return 2
-      return 1
+      if (selected && bonusZoneAt(island, state.placed, selected, x, z)) return 2
+      return canPlaceAt(island, state.placed, x, z) ? 1 : 0
     }
     const refreshAll = () => {
       applyStateToUi(ui, state, selected)

@@ -91,7 +91,15 @@ export const TREE_CLEAR = 1.25
 
 export function canPlaceAt(island: Island, placed: Placed[], x: number, z: number): boolean {
   const h = island.terr(x, z)
-  if (h < 0.06 || h > 5.4 || !island.slopeOk(x, z)) return false
+  if (h < 0.06 || h > 5.4) return false
+  // The shore band is a compressed ramp: visually flat, numerically sloped.
+  // A fixed slope gate blocked nearly the whole beach, so the limit adapts.
+  const e = 0.35
+  const slope = Math.max(
+    Math.abs(island.terr(x + e, z) - island.terr(x - e, z)),
+    Math.abs(island.terr(x, z + e) - island.terr(x, z - e)),
+  )
+  if (slope >= (h < 1.1 ? 0.62 : 0.42)) return false
   if (placed.some((p) => Math.hypot(p.x - x, p.z - z) < SPACING)) return false
   if (island.trees.some((t) => Math.hypot(t.x - x, t.z - z) < TREE_CLEAR)) return false
   return true
@@ -146,19 +154,29 @@ export function scoreAt(island: Island, placed: Placed[], t: BType, x: number, z
   }
 }
 
-/** "This would be a great spot" — drives the gold tint on the overlay. */
-const GOLD: Record<BType, number> = {
-  house: 5,
-  fisher: 7,
-  mill: 8,
-  field: 4,
-  shrine: 6,
-  lighthouse: 10,
-  observatory: 8,
-}
-
-export function goldAt(island: Island, placed: Placed[], t: BType, x: number, z: number): boolean {
-  return scoreAt(island, placed, t, x, z) >= GOLD[t]
+/**
+ * The gold guide: the KIND of ground this building loves, independent of the
+ * strict per-spot placement check — the whole shore band glows for a fisher
+ * hut even where one vertex is too steep; the ghost settles exact validity.
+ */
+export function bonusZoneAt(island: Island, placed: Placed[], t: BType, x: number, z: number): boolean {
+  const h = island.terr(x, z)
+  if (h < 0.06 || h > 5.4) return false
+  switch (t) {
+    case 'fisher':
+    case 'lighthouse':
+      return h < 1.1
+    case 'mill':
+      return h >= 1.67
+    case 'shrine':
+      return h >= 3.3
+    case 'observatory':
+      return h >= 3.9
+    case 'house':
+      return island.trees.some((tr) => Math.hypot(tr.x - x, tr.z - z) < 2.6)
+    case 'field':
+      return placed.some((p) => p.t === 'field' && Math.hypot(p.x - x, p.z - z) < 2.6)
+  }
 }
 
 // ---------------------------------------------------------------------------

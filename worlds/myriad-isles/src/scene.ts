@@ -304,8 +304,8 @@ export function createScene(canvas: HTMLCanvasElement, island: Island): IsleScen
     scene.add(mesh)
     return { geo, attr, mat, alpha }
   }
-  const ovGreen = mkOverlayLayer(0xa8f5c6, 0.42)
-  const ovGold = mkOverlayLayer(0xffc226, 0.6)
+  const ovGreen = mkOverlayLayer(0xa8f5c6, 0.55)
+  const ovGold = mkOverlayLayer(0xffc226, 0.82)
 
   const deep = new Mesh(track(new CircleGeometry(115, 24)), track(new MeshStandardMaterial({ color: 0x12374a, roughness: 0.95 })))
   deep.rotation.x = -Math.PI / 2
@@ -1145,6 +1145,7 @@ export function createScene(canvas: HTMLCanvasElement, island: Island): IsleScen
     resize(w, h) {
       renderer.setSize(w, h, false)
       camera.aspect = w / h
+      camera.fov = camera.aspect < 0.95 ? 44 : 34
       camera.updateProjectionMatrix()
       post.setSize(w, h)
     },
@@ -1167,22 +1168,20 @@ export function createScene(canvas: HTMLCanvasElement, island: Island): IsleScen
       ringMat.color.setHex(hex)
     },
     refreshOverlay(tier) {
-      const vGrid = new Uint8Array(GN * GN)
-      for (let g = 0; g < GN * GN; g++) vGrid[g] = tier(px[g]!, pz[g]!)
       const greenA = ovGreen.attr.array as Float32Array
       const goldA = ovGold.attr.array as Float32Array
       let gn = 0
       let go = 0
       for (let v = 0; v < gIdx.length; v += 3) {
-        const t1 = vGrid[gIdx[v]!]!
-        const t2 = vGrid[gIdx[v + 1]!]!
-        const t3 = vGrid[gIdx[v + 2]!]!
-        const top = Math.max(t1, t2, t3)
-        if (top === 0) continue
-        const arr = top === 2 ? goldA : greenA
-        let at = top === 2 ? go : gn
-        for (let k = 0; k < 9; k++) arr[at + k] = tp[v * 3 + k]! + (k % 3 === 1 ? 0.05 : 0)
-        if (top === 2) go = at + 9
+        const base = v * 3
+        const cx = (tp[base]! + tp[base + 3]! + tp[base + 6]!) / 3
+        const cz = (tp[base + 2]! + tp[base + 5]! + tp[base + 8]!) / 3
+        const t = tier(cx, cz)
+        if (t === 0) continue
+        const arr = t === 2 ? goldA : greenA
+        const at = t === 2 ? go : gn
+        for (let k = 0; k < 9; k++) arr[at + k] = tp[base + k]! + (k % 3 === 1 ? 0.08 : 0)
+        if (t === 2) go = at + 9
         else gn = at + 9
       }
       ovGreen.attr.needsUpdate = true
@@ -1219,7 +1218,8 @@ export function createScene(canvas: HTMLCanvasElement, island: Island): IsleScen
     },
     frame(dt) {
       tNow += dt
-      az += dt * (settled ? 0.12 : 0.03) * (api.dragging ? 0 : 1)
+      const idleSpin = settled ? 0.12 : ghost && ghost.visible ? 0 : 0.03
+      az += dt * idleSpin * (api.dragging ? 0 : 1)
       updCam()
       mixv += (mixTgt - mixv) * Math.min(1, dt * (settled ? 0.7 : 1.8))
       for (const k of Object.keys(DAY) as (keyof typeof DAY)[]) {
@@ -1264,7 +1264,7 @@ export function createScene(canvas: HTMLCanvasElement, island: Island): IsleScen
       }
       rowboat.position.y = 0.06 + 0.05 * Math.sin(tNow * 1.2)
       rowboat.rotation.z = 0.03 * Math.sin(tNow * 1.4)
-      const act = 1 - smooth(4.0, 7.0, tNow - lastActive)
+      const act = ghost && ghost.visible ? 1 : 1 - smooth(2.0, 4.5, tNow - lastActive)
       const pulse = act * (0.85 + 0.15 * Math.sin(tNow * 2.4)) * (1 - 0.35 * mixv)
       ovGreen.mat.opacity = ovGreen.alpha * pulse
       ovGold.mat.opacity = ovGold.alpha * pulse
@@ -1274,8 +1274,8 @@ export function createScene(canvas: HTMLCanvasElement, island: Island): IsleScen
         else b.g.rotation.y += dt * 0.5
       }
       for (const c of clouds) c.rotation.y += dt * 0.004
-      const ba = tNow * 0.025
-      boat.position.set(Math.cos(ba) * 19.5, 0.05 + 0.07 * Math.sin(tNow * 1.1), Math.sin(ba) * 19.5)
+      const ba = tNow * 0.04
+      boat.position.set(Math.cos(ba) * 17.5, 0.05 + 0.07 * Math.sin(tNow * 1.1), Math.sin(ba) * 17.5)
       boat.rotation.y = -ba - Math.PI / 2
       boatIn.rotation.z = -0.07 + 0.04 * Math.sin(tNow * 0.9)
       boatIn.rotation.x = 0.03 * Math.sin(tNow * 1.3)
