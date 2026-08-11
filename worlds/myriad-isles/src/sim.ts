@@ -172,17 +172,17 @@ export const ROUNDS: Round[] = [
     b: { id: 'neighbors', items: ['house', 'house', 'house'] },
   },
   {
-    unlock: 22,
+    unlock: 18,
     a: { id: 'fish-run', items: ['fisher', 'fisher', 'house'] },
     b: { id: 'wheat-wave', items: ['field', 'field', 'mill'] },
   },
   {
-    unlock: 36,
+    unlock: 28,
     a: { id: 'shrine-pack', items: ['shrine'] },
     b: { id: 'lighthouse-pack', items: ['lighthouse'] },
   },
   {
-    unlock: 46,
+    unlock: 36,
     a: { id: 'stargazer', items: ['observatory'] },
     b: { id: 'devotion', items: ['shrine', 'house'] },
   },

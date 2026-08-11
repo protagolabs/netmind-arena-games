@@ -3,7 +3,7 @@
  * Everything is textContent — never innerHTML with any dynamic string.
  */
 import type { BType, GameState, Round } from './sim.js'
-import { ROUNDS } from './sim.js'
+import { ROUNDS, B_TYPES } from './sim.js'
 import type { Dict } from './i18n.js'
 
 export interface Ui {
@@ -46,11 +46,47 @@ export function makeUi(host: HTMLElement, dict0: Dict): Ui {
 
   const muteBtn = el('button', `position:absolute;top:12px;right:12px;${BTN};pointer-events:auto;font-size:12px`, root)
   let muted = false
+  const rulesBtn = el('button', `position:absolute;top:54px;right:12px;${BTN};pointer-events:auto;font-size:12px`, root)
+  const rulesWrap = el('div', 'position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(6,9,18,0.45);pointer-events:auto', root)
+  const rulesBox = el('div', `padding:20px 22px;${PANEL};max-width:520px;width:86%;max-height:82%;overflow-y:auto`, rulesWrap)
+  const rulesTitle = el('div', 'font-size:17px;font-weight:600;margin-bottom:10px', rulesBox)
+  const rulesBody = el('div', 'font-size:13px;line-height:1.65;opacity:0.92', rulesBox)
+  const rulesClose = el('button', BTN + ';margin-top:14px', rulesBox)
+  let rulesOpen = false
+  const renderRules = () => {
+    rulesTitle.textContent = dict.rulesTitle
+    rulesClose.textContent = dict.rulesClose
+    rulesBody.textContent = ''
+    for (const line of [dict.rulesFlow, dict.rulesPlace, dict.rulesGhost, dict.rulesLadder(ROUNDS.slice(1).map((r) => r.unlock).join(' / '))]) {
+      const p = el('p', 'margin:0 0 8px', rulesBody)
+      p.textContent = line
+    }
+    const listTitle = el('div', 'font-weight:600;margin:10px 0 6px', rulesBody)
+    listTitle.textContent = dict.tray
+    for (const t of B_TYPES) {
+      const row = el('div', 'display:flex;gap:8px;margin:0 0 5px', rulesBody)
+      const name = el('span', 'font-weight:600;min-width:56px;flex-shrink:0', row)
+      name.textContent = dict.b[t] ?? t
+      const desc = el('span', 'opacity:0.85', row)
+      desc.textContent = dict.bHint[t] ?? ''
+    }
+    rulesBody.appendChild(rulesClose)
+  }
+  rulesBtn.onclick = () => {
+    rulesOpen = true
+    renderRules()
+    rulesWrap.style.display = 'flex'
+  }
+  rulesClose.onclick = () => {
+    rulesOpen = false
+    rulesWrap.style.display = 'none'
+  }
 
   const hintEl = el('div', `position:absolute;top:12px;left:50%;transform:translateX(-50%);padding:6px 14px;${PANEL};font-size:12px;opacity:0;transition:opacity 0.4s;max-width:70%;text-align:center`, root)
   let hintTimer = 0
 
   const tray = el('div', 'position:absolute;bottom:14px;left:50%;transform:translateX(-50%);display:flex;gap:8px;pointer-events:auto', root)
+  const selInfo = el('div', `position:absolute;bottom:82px;left:50%;transform:translateX(-50%);padding:5px 12px;${PANEL};font-size:12.5px;display:none;max-width:78%;text-align:center`, root)
 
   const draftWrap = el('div', 'position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(6,9,18,0.45);pointer-events:auto', root)
   const draftBox = el('div', `padding:20px 22px;${PANEL};max-width:560px;width:86%`, draftWrap)
@@ -77,6 +113,8 @@ export function makeUi(host: HTMLElement, dict0: Dict): Ui {
     setDict(d) {
       dict = d
       muteBtn.textContent = muted ? dict.unmute : dict.mute
+      rulesBtn.textContent = dict.rulesBtn
+      if (rulesOpen) renderRules()
     },
     setDay(day) {
       dayEl.textContent = dict.day(day)
@@ -100,6 +138,12 @@ export function makeUi(host: HTMLElement, dict0: Dict): Ui {
         cnt.textContent = `×${n}`
         chip.onclick = () => api.onSelect(t)
         chip.title = dict.bHint[t] ?? ''
+      }
+      if (selected && items.includes(selected)) {
+        selInfo.textContent = `${dict.b[selected] ?? selected}：${dict.bHint[selected] ?? ''}`
+        selInfo.style.display = 'block'
+      } else {
+        selInfo.style.display = 'none'
       }
     },
     hint(msg) {
@@ -158,6 +202,7 @@ export function makeUi(host: HTMLElement, dict0: Dict): Ui {
     },
   }
   muteBtn.textContent = dict.mute
+  rulesBtn.textContent = dict.rulesBtn
   muteBtn.onclick = () => {
     muted = !muted
     muteBtn.textContent = muted ? dict.unmute : dict.mute
