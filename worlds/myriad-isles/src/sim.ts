@@ -125,7 +125,7 @@ export function scoreAt(island: Island, placed: Placed[], t: BType, x: number, z
       return s
     }
     case 'field': {
-      let s = 1 + Math.min(3, near(placed, x, z, 2.6, 'field')) * 2
+      let s = 2 + Math.min(3, near(placed, x, z, 2.6, 'field')) * 2
       if (h > 3.4) s -= 2
       return s
     }
@@ -164,25 +164,25 @@ export const ROUNDS: Round[] = [
   {
     unlock: 0,
     a: { id: 'fishing-start', items: ['fisher', 'fisher', 'house', 'house'] },
-    b: { id: 'farm-start', items: ['field', 'field', 'field', 'house'] },
+    b: { id: 'farm-start', items: ['field', 'field', 'field', 'house', 'house'] },
   },
   {
-    unlock: 14,
+    unlock: 10,
     a: { id: 'workshop', items: ['mill', 'field', 'field'] },
     b: { id: 'neighbors', items: ['house', 'house', 'house'] },
   },
   {
-    unlock: 40,
+    unlock: 22,
     a: { id: 'fish-run', items: ['fisher', 'fisher', 'house'] },
     b: { id: 'wheat-wave', items: ['field', 'field', 'mill'] },
   },
   {
-    unlock: 72,
+    unlock: 36,
     a: { id: 'shrine-pack', items: ['shrine'] },
     b: { id: 'lighthouse-pack', items: ['lighthouse'] },
   },
   {
-    unlock: 110,
+    unlock: 46,
     a: { id: 'stargazer', items: ['observatory'] },
     b: { id: 'devotion', items: ['shrine', 'house'] },
   },

@@ -11,7 +11,7 @@ export interface Ui {
   setDict(d: Dict): void
   setDay(day: string): void
   setScore(n: number): void
-  setRound(r: number): void
+  setRound(r: number, nextUnlock: number | null): void
   setTray(tray: BType[], selected: BType | null): void
   hint(msg: string): void
   popup(xFrac: number, yFrac: number, text: string, good: boolean): void
@@ -84,8 +84,9 @@ export function makeUi(host: HTMLElement, dict0: Dict): Ui {
     setScore(n) {
       scoreEl.textContent = `${dict.score} ${n}`
     },
-    setRound(r) {
-      roundEl.textContent = dict.round(r + 1, ROUNDS.length)
+    setRound(r, nextUnlock) {
+      const tail = nextUnlock === null ? dict.hudDone : dict.hudNext(nextUnlock)
+      roundEl.textContent = `${dict.round(r + 1, ROUNDS.length)} · ${tail}`
     },
     setTray(items, selected) {
       tray.textContent = ''
@@ -167,6 +168,6 @@ export function makeUi(host: HTMLElement, dict0: Dict): Ui {
 
 export function applyStateToUi(ui: Ui, state: GameState, selected: BType | null): void {
   ui.setScore(state.score)
-  ui.setRound(state.round)
+  ui.setRound(state.round, state.round + 1 < ROUNDS.length ? ROUNDS[state.round + 1]!.unlock : null)
   ui.setTray(state.tray, selected)
 }
