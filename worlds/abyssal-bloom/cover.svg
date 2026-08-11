@@ -1,0 +1,118 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="350" viewBox="0 0 800 350">
+  <defs>
+    <linearGradient id="sea" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0a4356"/>
+      <stop offset="0.35" stop-color="#062c44"/>
+      <stop offset="0.7" stop-color="#031527"/>
+      <stop offset="1" stop-color="#010812"/>
+    </linearGradient>
+    <linearGradient id="ray" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#9adfe8" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#9adfe8" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="mote" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#eafcff" stop-opacity="0.95"/>
+      <stop offset="0.4" stop-color="#7fe0ff" stop-opacity="0.5"/>
+      <stop offset="1" stop-color="#4fc3f7" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="moteV" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#f6eaff" stop-opacity="0.95"/>
+      <stop offset="0.4" stop-color="#c79bff" stop-opacity="0.5"/>
+      <stop offset="1" stop-color="#9a6bff" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="blur8" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="8"/></filter>
+    <filter id="blur16" x="-120%" y="-120%" width="340%" height="340%"><feGaussianBlur stdDeviation="16"/></filter>
+    <filter id="blur3" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="3"/></filter>
+  </defs>
+
+  <rect width="800" height="350" fill="url(#sea)"/>
+
+  <!-- god rays -->
+  <polygon points="80,-20 150,-20 320,350 180,350" fill="url(#ray)"/>
+  <polygon points="230,-20 280,-20 470,350 380,350" fill="url(#ray)" opacity="0.6"/>
+  <polygon points="360,-20 395,-20 590,350 520,350" fill="url(#ray)" opacity="0.35"/>
+
+  <!-- garden silhouettes -->
+  <g stroke-linecap="round" fill="none">
+    <path d="M40 350 Q 46 300 34 262" stroke="#0b2233" stroke-width="5"/>
+    <path d="M70 350 Q 80 288 100 252" stroke="#0b2233" stroke-width="4"/>
+    <path d="M640 350 Q 648 296 632 258" stroke="#0b2233" stroke-width="5"/>
+    <path d="M700 350 Q 712 292 736 260" stroke="#0b2233" stroke-width="4"/>
+    <path d="M764 350 Q 770 310 758 284" stroke="#0b2233" stroke-width="3.4"/>
+    <path d="M118 350 Q 124 316 116 292" stroke="#0b2233" stroke-width="3.4"/>
+  </g>
+  <g>
+    <circle cx="34" cy="260" r="9" fill="url(#mote)"/>
+    <circle cx="101" cy="250" r="8" fill="url(#moteV)"/>
+    <circle cx="116" cy="290" r="6" fill="url(#mote)"/>
+    <circle cx="632" cy="256" r="9" fill="url(#moteV)"/>
+    <circle cx="737" cy="258" r="8" fill="url(#mote)"/>
+    <circle cx="758" cy="282" r="6" fill="url(#moteV)"/>
+  </g>
+
+  <!-- drifting motes -->
+  <g>
+    <circle cx="120" cy="84" r="10" fill="url(#mote)"/>
+    <circle cx="208" cy="180" r="7" fill="url(#mote)"/>
+    <circle cx="318" cy="96" r="8" fill="url(#moteV)"/>
+    <circle cx="282" cy="262" r="9" fill="url(#mote)"/>
+    <circle cx="386" cy="204" r="6" fill="url(#mote)"/>
+    <circle cx="700" cy="90" r="9" fill="url(#moteV)"/>
+    <circle cx="742" cy="180" r="7" fill="url(#mote)"/>
+    <circle cx="620" cy="60" r="6" fill="url(#mote)"/>
+    <circle cx="560" cy="308" r="8" fill="url(#moteV)"/>
+    <circle cx="180" cy="310" r="6" fill="url(#moteV)"/>
+  </g>
+
+  <!-- the creature: a sinuous chain of light sweeping through midwater -->
+  <g filter="url(#blur16)" opacity="0.8">
+    <circle cx="560" cy="150" r="34" fill="#59d8ff"/>
+    <circle cx="519" cy="167" r="28" fill="#57cdf8"/>
+    <circle cx="482" cy="188" r="24" fill="#5fb9f2"/>
+    <circle cx="450" cy="212" r="21" fill="#6da4ee"/>
+    <circle cx="424" cy="238" r="18" fill="#7f92ea"/>
+    <circle cx="404" cy="264" r="15" fill="#9180e6"/>
+    <circle cx="390" cy="288" r="12" fill="#a271e2"/>
+    <circle cx="381" cy="308" r="9" fill="#b164de"/>
+  </g>
+  <!-- veil -->
+  <g filter="url(#blur8)" opacity="0.5">
+    <path d="M450 212 C 420 258 400 296 356 330" stroke="#b98cf2" stroke-width="10" fill="none" stroke-linecap="round"/>
+    <path d="M424 238 C 404 274 388 300 352 318" stroke="#9a8cf2" stroke-width="7" fill="none" stroke-linecap="round"/>
+  </g>
+  <!-- fins -->
+  <g filter="url(#blur3)" opacity="0.55">
+    <path d="M519 167 C 500 128 494 108 500 84 C 522 108 530 132 534 156 Z" fill="#7fd8f7"/>
+    <path d="M482 188 C 458 232 452 252 456 276 C 476 252 486 226 492 202 Z" fill="#7fc4f4"/>
+  </g>
+  <!-- body cores -->
+  <g>
+    <circle cx="560" cy="150" r="17" fill="#eafdff"/>
+    <circle cx="519" cy="167" r="13.5" fill="#d9f7ff"/>
+    <circle cx="482" cy="188" r="11.5" fill="#cceafd"/>
+    <circle cx="450" cy="212" r="10" fill="#c3ddfb"/>
+    <circle cx="424" cy="238" r="8.5" fill="#c0d0f9"/>
+    <circle cx="404" cy="264" r="7" fill="#c4bff6"/>
+    <circle cx="390" cy="288" r="5.5" fill="#cdb4f2"/>
+    <circle cx="381" cy="308" r="4" fill="#d4a9ee"/>
+  </g>
+  <!-- photophores + eyes -->
+  <g>
+    <circle cx="524" cy="156" r="2.4" fill="#fff6d8" opacity="0.9"/>
+    <circle cx="488" cy="178" r="2" fill="#ffe9c8" opacity="0.8"/>
+    <circle cx="456" cy="203" r="1.8" fill="#ffdfC0" opacity="0.7"/>
+    <circle cx="567" cy="141" r="3.1" fill="#06121f"/>
+    <circle cx="570" cy="157" r="3.1" fill="#06121f"/>
+  </g>
+  <!-- lantern -->
+  <path d="M470 196 Q 468 226 458 240" stroke="#8fd8f0" stroke-width="1.6" fill="none" opacity="0.7"/>
+  <circle cx="458" cy="242" r="8" fill="url(#moteV)"/>
+  <circle cx="458" cy="242" r="2.6" fill="#f3e9ff"/>
+
+  <!-- title -->
+  <g>
+    <text x="64" y="152" font-family="'Songti SC','Noto Serif SC',serif" font-size="64" fill="#eafaff" letter-spacing="10" opacity="0.96">渊光</text>
+    <text x="66" y="188" font-family="'Avenir Next','Futura',sans-serif" font-size="17" fill="#9fd7e8" letter-spacing="7.5" opacity="0.9">ABYSSAL BLOOM</text>
+    <text x="66" y="216" font-family="'PingFang SC',sans-serif" font-size="13" fill="#7fb3c4" letter-spacing="3" opacity="0.85">把一缕光养大，带它沉入渊底花园</text>
+  </g>
+</svg>
