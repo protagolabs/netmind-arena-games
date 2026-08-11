@@ -79,13 +79,13 @@ export default defineWorld({
       .ab-band{position:absolute;top:40px;left:20px;font-size:12px;color:#9fd7e8;opacity:0;transition:opacity 1.2s ease;letter-spacing:.2em}
       .ab-gcount{position:absolute;top:60px;left:20px;font-size:11px;color:#7fb3c4;opacity:0;transition:opacity 1.2s ease}
       .ab-motes{position:absolute;left:20px;bottom:18px;font-size:13px;color:#cfeef8;opacity:.9;text-shadow:0 0 12px rgba(110,220,255,.6)}
-      .ab-hint{position:absolute;left:50%;bottom:46px;transform:translateX(-50%);font-size:13px;color:#a8cfdd;opacity:0;transition:opacity .9s ease;text-align:center;max-width:80vw;text-shadow:0 1px 8px rgba(0,10,20,.8)}
-      .ab-toast{position:absolute;left:50%;bottom:84px;transform:translateX(-50%);font-size:13px;color:#eaf7fc;background:rgba(8,30,46,.78);border:1px solid rgba(130,215,255,.28);border-radius:20px;padding:8px 18px;opacity:0;transition:opacity .4s ease;max-width:78vw;text-align:center}
+      .ab-hint{position:absolute;left:50%;bottom:72px;transform:translateX(-50%);font-size:13px;color:#a8cfdd;opacity:0;transition:opacity .9s ease;text-align:center;max-width:80vw;text-shadow:0 1px 8px rgba(0,10,20,.8)}
+      .ab-toast{position:absolute;left:50%;bottom:110px;transform:translateX(-50%);font-size:13px;color:#eaf7fc;background:rgba(8,30,46,.78);border:1px solid rgba(130,215,255,.28);border-radius:20px;padding:8px 18px;opacity:0;transition:opacity .4s ease;max-width:78vw;text-align:center}
       .ab-btnrow{position:absolute;top:14px;right:16px;display:flex;gap:8px}
       .ab-btn{pointer-events:auto;cursor:pointer;background:rgba(9,32,48,.6);border:1px solid rgba(130,205,240,.3);color:#cfeef8;border-radius:18px;padding:7px 14px;font-size:12px;font-family:inherit;transition:background .25s,border-color .25s}
       .ab-btn:hover{background:rgba(16,52,74,.8);border-color:rgba(160,225,255,.55)}
       .ab-btn:disabled{opacity:.4;cursor:default}
-      .ab-release{position:absolute;right:18px;bottom:16px;font-size:13px;padding:10px 22px;border-radius:22px;background:rgba(10,44,60,.72);border:1px solid rgba(140,230,255,.4)}
+      .ab-release{position:absolute;left:50%;transform:translateX(-50%);bottom:18px;font-size:13px;padding:10px 22px;border-radius:22px;background:rgba(10,44,60,.72);border:1px solid rgba(140,230,255,.4)}
       .ab-release.ready{background:rgba(16,74,92,.85);border-color:rgba(170,245,255,.85);box-shadow:0 0 22px rgba(90,220,255,.35);animation:ab-breathe 2.6s ease-in-out infinite}
       @keyframes ab-breathe{50%{box-shadow:0 0 34px rgba(120,235,255,.55)}}
       .ab-modal{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(1,8,16,.55);opacity:0;pointer-events:none;transition:opacity .5s ease;z-index:5}
@@ -211,7 +211,9 @@ export default defineWorld({
 
     const applyLang = () => {
       T = strings(ctx.lang)
-      titleEl.textContent = `${T.title} · ABYSSAL BLOOM`
+      // in Chinese the wordmark pairs 渊光 with the English name; in English
+      // that pairing would just repeat itself
+      titleEl.textContent = ctx.lang === 'zh' ? `${T.title} · ABYSSAL BLOOM` : 'ABYSSAL BLOOM'
       soundBtn.textContent = soundOn ? T.soundOn : T.soundOff
       helpBtn.textContent = T.helpBtn
       releaseBtn.textContent = T.releaseBtn
