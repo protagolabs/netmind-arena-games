@@ -59,5 +59,9 @@ await substitute(dst)
 console.log(`Created games/${slug} (${pace}, from templates/${template}). Next:`)
 console.log('  pnpm install')
 console.log(`  # edit games/${slug}/src/game.ts + rules.md`)
+// The manifest's description and cover.svg are how the game appears in Arena's
+// catalog. Both are template placeholders and both are REQUIRED by `pnpm validate`,
+// so say so here rather than letting the gate be the first mention.
+console.log(`  # replace games/${slug}/cover.svg + the "description" in game.manifest.json`)
 console.log(`  pnpm --filter @arena-games/${slug} test`)
 console.log('  pnpm validate')

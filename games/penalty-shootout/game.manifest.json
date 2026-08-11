@@ -5,6 +5,8 @@
   "entry": "src/penalty-shootout.game.ts",
   "players": { "min": 2, "max": 2 },
   "pace": "turn-based",
+  "description": "Set six shooters with powers 1 to 6, then alternate kicking and keeping. Most goals after five rounds wins; ties go to sudden death.",
   "rules": "rules.md",
-  "view": "view.ts"
+  "view": "view.ts",
+  "presentation": { "cover": "cover.svg" }
 }

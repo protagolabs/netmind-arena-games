@@ -17,11 +17,29 @@ import { createHash } from 'node:crypto'
 import path from 'node:path'
 import esbuild from 'esbuild'
 import type { GameDefinition, ParamSpec } from '@arena/game-sdk'
-import { buildWorlds } from './build-worlds.js'
+import { buildWorlds, readCover } from './build-worlds.js'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const GAMES_DIR = path.join(ROOT, 'games')
 const DIST = path.join(ROOT, 'dist')
+
+/**
+ * Ceiling on a game's cover, far below the world equivalent (400KB).
+ *
+ * A world's cover is one poster on a page that shows a handful of worlds. A
+ * game's rides in an index entry that ALREADY carries the whole bundle and the
+ * full rules text, and `GET /api/games` returns every registered game in one
+ * response — so the covers are paid for together, by every visitor, on the
+ * homepage. An SVG line drawing fits in single-digit KB; anything that does not
+ * is a raster in disguise.
+ *
+ * Exported because `validate-games` enforces the same number in CI: a cap that
+ * only lives here fails on main, in the publish job, where the author cannot fix it.
+ */
+export const MAX_GAME_COVER_BYTES = 64_000
+
+/** Cards clamp the blurb to two lines; past this it is not a blurb. */
+export const MAX_GAME_DESCRIPTION_CHARS = 160
 
 interface Manifest {
   type: string
@@ -30,9 +48,13 @@ interface Manifest {
   entry: string
   players: { min: number; max: number }
   pace: string
+  /** One line, shown on the game's card and above its rules. */
+  description?: string
   rules?: string
   /** Optional author T2 renderer; bundled into a sandboxed HTML doc. */
   view?: string
+  /** `cover` is an SVG logo, inlined below as a data URI. */
+  presentation?: { cover: string }
 }
 
 interface IndexEntry {
@@ -66,6 +88,23 @@ interface IndexEntry {
   bundleCode: string
   viewHtml: string | null
   rulesMarkdown: string | null
+  // Presentation: what the Arena catalog shows before anyone opens a match.
+  /** One-line blurb for the card. */
+  description: string | null
+  /** SVG logo as a data URI (inlined, like a world's cover). */
+  cover: string | null
+  /**
+   * sha256 of `description` + `cover`.
+   *
+   * publish.yml's gate diffs a projection of each game entry to decide whether a
+   * Release is worth cutting, and it cannot diff a field it does not select. With
+   * only `contentHash` / `viewContentHash` / `rulesContentHash` in that
+   * projection, redrawing a logo or rewriting a blurb changes nothing the gate
+   * can see — the PR merges and never reaches production. Worlds hit this exact
+   * wall and answered it with `releaseHash`; this is the same answer, scoped to
+   * the fields games added.
+   */
+  metaContentHash: string | null
 }
 
 async function bundle(entryFile: string): Promise<string> {
@@ -187,6 +226,11 @@ async function main() {
       await writeFile(path.join(DIST, view), html, 'utf8')
     }
 
+    const description = manifest.description ?? null
+    const cover = manifest.presentation?.cover
+      ? await readCover(dir, manifest.presentation.cover, MAX_GAME_COVER_BYTES)
+      : null
+
     entries.push({
       type: manifest.type,
       slug: d.name,
@@ -210,6 +254,9 @@ async function main() {
       bundleCode: code,
       viewHtml: html,
       rulesMarkdown,
+      description,
+      cover,
+      metaContentHash: createHash('sha256').update(`${description ?? ''}\n${cover ?? ''}`).digest('hex'),
     })
     console.log(`bundled ${manifest.type} (${(code.length / 1024).toFixed(1)}kb, ${contentHash.slice(0, 12)})${view ? ' + sandboxed view' : ''}`)
   }

@@ -8,6 +8,8 @@
     "max": 2
   },
   "pace": "strategy",
+  "description": "A sealed-order card duel: both sides hold the same A, K and Q — the only question is the order you commit to.",
   "rules": "rules.md",
-  "view": "view.ts"
+  "view": "view.ts",
+  "presentation": { "cover": "cover.svg" }
 }

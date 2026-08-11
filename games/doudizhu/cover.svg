@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 140" width="320" height="140" role="img" aria-label="Doudizhu">
+  <title>Doudizhu</title>
+  <defs>
+    <linearGradient id="ddz-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#a3341f"/>
+      <stop offset="1" stop-color="#3d0f0c"/>
+    </linearGradient>
+    <path id="ddz-spade" d="M0-10C6-3 11-1 11 4c0 4-4 6-7 4-1-.5-2-1-2-1l2 5h-8l2-5s-1 .5-2 1c-3 2-7 0-7-4 0-5 5-7 11-14z"/>
+    <path id="ddz-heart" d="M0 11c-3-3-11-8-11-14 0-5 7-7 11-2 4-5 11-3 11 2 0 6-8 11-11 14z"/>
+  </defs>
+  <rect width="320" height="140" fill="url(#ddz-bg)"/>
+
+  <!-- The landlord's crown, over the hand that plays alone against two. -->
+  <path d="M136 34l6-17 9 11 9-14 9 14 9-11 6 17z" fill="#ffd166"/>
+  <circle cx="169" cy="21" r="3.2" fill="#fff3cd"/>
+
+  <g stroke="#7a1f14" stroke-width="1.2">
+    <!-- A of spades -->
+    <g transform="rotate(-20 116 92)">
+      <rect x="94" y="60" width="44" height="62" rx="5" fill="#fbf7ef"/>
+      <g fill="#17171b" stroke="none">
+        <text x="100" y="75" font-family="Georgia, 'Times New Roman', serif" font-size="13" font-weight="bold">A</text>
+        <use href="#ddz-spade" transform="translate(100 80) scale(.42)"/>
+        <use href="#ddz-spade" transform="translate(118 95) scale(.95)"/>
+      </g>
+    </g>
+
+    <!-- King of hearts -->
+    <g transform="rotate(20 202 92)">
+      <rect x="180" y="60" width="44" height="62" rx="5" fill="#fbf7ef"/>
+      <g fill="#c62d42" stroke="none">
+        <text x="186" y="75" font-family="Georgia, 'Times New Roman', serif" font-size="13" font-weight="bold">K</text>
+        <use href="#ddz-heart" transform="translate(186 80) scale(.42)"/>
+        <use href="#ddz-heart" transform="translate(204 95) scale(.95)"/>
+      </g>
+    </g>
+
+    <!-- 大王 — the joker that outranks the whole deck. Drawn as strokes rather
+         than a CJK glyph: an <img>-rendered SVG has no font to fall back on and
+         a missing glyph becomes a tofu box. -->
+    <g>
+      <rect x="137" y="48" width="44" height="62" rx="5" fill="#fbf7ef"/>
+      <g stroke="#c62d42" stroke-width="3" stroke-linecap="round" fill="none">
+        <path d="M150 70h18M153 79h12M148 88h22M159 70v18"/>
+      </g>
+      <path d="M144 57l3-6 4 4 4-5 4 5 4-4 3 6z" fill="#e0a800" stroke="none"/>
+    </g>
+  </g>
+</svg>

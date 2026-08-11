@@ -18,7 +18,7 @@ import path from 'node:path'
 import { assertMatchSane, clampParams } from '@arena/game-sdk'
 import type { GameDefinition } from '@arena/game-sdk'
 import { validateWorlds } from './validate-worlds.js'
-import { bundleGameWithInputs } from './build-bundles.js'
+import { bundleGameWithInputs, MAX_GAME_COVER_BYTES, MAX_GAME_DESCRIPTION_CHARS } from './build-bundles.js'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const GAMES_DIR = path.join(ROOT, 'games')
@@ -51,6 +51,8 @@ interface Manifest {
   entry: string
   players: { min: number; max: number }
   pace: string
+  description?: string
+  presentation?: { cover: string }
 }
 
 /**
@@ -87,12 +89,82 @@ async function scanBundleInputs(inputs: string[]): Promise<void> {
   }
 }
 
+/**
+ * The blurb and the logo — how the game reaches anyone who has not already
+ * decided to play it.
+ *
+ * Required rather than optional because the Arena catalog has no fallback worth
+ * shipping: a card with no artwork and no sentence is a slug in a grid, and the
+ * one game that skips them is the one that looks broken next to the others.
+ */
+async function validatePresentation(dir: string, manifest: Manifest): Promise<void> {
+  const description = manifest.description
+  if (!description) {
+    throw new Error(`${dir}: manifest missing 'description' (one line, shown on the game's card)`)
+  }
+  if (/[\r\n]/.test(description)) throw new Error(`${dir}: description must be a single line`)
+  if (description.length > MAX_GAME_DESCRIPTION_CHARS) {
+    throw new Error(
+      `${dir}: description is ${description.length} chars; max ${MAX_GAME_DESCRIPTION_CHARS} (cards clamp it to two lines)`,
+    )
+  }
+
+  const cover = manifest.presentation?.cover
+  if (!cover) throw new Error(`${dir}: manifest missing 'presentation.cover' (an SVG logo, e.g. "cover.svg")`)
+  if (!cover.toLowerCase().endsWith('.svg')) {
+    throw new Error(`${dir}: cover '${cover}' must be an .svg — it is inlined into index.json and scales to every card size`)
+  }
+  if (!existsSync(path.join(dir, cover))) throw new Error(`${dir}: cover '${cover}' not found`)
+  const svg = await readFile(path.join(dir, cover))
+  if (svg.byteLength > MAX_GAME_COVER_BYTES) {
+    throw new Error(
+      `${dir}: cover is ${(svg.byteLength / 1024).toFixed(0)}kb; max ${(MAX_GAME_COVER_BYTES / 1024).toFixed(0)}kb ` +
+        `(it is inlined into index.json, which every visitor fetches with the game catalog)`,
+    )
+  }
+  assertCoverRatio(dir, cover, svg.toString('utf8'))
+}
+
+/** Cards render at 16:7; the gate owns the frame, the author owns the drawing. */
+const COVER_ASPECT = 16 / 7
+
+/**
+ * The one thing about a cover that is not the author's call.
+ *
+ * Style is deliberately unconstrained — a wall of covers looks better for the
+ * variety, not worse. Shape is not: every card in the catalog is the same box,
+ * so a cover drawn square or 4:3 is either letterboxed into grey bars or cropped
+ * through its own subject, and it is the neighbouring games that look broken.
+ * Any 16:7 viewBox passes, so 320x140 and 640x280 are both fine.
+ */
+function assertCoverRatio(dir: string, rel: string, svg: string): void {
+  const match = svg.match(/\bviewBox\s*=\s*["']\s*([-\d.eE\s,]+?)\s*["']/)
+  if (!match) throw new Error(`${dir}: cover '${rel}' has no viewBox (needs a 16:7 one, e.g. "0 0 320 140")`)
+
+  const nums = match[1]!.split(/[\s,]+/).map(Number)
+  if (nums.length !== 4 || nums.some((n) => !Number.isFinite(n))) {
+    throw new Error(`${dir}: cover '${rel}' viewBox="${match[1]}" is not four numbers`)
+  }
+  const [, , width, height] = nums as [number, number, number, number]
+  if (width <= 0 || height <= 0) throw new Error(`${dir}: cover '${rel}' viewBox has no size`)
+
+  // Loose enough to accept a rounded viewBox, tight enough to catch a wrong one.
+  if (Math.abs(width / height - COVER_ASPECT) > 0.02) {
+    throw new Error(
+      `${dir}: cover '${rel}' is ${width}x${height} (${(width / height).toFixed(2)}:1); ` +
+        `must be 16:7, e.g. "0 0 320 140" — every card in the catalog is that box, and another ratio gets cropped or letterboxed`,
+    )
+  }
+}
+
 async function validateGame(dir: string): Promise<string> {
   const manifest = JSON.parse(await readFile(path.join(dir, 'game.manifest.json'), 'utf8')) as Manifest
   for (const field of ['type', 'entry', 'players', 'pace'] as const) {
     if (manifest[field] == null) throw new Error(`${dir}: manifest missing '${field}'`)
   }
   if (!/^[a-z0-9-]+$/.test(manifest.type)) throw new Error(`${dir}: type must be kebab-case`)
+
+  await validatePresentation(dir, manifest)
 
   if (!existsSync(path.join(dir, manifest.entry))) throw new Error(`${dir}: entry '${manifest.entry}' not found`)
   const { inputs } = await bundleGameWithInputs(path.join(dir, manifest.entry))

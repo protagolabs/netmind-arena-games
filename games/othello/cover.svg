@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 140" width="320" height="140" role="img" aria-label="Othello">
+  <title>Othello</title>
+  <defs>
+    <linearGradient id="othello-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#17784a"/>
+      <stop offset="1" stop-color="#0b4a2c"/>
+    </linearGradient>
+  </defs>
+  <rect width="320" height="140" fill="url(#othello-bg)"/>
+  <g stroke="#04301c" stroke-opacity=".5" stroke-width="1.4">
+    <path d="M80 24h160M80 53h160M80 82h160M80 111h160"/>
+    <path d="M80 24v87M112 24v87M144 24v87M176 24v87M208 24v87M240 24v87"/>
+  </g>
+  <g fill="#fbfbf7">
+    <circle cx="96" cy="67" r="11"/><circle cx="128" cy="38" r="11"/><circle cx="192" cy="96" r="11"/>
+  </g>
+  <g fill="#17171b">
+    <circle cx="128" cy="67" r="11"/><circle cx="160" cy="67" r="11"/><circle cx="160" cy="96" r="11"/>
+  </g>
+  <circle cx="224" cy="67" r="11" fill="#fbfbf7"/>
+  <circle cx="224" cy="67" r="11" fill="none" stroke="#ffd166" stroke-width="2.5"/>
+</svg>

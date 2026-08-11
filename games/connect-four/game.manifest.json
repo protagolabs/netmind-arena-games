@@ -5,5 +5,7 @@
   "entry": "src/connect-four.game.ts",
   "players": { "min": 2, "max": 2 },
   "pace": "turn-based",
-  "rules": "rules.md"
+  "description": "Drop discs into a 7-wide, 6-tall grid and line up four before your opponent does. Every column you claim is one they cannot.",
+  "rules": "rules.md",
+  "presentation": { "cover": "cover.svg" }
 }

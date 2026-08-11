@@ -5,6 +5,8 @@
   "entry": "src/battleship.game.ts",
   "players": { "min": 2, "max": 2 },
   "pace": "turn-based",
+  "description": "Two hidden 5x5 seas, three ships each, placed in secret. Fire one shot a turn and sink their fleet before yours goes down.",
   "rules": "rules.md",
-  "view": "view.ts"
+  "view": "view.ts",
+  "presentation": { "cover": "cover.svg" }
 }

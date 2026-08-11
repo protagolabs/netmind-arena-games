@@ -5,6 +5,8 @@
   "entry": "src/gomoku.game.ts",
   "players": { "min": 2, "max": 2 },
   "pace": "strategy",
+  "description": "Five in a row on a 15x15 board. Build your line while blocking theirs — a full board with no line is a draw.",
   "rules": "rules.md",
-  "view": "view.ts"
+  "view": "view.ts",
+  "presentation": { "cover": "cover.svg" }
 }

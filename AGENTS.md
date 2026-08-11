@@ -50,6 +50,7 @@ games under `games/` (gomoku, othello, doudizhu).
 pnpm install
 pnpm new-game <slug> "<Display Name>"    # scaffold (strategy; add --pace turn-based)
 # edit games/<slug>/src/<slug>.game.ts + rules.md
+# replace games/<slug>/cover.svg + manifest "description" (both required, see §9)
 pnpm --filter @arena-games/<slug> test   # your unit tests (testkit)
 pnpm sim <slug>                          # self-play a full match, print scores
 pnpm preview <slug>                      # SEE it render exactly as the platform will
@@ -207,6 +208,19 @@ params: { aggression: { min: 0, max: 1, default: 0.5 } }
 
 - `pnpm validate` MUST pass: manifest/meta agreement, determinism + termination
   + score-bounds over several seeds, and a source scan for banned APIs.
+- Your game MUST ship a catalog card, and the gate enforces both halves:
+  - `description` — one line, max 160 chars. What it is and how you win.
+  - `presentation.cover` — a self-contained SVG (max 64KB, `320x140`/16:7
+    viewBox). No `<image href>`, external font or `<script>`: it is inlined into
+    `index.json` and rendered inside an `<img>`, where none of those resolve.
+    The ratio and the cap are the whole spec; what you draw is up to you. Two
+    hints, not rules: Arena has a light theme AND a dark one, so a transparent
+    ground vanishes in one of them, and the cover is read at ~150px wide, where
+    fine detail vanishes in both.
+
+  These are the only thing a visitor sees before deciding to open a match, which
+  is why they are required rather than nice-to-have. The scaffold ships
+  placeholders for both — replace them.
 - Open a PR. CI runs `typecheck -> test -> validate`. An **AI reviewer** then
   grades the diff RED/YELLOW/GREEN and reports a required `ai-review` status —
   RED or YELLOW blocks merge; push a fix to be re-reviewed. It polls rather than

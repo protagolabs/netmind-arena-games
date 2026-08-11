@@ -250,12 +250,19 @@ export async function readAssets(dir: string): Promise<Record<string, string>> {
   return out
 }
 
-/** Inline the cover so `index.json` references no external asset. */
-async function readCover(dir: string, rel: string): Promise<string> {
+/**
+ * Inline the cover so `index.json` references no external asset.
+ *
+ * Exported with the ceiling as a parameter because games inline a cover too, at
+ * a much tighter cap (see `MAX_GAME_COVER_BYTES` in `build-bundles`): a game's
+ * index entry already carries its whole bundle and rules, and `GET /api/games`
+ * hands every registered game to every visitor in one response.
+ */
+export async function readCover(dir: string, rel: string, max = MAX_COVER_BYTES): Promise<string> {
   const full = path.join(dir, rel)
   const buf = await readFile(full)
-  if (buf.byteLength > MAX_COVER_BYTES) {
-    throw new Error(`cover is ${buf.byteLength} bytes; max ${MAX_COVER_BYTES}`)
+  if (buf.byteLength > max) {
+    throw new Error(`cover is ${buf.byteLength} bytes; max ${max}`)
   }
   return `data:${mimeOf(full)};base64,${buf.toString('base64')}`
 }

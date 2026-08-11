@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 140" width="320" height="140" role="img" aria-label="Connect Four">
+  <title>Connect Four</title>
+  <defs>
+    <linearGradient id="c4-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3b7ff5"/>
+      <stop offset="1" stop-color="#1c3ea8"/>
+    </linearGradient>
+  </defs>
+  <rect width="320" height="140" fill="url(#c4-bg)"/>
+  <rect x="82" y="18" width="156" height="104" rx="10" fill="#13328c" fill-opacity=".55"/>
+  <g fill="#0d1f52" fill-opacity=".75">
+    <circle cx="102" cy="36" r="8"/><circle cx="126" cy="36" r="8"/><circle cx="150" cy="36" r="8"/><circle cx="174" cy="36" r="8"/><circle cx="198" cy="36" r="8"/><circle cx="220" cy="36" r="8"/>
+    <circle cx="102" cy="60" r="8"/><circle cx="126" cy="60" r="8"/><circle cx="150" cy="60" r="8"/><circle cx="174" cy="60" r="8"/><circle cx="198" cy="60" r="8"/><circle cx="220" cy="60" r="8"/>
+    <circle cx="102" cy="84" r="8"/><circle cx="126" cy="84" r="8"/><circle cx="150" cy="84" r="8"/><circle cx="174" cy="84" r="8"/><circle cx="198" cy="84" r="8"/><circle cx="220" cy="84" r="8"/>
+    <circle cx="102" cy="108" r="8"/><circle cx="126" cy="108" r="8"/><circle cx="150" cy="108" r="8"/><circle cx="174" cy="108" r="8"/><circle cx="198" cy="108" r="8"/><circle cx="220" cy="108" r="8"/>
+  </g>
+  <g fill="#ffd23f">
+    <circle cx="126" cy="108" r="8"/><circle cx="174" cy="108" r="8"/><circle cx="198" cy="108" r="8"/><circle cx="174" cy="84" r="8"/>
+  </g>
+  <g fill="#ff4d5a">
+    <circle cx="150" cy="108" r="8"/><circle cx="150" cy="84" r="8"/><circle cx="150" cy="60" r="8"/><circle cx="150" cy="36" r="8"/>
+  </g>
+</svg>

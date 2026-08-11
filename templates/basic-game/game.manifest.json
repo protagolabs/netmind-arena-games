@@ -5,5 +5,7 @@
   "entry": "src/game.ts",
   "players": { "min": 2, "max": 2 },
   "pace": "strategy",
-  "rules": "rules.md"
+  "description": "One line on what __NAME__ is and how you win. Replace this.",
+  "rules": "rules.md",
+  "presentation": { "cover": "cover.svg" }
 }
