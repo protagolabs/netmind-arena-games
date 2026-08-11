@@ -360,7 +360,7 @@ export default defineWorld({
       if (down && !dragged) {
         if (scene.pickGround()) {
           tryPlace()
-        } else if (mode === 'play' && !modal) {
+        } else if (mode === 'play' && !modal && !welcomeOpen) {
           const nb = scene.pickNeighbor()
           if (nb) void visitIsle(nb.id)
         }
@@ -502,8 +502,30 @@ export default defineWorld({
 
     ui.setDay(day)
     refreshAll()
-    ui.hint(dict.hintPlace)
-    openDraft()
+
+    // First visit ever gets a welcome; ctx.local remembers across devices.
+    let welcomeOpen = false
+    void (async () => {
+      let seen = false
+      try {
+        seen = (await ctx.local.get<string>('welcomed')) === '1'
+      } catch {
+        /* treat as unseen */
+      }
+      if (seen) {
+        ui.hint(dict.hintPlace)
+        openDraft()
+        return
+      }
+      welcomeOpen = true
+      ui.showWelcome(() => {
+        welcomeOpen = false
+        ui.hideWelcome()
+        void ctx.local.set('welcomed', '1').catch(() => undefined)
+        ui.hint(dict.hintPlace)
+        openDraft()
+      })
+    })()
 
     void refreshNeighbors()
     // Retention whisper: did anyone lamp the isle you moored?
