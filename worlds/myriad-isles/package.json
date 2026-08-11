@@ -8,11 +8,9 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@arena/world-sdk": "workspace:*",
-    "three": "^0.185.1"
+    "@arena/world-sdk": "workspace:*"
   },
   "devDependencies": {
-    "typescript": "^5.6.3",
-    "@types/three": "^0.185.3"
+    "typescript": "^5.6.3"
   }
 }
