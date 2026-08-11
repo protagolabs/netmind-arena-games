@@ -39,12 +39,19 @@
  * are two controls that disagree. Its nine languages are Arena's nine, so
  * nothing is lost — see "Language and theme" in docs/worlds.md.
  *
- * Not carried: World Cup mode, the adventure game, online versus, and the three
- * written documents. A world is one screen and those are separate pages of the
- * site, so every control that pointed at one now opens a prompt naming the
- * address — see `showOffsite`. A sandboxed document cannot open a link, so the
- * address is offered to COPY; Arena's own attribution link, in the chrome around
- * this frame, is the one real link out.
+ * Not carried: World Cup mode, the adventure game, and the three written
+ * documents. A world is one screen and those are separate pages of the site, so
+ * every control that pointed at one now opens a prompt naming the address — see
+ * `showOffsite`. A sandboxed document cannot open a link, so the address is
+ * offered to COPY; Arena's own attribution link, in the chrome around this
+ * frame, is the one real link out.
+ *
+ * REBUILT rather than carried: online versus. It is a separate page on the site
+ * too, and it is the one that could be brought over, because what it needs is
+ * not a second screen but a relay — and `ctx.channel` is one. None of the site's
+ * versus code exists here; the room, the seats, the lockstep and the panel are
+ * all Arena's, and `src/versus.ts` explains what that costs. `about.md` says so
+ * plainly, beside the score bar.
  *
  * ADDED, which nothing else here is: a running score bar. The source shows the
  * score only inside the coach panel, so a visitor who has selected nobody
@@ -57,6 +64,7 @@ import { defineWorld, type WorldCtx } from '@arena/world-sdk'
 import { CSS, MARKUP, ASSET_TOKEN } from './original.js'
 import { installShims, type MatchState } from './shim.js'
 import { COACH_TOOL, coachSystem } from './coach.js'
+import { mountVersus } from './versus.js'
 
 /** The page's own preference keys. */
 const LANG_KEY = 'aa_lang'
@@ -167,7 +175,20 @@ export default defineWorld({
      * documents, World Cup mode, online versus, the remote's own "predict this
      * match" button — everything the source reaches for by leaving the page.
      */
-    globalThis.__arenaOffsite = () => showOffsite(ctx)
+    /**
+     * Online versus is the ONE of those destinations that now has somewhere to
+     * go.
+     *
+     * It used to land in the same prompt as the rest, because a relay needs a
+     * server and a world has none. `ctx.channel` is that relay — see
+     * `src/versus.ts` — so the nav entry opens a real screen instead of an
+     * address to copy. Everything else in the menu still leaves.
+     */
+    const versus = mountVersus(ctx)
+    globalThis.__arenaOffsite = (href) => {
+      if (typeof href === 'string' && href.startsWith('/versus')) versus.open()
+      else showOffsite(ctx)
+    }
     for (const el of Array.from(root.querySelectorAll('[data-arena-offsite]'))) {
       el.addEventListener('click', (e: Event) => {
         e.preventDefault()
@@ -248,7 +269,7 @@ const OFFSITE_COPY: Record<
 > = {
   en: {
     title: 'This part lives on predictmy.ai',
-    body: 'World Cup mode, the adventure game, online versus and the written docs are separate pages of the original site. An Arena world is a single screen, so they stay where they are.',
+    body: 'World Cup mode, the adventure game and the written docs are separate pages of the original site. An Arena world is a single screen, so they stay where they are. Online versus does not — it was rebuilt here, and the nav entry opens it.',
     copy: 'Copy address',
     copied: 'Copied',
     manual: 'Selected — press ⌘C / Ctrl+C',
@@ -256,7 +277,7 @@ const OFFSITE_COPY: Record<
   },
   zh: {
     title: '这部分在 predictmy.ai 上',
-    body: '世界杯模式、闯关游戏、联网对战和几篇文档，都是原站独立的页面。Arena 里的世界只有一屏，所以它们留在原处。',
+    body: '世界杯模式、闯关游戏和几篇文档，都是原站独立的页面。Arena 里的世界只有一屏，所以它们留在原处。联网对战不在此列 —— 它在这里重做了一份，菜单里那一项直接打开。',
     copy: '复制网址',
     copied: '已复制',
     manual: '已选中，按 ⌘C / Ctrl+C',

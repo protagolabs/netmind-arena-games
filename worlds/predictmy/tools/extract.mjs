@@ -210,18 +210,33 @@ for (const [file, out] of nameMap) {
   //
   //    The page already HAS this path: when `/api/chat` answers 429 it prints
   //    this line and parses the order with its own bilingual rule engine (`Dt`
-  //    in redeemCode). `src/shim.ts` returns 429 always, so the fallback becomes
-  //    the only path — which is why the port needs no parser of its own.
+  //    in redeemCode). `src/shim.ts` answers 429 for every failure, so this one
+  //    line has to cover all of them — which is why it names a CONDITION rather
+  //    than diagnosing a cause.
   //
-  //    Only the reason is wrong. Nobody's quota is full; an Arena world has no
-  //    network. Saying so costs two strings and stops the world from blaming a
-  //    limit that does not exist. The other seven locales hold this string in a
-  //    minified variable rather than inline, and are left as they shipped.
+  //    The source's own reason is wrong here (nobody's quota is full) and so is
+  //    the one this port used to substitute: "an Arena world has no network" was
+  //    true when there was no model to reach at all, and stopped being true when
+  //    `ctx.ai` arrived. It now misleads in exactly the case a visitor is most
+  //    likely to hit — signed out, where the model exists and the missing thing
+  //    is the account to bill.
+  //
+  //    So: not connected, plus the two facts a visitor can act on — sign in, and
+  //    it spends their own credit. True whether they are signed out, declined,
+  //    rate-limited, or the deployment has it switched off.
+  //
+  //    The other seven locales hold this string in a minified variable rather
+  //    than inline and are left as they shipped, still saying the quota is full.
+  //    That is now closer to right than what this replaced, and reaching them
+  //    would mean rewriting a variable rather than a literal.
   for (const [from, to] of [
-    ['教练 AI 额度已满，已用本地解析（游戏照常）', '教练 AI 需要联网，Arena 世界里没有网络 —— 已用本地解析（游戏照常）'],
+    [
+      '教练 AI 额度已满，已用本地解析（游戏照常）',
+      '教练 AI 未接入（需登录，用的是你自己的 NetMind 额度）—— 已用本地解析（游戏照常）',
+    ],
     [
       'Coach AI limit reached — used local parsing (game unaffected)',
-      'Coach AI needs the network, and an Arena world has none — used local parsing (game unaffected)',
+      'Coach AI not connected (sign in — it uses your own NetMind credit) — used local parsing (game unaffected)',
     ],
   ]) {
     if (src.includes(from)) {
@@ -396,6 +411,170 @@ for (const [file, out] of nameMap) {
       `globalThis.__arenaTeamFill=${teamFill};` +
       `globalThis.__arenaTeamName=${teamName};\n`
     counts.matchHandles = 1
+
+    /**
+     * 8. Two levers online versus cannot work without: the clock, and the seed.
+     *
+     * MOST of what versus needs, the source already publishes itself. `window.GAME`,
+     * `window.STEP`, `window.CFG` and `window.AGENT` are its own agent API, with
+     * real names it chose — `STEP(n)` advances exactly n fixed ticks and
+     * `AGENT.interpret` is the bilingual order parser. Those need no extraction at
+     * all, and depending on them beats depending on a regex: they are the one part
+     * of this build that is deliberately a contract.
+     *
+     * Two things are module-private and versus is impossible without both:
+     *
+     *  - **The loop.** The source steps by WALL CLOCK — an accumulator over
+     *    `requestAnimationFrame`, capped at 8 ticks a frame. Two browsers running
+     *    that for ninety minutes do not take the same number of steps: a throttled
+     *    background tab takes fewer, a slow frame gets clamped. Since the engine is
+     *    deterministic PER TICK, different tick counts are different matches. So
+     *    versus has to stop that loop stepping and count ticks itself; the source
+     *    keeps drawing, because `draw` is outside the paused branch.
+     *  - **The seed.** Both sides must begin from the same one, and from the same
+     *    kind of match. `start` therefore clears the fixture as well as setting the
+     *    seed: if one visitor were browsing a World Cup channel and the other the
+     *    demo match, they would share a seed and still be watching different games.
+     *
+     * Appended at module scope like the handles above, so every binding is in
+     * scope and nothing has to be injected into the middle of minified code.
+     * `Math.random()*1e5|0` is the anchor for the first group — a literal that
+     * survives minification, unlike every identifier around it.
+     */
+    const ID = '[A-Za-z_$][\\w$]*'
+    const clock = new RegExp(
+      `let (${ID})=120;const (${ID})=\\(\\)=>Math\\.random\\(\\)\\*1e5\\|0;` +
+        `let (${ID})=\\2\\(\\),(${ID})=!1,(${ID})=(${ID})\\(\\3,\\1\\)`,
+    ).exec(src)
+    // `$` is legal in an identifier and is NOT `\w`; the minifier uses it (`$t`,
+    // `$`). A `\w`-only pattern matches nothing here and reports the build as
+    // changed when it has not.
+    const decls = new RegExp(
+      `let (${ID})=null,(${ID})=!1,(${ID})=null,(${ID})=!1,(${ID})=1,` +
+        `(${ID})=!1,(${ID})=!0,(${ID})=null,(${ID})=null,(${ID})=null,(${ID})=0;`,
+    ).exec(src)
+    /**
+     * The feed-target helper, which is the one order path that cannot be
+     * intercepted from outside.
+     *
+     * Every other way to change the simulation goes through a METHOD on the
+     * control object (`applyToTeam`, `applyToPlayer`, `setBelief`), so versus
+     * captures it by replacing that method — no rewrite needed. `jt` is a plain
+     * module-local function, so a call to it is unreachable from `src/`: the
+     * local side applied a feed target immediately while the far side never
+     * heard about it, and the match diverged the moment anyone said "feed 9".
+     *
+     * So the call sites are rerouted through a hook, exactly as the nav's
+     * `location.href` assignments are. `?? jt` keeps the source's own behaviour
+     * whenever versus has not installed one, which is every match but a versus
+     * match.
+     *
+     * Anchored on `policy.feedTarget = null` — a property name, not an
+     * identifier, so it survives the next minifier the way the mangled names
+     * around it do not.
+     */
+    const feedDef = new RegExp(
+      `function (${ID})\\((\\w+),(\\w+),(\\w+)\\)\\{if\\(!\\3\\)\\{for\\(const ${ID} of ${ID}\\.players\\)`,
+    ).exec(src)
+    if (!feedDef) {
+      fail(
+        'could not find the feed-target helper in main.js — its shape changed. ' +
+          'Without the reroute, a versus coach who orders a teammate fed changes ' +
+          'their own simulation and nobody else\'s, and the match desyncs on the ' +
+          'next hash. Re-anchor on `policy.feedTarget = null`.',
+      )
+    }
+    const feedFn = feedDef[1]
+    // Not the definition itself: `function jt(` must keep its name.
+    const feedCalls = (src.match(new RegExp(`(?<!function )\\b${feedFn}\\(`, 'g')) ?? []).length
+    if (feedCalls < 2) {
+      fail(`expected 2 feed-target call sites to reroute, found ${feedCalls} — the tactics pipeline changed shape`)
+    }
+    src = src.replace(new RegExp(`(?<!function )\\b${feedFn}\\(`, 'g'), `(globalThis.__arenaFeedHook??${feedFn})(`)
+    counts.feed = feedCalls
+
+    /**
+     * The mark-target helper, the second and last order path that is not a
+     * method.
+     *
+     * Same problem and same fix as the feed helper above, and a more urgent one:
+     * marking is among the most ordinary instructions anyone gives — "盯防 9 号"
+     * is one of the source's own worked examples — and it fires the moment a
+     * coach has one of their own players selected. Left alone, a versus match
+     * diverged on the first such order and stayed diverged.
+     *
+     * Four call sites here rather than two, because the agent API reaches it as
+     * well as the two tactics paths. Rerouting all of them is right: an agent
+     * ordering a mark in a versus match has to relay exactly as a human does.
+     */
+    const markDef = new RegExp(
+      `function (${ID})\\((\\w+),(\\w+)\\)\\{if\\(!\\3\\)return \\2\\.policy\\.markTarget=null`,
+    ).exec(src)
+    if (!markDef) {
+      fail(
+        'could not find the mark-target helper in main.js — its shape changed. ' +
+          'Without the reroute, "mark their 9" changes one screen and not the ' +
+          'other, and a versus match desyncs on one of the commonest orders ' +
+          'there is. Re-anchor on `policy.markTarget = null`.',
+      )
+    }
+    const markFn = markDef[1]
+    const markEsc = markFn.replace(/\$/g, '\\$')
+    const markCalls = (src.match(new RegExp(`(?<!function )${markEsc}\\(`, 'g')) ?? []).length
+    if (markCalls < 4) {
+      fail(`expected 4 mark-target call sites to reroute, found ${markCalls} — the tactics pipeline changed shape`)
+    }
+    src = src.replace(new RegExp(`(?<!function )${markEsc}\\(`, 'g'), `(globalThis.__arenaMarkHook??${markFn})(`)
+    counts.mark = markCalls
+
+    const halfLen = clock?.[1]
+    const seedVar = clock?.[3]
+    const seedLock = clock?.[4]
+    const newMatch = clock?.[6]
+    const layout = clock
+      ? new RegExp(`;(${ID})\\(${clock[5]!.replace(/\$/g, '\\$')}\\),(${ID})\\.claims\\.clear\\(\\)`).exec(src)
+      : null
+
+    if (!clock || !decls || !layout) {
+      fail(
+        'could not publish the versus levers in main.js — ' +
+          `clock=${clock ? 'ok' : 'MISSING'} decls=${decls ? 'ok' : 'MISSING'} ` +
+          `layout=${layout ? 'ok' : 'MISSING'}. Online versus cannot start a match ` +
+          'or stop the source stepping one without these, and lockstep is not ' +
+          'approximable — a match that drifts by one tick is a different match. ' +
+          "Re-anchor: the clock group is the `let <half>=120;const <rnd>=()=>Math.random()*1e5|0` " +
+          'line, the declarations are the `let <fixture>=null,<b>=!1,…,<q>=0;` run ' +
+          'that follows it, and the layout call is `;<layout>(<match>),<control>.claims.clear()` ' +
+          'inside the reset function.',
+      )
+    }
+
+    // `let <fixture>=null,<be>=!1,<teams>=null,<paused>=!1,<speed>=1,<vision>=!1,
+    //  <ref>=!0,<selPlayer>=null,<selCoach>=null,<selFan>=null,<q>=0;`
+    const [, fixture, beFlag, teams, paused, , , , selPlayer, selCoach, selFan] = decls
+    const [, layoutFn, control] = layout
+    const matchVar = clock[5]
+
+    src +=
+      `;globalThis.__arenaVersus={` +
+      // Clear the fixture as well as setting the seed: a shared seed across two
+      // different fixtures is two different matches that agree about nothing.
+      `start:s=>{${fixture}=null;${teams}=null;${beFlag}=!1;` +
+      `${seedVar}=s>>>0;${seedLock}=!0;` +
+      `${matchVar}=${newMatch}(${seedVar},${halfLen});${layoutFn}(${matchVar});` +
+      `${control}.claims.clear();${selPlayer}=null;${selCoach}=null;${selFan}=null;},` +
+      `pause:v=>{${paused}=!!v},` +
+      `paused:()=>${paused},` +
+      // Who the visitor currently has selected: a player id, and a bench side.
+      // Versus needs both because the source lets you coach EITHER team, and a
+      // versus match is one coach per team — without a way to see and undo a
+      // selection on the opponent's half, one visitor drives both sides.
+      `feed:${feedFn},` +
+      `mark:${markFn},` +
+      `sel:()=>[${selPlayer},${selCoach}],` +
+      `pick:(p,c)=>{${selPlayer}=p;${selCoach}=c;${selFan}=null},` +
+      `seed:()=>${seedVar}};\n`
+    counts.versus = 1
   }
 
   await writeFile(path.join(VENDOR, out), src, 'utf8')
@@ -409,6 +588,9 @@ if (counts.busy !== 2) fail(`expected 2 inline llmBusy strings, rewrote ${counts
 if (!counts.specifier) fail('no cross-chunk import specifiers rewritten — chunk naming changed')
 if (!counts.applyLang) fail('apply-language function never published — main.js was not processed')
 if (!counts.matchHandles) fail('match handles never published — the score bar has nothing to read')
+if (!counts.versus) fail('versus levers never published — online versus cannot start or pace a match')
+if (!counts.feed) fail('feed-target calls never rerouted — a versus match desyncs the first time anyone orders a feed')
+if (!counts.mark) fail('mark-target calls never rerouted — a versus match desyncs the first time anyone orders a mark')
 if (!counts.fitBanner) fail('phase-banner scale not rewritten — a long team name will run off the kickoff card')
 if (counts.nav < 3) fail(`expected 3 location.href navigations to reroute (two nav menus + the predict button), found ${counts.nav} — the nav changed shape`)
 

@@ -245,6 +245,108 @@ declare global {
    */
   // eslint-disable-next-line no-var
   var __arenaFitBanner: ((cssW: number) => number) | undefined
+
+  /* ─────────────────────── the engine, for online versus ─────────────────────── */
+
+  /**
+   * The two levers versus needs that the source keeps module-private, published
+   * by `tools/extract.mjs` (rule 8).
+   *
+   * Everything else versus drives is the source's OWN agent API below, which it
+   * publishes under real names it chose. Depending on those beats depending on a
+   * regex against minified code — they are the one part of this build that is
+   * deliberately a contract.
+   */
+  // eslint-disable-next-line no-var
+  var __arenaVersus:
+    | {
+        /**
+         * Begin a match on an exact seed, with no fixture loaded.
+         *
+         * Clears the channel as well as setting the seed: two visitors sharing a
+         * seed while one has a World Cup fixture loaded are watching different
+         * matches that agree about nothing.
+         */
+        start: (seed: number) => void
+        /** Stop (or restart) the source's own wall-clock stepping. Drawing continues. */
+        pause: (paused: boolean) => void
+        paused: () => boolean
+        /**
+         * The source's own feed-target helper, published so a RELAYED feed can
+         * still be applied. Its call sites are rerouted through
+         * `__arenaFeedHook`, so this is the only way left to actually run it.
+         */
+        feed: (team: number, number: number | null, player: unknown) => string | null
+        /**
+         * The source's own mark-target helper, published for the same reason as
+         * `feed`: its call sites are rerouted, so this is the only way left to
+         * actually run one.
+         */
+        mark: (player: unknown, number: number | null) => string | null
+        /** `[selected player id, selected bench side]`, either possibly null. */
+        sel: () => [string | null, number | null]
+        /** Force the selection. Versus uses it to undo a click on the far bench. */
+        pick: (player: string | null, coach: number | null) => void
+        seed: () => number
+      }
+    | undefined
+
+  /**
+   * The source's own debug/agent API. Not extracted — these are the names
+   * predictmy.ai publishes itself, on `window`, from `main.js`.
+   */
+  /**
+   * Installed by `src/versus.ts` and called by the vendored tactics pipeline,
+   * whose `feedTarget` calls `tools/extract.mjs` reroutes here.
+   *
+   * Absent outside a versus match, and the rewrite falls back to the source's
+   * own function then (`?? jt`), so an ordinary match behaves exactly as it
+   * shipped. Returns the label the source would have shown, or null for none.
+   */
+  // eslint-disable-next-line no-var
+  var __arenaFeedHook: ((team: number, number: number | null, player: unknown) => string | null) | undefined
+  /** As `__arenaFeedHook`, for marking. Absent outside a versus match. */
+  // eslint-disable-next-line no-var
+  var __arenaMarkHook: ((player: unknown, number: number | null) => string | null) | undefined
+
+  // eslint-disable-next-line no-var
+  var GAME: (() => VersusMatch) | undefined
+  /** Engine constants. `DT` is the fixed timestep the whole design rests on. */
+  // eslint-disable-next-line no-var
+  var CFG: { DT: number; FIELD_W: number; FIELD_H: number } | undefined
+  /** Advance exactly `n` deterministic ticks. The clock versus actually drives. */
+  // eslint-disable-next-line no-var
+  var STEP: ((n?: number) => void) | undefined
+  // eslint-disable-next-line no-var
+  var AGENT:
+    | {
+        /** The claim/tactics controller. `applyToTeam` is how a bench gives an order. */
+        control: {
+          applyToTeam: (match: unknown, side: number, delta: unknown) => void
+          applyToPlayer: (player: unknown, delta: unknown, flip?: unknown) => void
+          setBelief: (match: unknown, side: number, belief: unknown) => void
+          claims: { clear: () => void }
+          claimedIds?: () => string[]
+        }
+        /**
+         * The source's bilingual rule parser: text in, parameter delta out.
+         *
+         * Pure and deterministic, which is what lets a delta be replayed. Note
+         * that versus relays the DELTA and not the text: when the model is in
+         * play the delta is the model's, and re-interpreting the sentence on the
+         * other side would produce a different one and desync the match.
+         */
+        interpret: (text: string) => { delta: Record<string, unknown>; matched: string[]; matchedEn: string[] }
+      }
+    | undefined
+}
+
+/** Only the fields versus reads. The source's state carries far more. */
+export interface VersusMatch {
+  players: Array<{ id?: string; team?: number; pos?: { x?: number; y?: number } }>
+  ball?: { pos?: { x?: number; y?: number } }
+  score: [number, number]
+  phase: string
 }
 
 /** Only the fields Arena reads. The source's state carries far more. */
