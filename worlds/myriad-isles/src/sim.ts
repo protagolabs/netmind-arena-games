@@ -266,6 +266,37 @@ export function placeAt(state: GameState, island: Island, t: BType, x: number, z
   return { ok: true, gained, next: 'settled' }
 }
 
+// ---------------------------------------------------------------------------
+// Stored islands: what goes into the `islands` collection. Terrain is never
+// stored — it rebuilds from the day seed, so a record is just the moves.
+
+export type BuildTuple = [number, number, number, number]
+
+export interface IslandRecord {
+  day: string
+  x: number
+  y: number
+  name?: string
+  score: number
+  builds: BuildTuple[]
+}
+
+const r2 = (n: number) => Math.round(n * 100) / 100
+
+export function serializeBuilds(placed: Placed[]): BuildTuple[] {
+  return placed.slice(0, 80).map((p) => [B_TYPES.indexOf(p.t), r2(p.x), r2(p.z), r2(Math.max(0, Math.min(6.3, p.rot)))])
+}
+
+export function deserializeBuilds(builds: BuildTuple[]): Placed[] {
+  const out: Placed[] = []
+  for (const b of builds) {
+    const t = B_TYPES[b[0]]
+    if (!t) continue
+    out.push({ t, x: b[1], z: b[2], rot: b[3] })
+  }
+  return out
+}
+
 /** How far through the day we are, for the sky: afternoon → dusk as you build. */
 export function dayProgress(state: GameState): number {
   const expected = ROUNDS.reduce((n, r) => n + Math.max(r.a.items.length, r.b.items.length), 0)

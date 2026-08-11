@@ -6,6 +6,31 @@ import type { BType, GameState, Round } from './sim.js'
 import { ROUNDS, B_TYPES } from './sim.js'
 import type { Dict } from './i18n.js'
 
+export interface SeaRow {
+  id: string
+  name: string
+  author: string
+  score: number
+  mine: boolean
+}
+
+export interface SettleOpts {
+  score: number
+  stuck: boolean
+  canSave: boolean
+  signInHint: boolean
+  onSave: (name: string) => void
+  onAgain: () => void
+}
+
+export interface VisitInfo {
+  label: string
+  score: number
+  lamps: number
+  lamped: boolean
+  canLamp: boolean
+}
+
 export interface Ui {
   root: HTMLElement
   setDict(d: Dict): void
@@ -18,11 +43,18 @@ export interface Ui {
   showPreview(pt: { x: number; y: number } | null, text: string, good: boolean): void
   showDraft(round: Round, onPick: (which: 'a' | 'b') => void): void
   hideDraft(): void
-  showSettle(score: number, stuck: boolean, onAgain: () => void): void
+  showSettle(opts: SettleOpts): void
+  settleStatus(msg: string): void
   hideSettle(): void
+  showSea(rows: SeaRow[], hasMore: boolean, onVisit: (row: SeaRow) => void, onMore: () => void): void
+  hideSea(): void
+  showVisit(info: VisitInfo, onLamp: () => void, onBack: () => void): void
+  updateVisit(lamps: number, lamped: boolean): void
+  hideVisit(): void
   onSelect: (t: BType) => void
   onMute: (muted: boolean) => void
   onRedraft: () => void
+  onSeaOpen: () => void
   dispose(): void
 }
 
@@ -46,9 +78,9 @@ export function makeUi(host: HTMLElement, dict0: Dict): Ui {
   const scoreEl = el('div', 'font-size:22px;font-weight:600;letter-spacing:0.5px', top)
   const roundEl = el('div', 'font-size:12px;opacity:0.75', top)
 
-  const muteBtn = el('button', `position:absolute;top:12px;right:12px;${BTN};pointer-events:auto;font-size:12px`, root)
+  const muteBtn = el('button', `position:absolute;top:12px;right:12px;${BTN};pointer-events:auto;font-size:12px;z-index:5`, root)
   let muted = false
-  const rulesBtn = el('button', `position:absolute;top:54px;right:12px;${BTN};pointer-events:auto;font-size:12px`, root)
+  const rulesBtn = el('button', `position:absolute;top:54px;right:12px;${BTN};pointer-events:auto;font-size:12px;z-index:5`, root)
   const rulesWrap = el('div', 'position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(6,9,18,0.45);pointer-events:auto', root)
   const rulesBox = el('div', `padding:20px 22px;${PANEL};max-width:520px;width:86%;max-height:82%;overflow-y:auto`, rulesWrap)
   const rulesTitle = el('div', 'font-size:17px;font-weight:600;margin-bottom:10px', rulesBox)
@@ -97,10 +129,31 @@ export function makeUi(host: HTMLElement, dict0: Dict): Ui {
   const draftCards = el('div', 'display:flex;gap:12px', draftBox)
 
   const settleWrap = el('div', 'position:absolute;inset:0;display:none;align-items:center;justify-content:center;pointer-events:auto', root)
-  const settleBox = el('div', `padding:24px 28px;${PANEL};text-align:center`, settleWrap)
+  const settleBox = el('div', `padding:24px 28px;${PANEL};text-align:center;max-width:400px;width:84%`, settleWrap)
   const settleTitle = el('div', 'font-size:20px;font-weight:600', settleBox)
-  const settleSub = el('div', 'font-size:13px;opacity:0.8;margin:8px 0 16px', settleBox)
+  const settleSub = el('div', 'font-size:13px;opacity:0.8;margin:8px 0 14px', settleBox)
+  const settleName = el('input', 'display:none;width:100%;box-sizing:border-box;margin:0 0 10px;padding:9px 12px;border-radius:9px;border:1px solid rgba(255,255,255,0.25);background:rgba(255,255,255,0.08);color:#f2f5fa;font:inherit;font-size:13px;text-align:center', settleBox)
+  const settleSave = el('button', `${BTN};display:none;margin:0 6px 10px`, settleBox)
+  const settleStatusEl = el('div', 'font-size:12px;opacity:0.75;min-height:16px;margin-bottom:10px', settleBox)
   const settleBtn = el('button', BTN, settleBox)
+
+  const seaBtn = el('button', `position:absolute;top:96px;right:12px;${BTN};pointer-events:auto;font-size:12px;z-index:5`, root)
+  const seaWrap = el('div', 'position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(6,9,18,0.45);pointer-events:auto', root)
+  const seaBox = el('div', `padding:20px 22px;${PANEL};max-width:460px;width:86%;max-height:78%;display:flex;flex-direction:column`, seaWrap)
+  const seaTitleEl = el('div', 'font-size:17px;font-weight:600;margin-bottom:10px', seaBox)
+  const seaList = el('div', 'overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:8px', seaBox)
+  const seaFoot = el('div', 'display:flex;gap:10px;margin-top:12px', seaBox)
+  const seaMore = el('button', BTN + ';font-size:12px', seaFoot)
+  const seaClose = el('button', BTN + ';font-size:12px;margin-left:auto', seaFoot)
+  seaClose.onclick = () => {
+    seaWrap.style.display = 'none'
+  }
+
+  const visitBar = el('div', `position:absolute;bottom:14px;left:50%;transform:translateX(-50%);display:none;align-items:center;gap:12px;padding:9px 16px;${PANEL};pointer-events:auto`, root)
+  const visitLabel = el('div', 'font-size:13px;font-weight:600;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap', visitBar)
+  const visitLamps = el('div', 'font-size:12.5px;opacity:0.85', visitBar)
+  const visitLampBtn = el('button', BTN + ';font-size:12px', visitBar)
+  const visitBackBtn = el('button', BTN + ';font-size:12px', visitBar)
 
   const popupLayer = el('div', 'position:absolute;inset:0;overflow:hidden;pointer-events:none', root)
   const previewChip = el('div', 'position:absolute;display:none;padding:2px 8px;border-radius:8px;background:rgba(10,14,26,0.72);font-size:13px;font-weight:600;pointer-events:none;transform:translate(-50%,-100%)', root)
@@ -114,10 +167,12 @@ export function makeUi(host: HTMLElement, dict0: Dict): Ui {
     onSelect: () => undefined,
     onMute: () => undefined,
     onRedraft: () => undefined,
+    onSeaOpen: () => undefined,
     setDict(d) {
       dict = d
       muteBtn.textContent = muted ? dict.unmute : dict.mute
       rulesBtn.textContent = dict.rulesBtn
+      seaBtn.textContent = dict.sea
       if (rulesOpen) renderRules()
     },
     setDay(day) {
@@ -206,15 +261,78 @@ export function makeUi(host: HTMLElement, dict0: Dict): Ui {
     hideDraft() {
       draftWrap.style.display = 'none'
     },
-    showSettle(score, stuck, onAgain) {
+    showSettle(opts) {
       settleTitle.textContent = dict.settledTitle
-      settleSub.textContent = (stuck ? `${dict.settledStuck} · ` : '') + dict.settledScore(score)
+      settleSub.textContent = (opts.stuck ? `${dict.settledStuck} · ` : '') + dict.settledScore(opts.score)
+      settleStatusEl.textContent = opts.signInHint ? dict.signInToSave : ''
+      settleName.style.display = opts.canSave ? 'block' : 'none'
+      settleSave.style.display = opts.canSave ? 'inline-block' : 'none'
+      settleName.maxLength = 18
+      settleName.placeholder = dict.namePlaceholder
+      settleSave.textContent = dict.saveIsle
+      settleSave.disabled = false
+      settleSave.onclick = () => {
+        settleSave.disabled = true
+        opts.onSave(settleName.value.trim())
+      }
       settleBtn.textContent = dict.again
-      settleBtn.onclick = onAgain
+      settleBtn.onclick = opts.onAgain
       settleWrap.style.display = 'flex'
+    },
+    settleStatus(msg) {
+      settleStatusEl.textContent = msg
+      settleSave.disabled = false
     },
     hideSettle() {
       settleWrap.style.display = 'none'
+    },
+    showSea(rows, hasMore, onVisit, onMore) {
+      seaTitleEl.textContent = dict.seaTitle
+      seaList.textContent = ''
+      if (!rows.length) {
+        const empty = el('div', 'font-size:13px;opacity:0.75;padding:14px 4px', seaList)
+        empty.textContent = dict.seaEmpty
+      }
+      for (const row of rows) {
+        const line = el('div', 'display:flex;align-items:center;gap:10px;border:1px solid rgba(255,255,255,0.14);border-radius:9px;padding:9px 12px', seaList)
+        const info = el('div', 'flex:1;min-width:0', line)
+        const nm = el('div', 'font-size:13.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap', info)
+        nm.textContent = row.name + (row.mine ? ` · ${dict.seaMine}` : '')
+        const by = el('div', 'font-size:11.5px;opacity:0.7;overflow:hidden;text-overflow:ellipsis;white-space:nowrap', info)
+        by.textContent = dict.seaBy(row.author)
+        const sc = el('div', 'font-size:13px;font-weight:600;flex-shrink:0', line)
+        sc.textContent = dict.seaScore(row.score)
+        const go = el('button', BTN + ';font-size:12px;flex-shrink:0', line)
+        go.textContent = dict.seaVisit
+        go.onclick = () => onVisit(row)
+      }
+      seaMore.textContent = dict.seaLoadMore
+      seaMore.style.display = hasMore ? 'inline-block' : 'none'
+      seaMore.onclick = onMore
+      seaClose.textContent = dict.rulesClose
+      seaWrap.style.display = 'flex'
+    },
+    hideSea() {
+      seaWrap.style.display = 'none'
+    },
+    showVisit(info, onLamp, onBack) {
+      visitLabel.textContent = dict.visiting(info.label)
+      visitLamps.textContent = dict.lampCount(info.lamps)
+      visitLampBtn.textContent = info.lamped ? dict.lamped : dict.lamp
+      visitLampBtn.disabled = info.lamped || !info.canLamp
+      visitLampBtn.style.display = info.canLamp || info.lamped ? 'inline-block' : 'none'
+      visitLampBtn.onclick = onLamp
+      visitBackBtn.textContent = dict.backHome
+      visitBackBtn.onclick = onBack
+      visitBar.style.display = 'flex'
+    },
+    updateVisit(lamps, lamped) {
+      visitLamps.textContent = dict.lampCount(lamps)
+      visitLampBtn.textContent = lamped ? dict.lamped : dict.lamp
+      visitLampBtn.disabled = lamped
+    },
+    hideVisit() {
+      visitBar.style.display = 'none'
     },
     dispose() {
       window.clearTimeout(hintTimer)
@@ -223,6 +341,8 @@ export function makeUi(host: HTMLElement, dict0: Dict): Ui {
   }
   muteBtn.textContent = dict.mute
   rulesBtn.textContent = dict.rulesBtn
+  seaBtn.textContent = dict.sea
+  seaBtn.onclick = () => api.onSeaOpen()
   muteBtn.onclick = () => {
     muted = !muted
     muteBtn.textContent = muted ? dict.unmute : dict.mute
