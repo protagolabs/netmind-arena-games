@@ -28,8 +28,8 @@ export default defineWorld({
     const sfx = makeSfx(() => ctx.audio())
 
     const tierAt = (x: number, z: number): 0 | 1 | 2 => {
-      if (selected && bonusZoneAt(island, state.placed, selected, x, z)) return 2
-      return canPlaceAt(island, state.placed, x, z) ? 1 : 0
+      if (!canPlaceAt(island, state.placed, x, z)) return 0
+      return selected && bonusZoneAt(island, state.placed, selected, x, z) ? 2 : 1
     }
     const refreshAll = () => {
       applyStateToUi(ui, state, selected)

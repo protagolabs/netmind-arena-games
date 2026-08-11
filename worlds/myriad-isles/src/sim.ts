@@ -36,7 +36,7 @@ export function makeIsland(seed: number): Island {
     const fr = lv - f
     const land = 0.55 + (f + smooth(0.62, 0.94, fr)) * 1.12
     const raw = -1.7 + (land + 1.7) * inside + (vnoise(x * 0.9 + o1, z * 0.9 + o3, seed, 14) - 0.5) * 0.06
-    if (raw > 0.02 && raw < 0.75) return 0.3 + (raw - 0.3) * 0.35
+    if (raw > 0.02 && raw < 1.05) return 0.28 + (raw - 0.28) * 0.3
     return raw
   }
 
@@ -49,7 +49,7 @@ export function makeIsland(seed: number): Island {
   const bushes: Island['bushes'] = []
   const rocks: Island['rocks'] = []
   const rng = makeRng(seed ^ 0x51ab)
-  for (let i = 0; i < 420 && (trees.length < 26 || bushes.length < 10 || rocks.length < 8); i++) {
+  for (let i = 0; i < 460 && (trees.length < 26 || bushes.length < 10 || rocks.length < 14); i++) {
     const rad = Math.sqrt(rng()) * 13.5
     const an = rng() * Math.PI * 2
     const x = Math.cos(an) * rad
@@ -59,8 +59,8 @@ export function makeIsland(seed: number): Island {
       trees.push({ x, z })
     } else if (bushes.length < 10 && h > 0.4 && h < 3 && slopeOk(x, z)) {
       bushes.push({ x, z, s: 0.34 + rng() * 0.2 })
-    } else if (rocks.length < 8 && h > -0.5 && h < 0.25) {
-      rocks.push({ x, z, s: 0.3 + rng() * 0.35 })
+    } else if (rocks.length < 14 && h > -0.5 && h < 0.45) {
+      rocks.push({ x, z, s: 0.22 + rng() * 0.35 })
     }
   }
 
