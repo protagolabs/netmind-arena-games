@@ -411,6 +411,54 @@ export function createScene(canvas: HTMLCanvasElement, island: Island): IsleScen
   }
   const winMat = track(new MeshStandardMaterial({ color: 0x3a3f4a, emissive: 0xffc873, emissiveIntensity: 0 }))
   const lampMat = track(new MeshStandardMaterial({ color: 0xffe9a8, emissive: 0xffdf88, emissiveIntensity: 0.6 }))
+
+  // Textureless glow quads: radial falloff in the fragment shader, additive.
+  const GLOW_VS = `varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`
+  const GLOW_FS = `
+uniform vec3 uColor;uniform float uAlpha;varying vec2 vUv;
+void main(){
+float d=length(vUv-vec2(0.5))*2.0;
+float a=uAlpha*pow(max(0.0,1.0-d),2.2);
+gl_FragColor=vec4(uColor*a,a);}`
+  const mkGlowMat = (hex: number) =>
+    track(
+      new ShaderMaterial({
+        uniforms: { uColor: { value: new Color(hex) }, uAlpha: { value: 0 } },
+        vertexShader: GLOW_VS,
+        fragmentShader: GLOW_FS,
+        transparent: true,
+        depthWrite: false,
+        blending: AdditiveBlending,
+      }),
+    )
+  const warmGlowMat = mkGlowMat(0xffd27a)
+  const poolGlowMat = mkGlowMat(0xffc85e)
+  const coolGlowMat = mkGlowMat(0xbfe9ff)
+  const glowGeo = track(new PlaneGeometry(1, 1))
+  const staticGlows: Mesh[] = []
+  const buildingGlows: Mesh[] = []
+  const addGlow = (
+    parent: Group,
+    x: number,
+    y: number,
+    z: number,
+    size: number,
+    mat: ShaderMaterial,
+    kind: 'static' | 'building',
+    flat = false,
+  ) => {
+    const m = new Mesh(glowGeo, mat)
+    m.position.set(x, y, z)
+    m.scale.setScalar(size * (0.9 + ihash(Math.round(x * 91), Math.round(z * 57), seed) * 0.25))
+    m.userData.isGlow = true
+    if (flat) {
+      m.rotation.x = -Math.PI / 2
+      m.userData.flat = true
+    }
+    parent.add(m)
+    ;(kind === 'static' ? staticGlows : buildingGlows).push(m)
+    return m
+  }
   const beamMat = track(
     new MeshBasicMaterial({ color: 0xffe9b0, transparent: true, opacity: 0, blending: AdditiveBlending, depthWrite: false, side: DoubleSide }),
   )
@@ -616,6 +664,14 @@ export function createScene(canvas: HTMLCanvasElement, island: Island): IsleScen
         dock.add(pole)
       }
     }
+    const harborPost = new Mesh(track(new CylinderGeometry(0.04, 0.055, 0.7, 5)), mats.wood)
+    harborPost.position.set(0.42, 0.78, r0 + 1.65)
+    dock.add(harborPost)
+    const harborLamp = new Mesh(track(new SphereGeometry(0.08, 6, 5)), lampMat)
+    harborLamp.position.set(0.42, 1.18, r0 + 1.65)
+    dock.add(harborLamp)
+    addGlow(dock, 0.42, 1.18, r0 + 1.65, 1.3, warmGlowMat, 'static')
+    addGlow(dock, 0.42, 0.52, r0 + 1.65, 1.6, poolGlowMat, 'static', true)
     scene.add(dock)
   }
   // Lantern slots around the shore — lit one per lamp when visiting an isle.
@@ -638,6 +694,8 @@ export function createScene(canvas: HTMLCanvasElement, island: Island): IsleScen
     const glow = new Mesh(track(new SphereGeometry(0.07, 6, 5)), lampMat)
     glow.position.y = 0.58
     g.add(glow)
+    addGlow(g, 0, 0.58, 0, 1.1, warmGlowMat, 'static')
+    addGlow(g, 0, 0.045, 0, 1.9, poolGlowMat, 'static', true)
     g.position.set(lx, terr(lx, lz) - 0.02, lz)
     g.visible = false
     scene.add(g)
@@ -920,6 +978,8 @@ export function createScene(canvas: HTMLCanvasElement, island: Island): IsleScen
     w2.position.set(0.578, 0.66, 0)
     w2.rotation.y = Math.PI / 2
     g.add(w2)
+    addGlow(g, 0.18, 0.66, 0.62, 0.7, warmGlowMat, 'building')
+    addGlow(g, 0.7, 0.66, 0, 0.6, warmGlowMat, 'building')
     const d = new Mesh(track(new PlaneGeometry(0.28, 0.44)), mats.door)
     d.position.set(-0.22, 0.4, 0.5)
     g.add(d)
@@ -955,6 +1015,7 @@ export function createScene(canvas: HTMLCanvasElement, island: Island): IsleScen
     w.position.set(0.43, 0.92, 0)
     w.rotation.y = Math.PI / 2
     g.add(w)
+    addGlow(g, 0.55, 0.92, 0, 0.55, warmGlowMat, 'building')
     const p1 = new Mesh(track(new CylinderGeometry(0.03, 0.03, 0.8, 4)), mats.wood)
     p1.position.set(-0.75, 0.4, 0.25)
     g.add(p1)
@@ -1037,6 +1098,8 @@ export function createScene(canvas: HTMLCanvasElement, island: Island): IsleScen
       const glow = new Mesh(track(new SphereGeometry(0.045, 6, 5)), lampMat)
       glow.position.set(s * 0.52, 0.48, 0.55)
       g.add(glow)
+      addGlow(g, s * 0.52, 0.48, 0.55, 0.75, warmGlowMat, 'building')
+      addGlow(g, s * 0.52, 0.1, 0.55, 1.1, poolGlowMat, 'building', true)
     }
     const lin1 = new Mesh(track(new BoxGeometry(1.05, 0.09, 0.13)), mats.red)
     lin1.position.set(0, 1.05, 0.32)
@@ -1081,6 +1144,7 @@ export function createScene(canvas: HTMLCanvasElement, island: Island): IsleScen
     const lamp = new Mesh(track(new CylinderGeometry(0.2, 0.2, 0.28, 8)), lampMat)
     lamp.position.y = 2.56
     g.add(lamp)
+    addGlow(g, 0, 2.56, 0, 2.1, warmGlowMat, 'building')
     const cap = new Mesh(track(new ConeGeometry(0.28, 0.3, 10)), mats.roofD)
     cap.position.y = 2.85
     g.add(cap)
@@ -1113,6 +1177,7 @@ export function createScene(canvas: HTMLCanvasElement, island: Island): IsleScen
     slit.position.set(0, 1.92, 0.44)
     slit.rotation.x = -0.55
     g.add(slit)
+    addGlow(g, 0, 1.95, 0.5, 1.0, coolGlowMat, 'building')
     const d = new Mesh(track(new PlaneGeometry(0.28, 0.44)), mats.door)
     d.position.set(0, 0.42, 0.53)
     g.add(d)
@@ -1159,15 +1224,20 @@ export function createScene(canvas: HTMLCanvasElement, island: Island): IsleScen
     }
     const millsN = mills.length
     const beamsN = beams.length
+    const glowsN = buildingGlows.length
     ghost = factories[t]()
     mills.length = millsN
     beams.length = beamsN
+    buildingGlows.length = glowsN
     ghost.traverse((o) => {
       const m = o as Mesh
-      if (m.isMesh) {
-        m.material = ghostMat
-        m.castShadow = false
+      if (!m.isMesh) return
+      if (m.userData.isGlow) {
+        m.visible = false
+        return
       }
+      m.material = ghostMat
+      m.castShadow = false
     })
     ghost.visible = false
     scene.add(ghost)
@@ -1281,6 +1351,7 @@ export function createScene(canvas: HTMLCanvasElement, island: Island): IsleScen
       anims.length = 0
       mills.length = 0
       beams.length = 0
+      buildingGlows.length = 0
     },
     unsettle() {
       settled = false
@@ -1326,7 +1397,16 @@ export function createScene(canvas: HTMLCanvasElement, island: Island): IsleScen
       winMat.emissiveIntensity = 1.9 * mixv
       lampMat.emissiveIntensity = 0.6 + 1.8 * mixv
       nbLampMat.emissiveIntensity = 1.5 * mixv
-      beamMat.opacity = 0.16 * smooth(0.55, 0.95, mixv)
+      const nightGlow = smooth(0.35, 0.85, mixv)
+      warmGlowMat.uniforms.uAlpha!.value = 0.8 * nightGlow * (0.93 + 0.07 * Math.sin(tNow * 2.7))
+      poolGlowMat.uniforms.uAlpha!.value = 0.38 * nightGlow * (0.9 + 0.1 * Math.sin(tNow * 2.1 + 1.7))
+      coolGlowMat.uniforms.uAlpha!.value = 0.75 * nightGlow * (0.94 + 0.06 * Math.sin(tNow * 1.9 + 3.1))
+      for (const arr of [staticGlows, buildingGlows]) {
+        for (const m of arr) {
+          if (!m.userData.flat) m.quaternion.copy(camera.quaternion)
+        }
+      }
+      beamMat.opacity = 0.11 * smooth(0.55, 0.95, mixv)
       starMat.opacity = 0.9 * mixv
       cloudMat.opacity = 0.9 - 0.66 * mixv
       post.setNight(mixv)

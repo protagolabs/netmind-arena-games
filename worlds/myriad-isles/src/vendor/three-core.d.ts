@@ -49,6 +49,7 @@ export class Euler {
 export class Quaternion {
   identity(): this
   setFromEuler(e: Euler): this
+  copy(q: Quaternion): this
 }
 
 export class Matrix4 {
@@ -58,6 +59,7 @@ export class Matrix4 {
 declare class Object3DBase {
   position: Vector3
   rotation: Euler
+  quaternion: Quaternion
   scale: Vector3
   visible: boolean
   castShadow: boolean
@@ -181,6 +183,7 @@ export class ShaderMaterial extends Material {
     depthWrite?: boolean
     depthTest?: boolean
     side?: number
+    blending?: number
   })
   // Pragmatically loose: uniform values span numbers, colors, vectors, textures.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
