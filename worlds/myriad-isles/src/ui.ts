@@ -43,6 +43,8 @@ export interface Ui {
   popup(xFrac: number, yFrac: number, text: string, good: boolean): void
   showPreview(pt: { x: number; y: number } | null, text: string, good: boolean): void
   showNeighborTip(pt: { x: number; y: number } | null, text: string): void
+  showWelcome(onStart: () => void): void
+  hideWelcome(): void
   showDraft(round: Round, onPick: (which: 'a' | 'b') => void): void
   hideDraft(): void
   showSettle(opts: SettleOpts): void
@@ -80,10 +82,13 @@ export function makeUi(host: HTMLElement, dict0: Dict): Ui {
   const scoreEl = el('div', 'font-size:22px;font-weight:600;letter-spacing:0.5px', top)
   const roundEl = el('div', 'font-size:12px;opacity:0.75', top)
 
-  const muteBtn = el('button', `position:absolute;top:12px;right:12px;${BTN};pointer-events:auto;font-size:12px;z-index:5`, root)
+  // Layering: base modals (draft, settle, welcome) sit at z 10-12, the
+  // top-right buttons float above them at 15, and the reference panels
+  // (rules, sea) cover everything at 20 so stacked dialogs never interleave.
+  const muteBtn = el('button', `position:absolute;top:12px;right:12px;${BTN};pointer-events:auto;font-size:12px;z-index:15`, root)
   let muted = false
-  const rulesBtn = el('button', `position:absolute;top:54px;right:12px;${BTN};pointer-events:auto;font-size:12px;z-index:5`, root)
-  const rulesWrap = el('div', 'position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(6,9,18,0.45);pointer-events:auto', root)
+  const rulesBtn = el('button', `position:absolute;top:54px;right:12px;${BTN};pointer-events:auto;font-size:12px;z-index:15`, root)
+  const rulesWrap = el('div', 'position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(6,9,18,0.45);pointer-events:auto;z-index:20', root)
   const rulesBox = el('div', `padding:20px 22px;${PANEL};max-width:520px;width:86%;max-height:82%;overflow-y:auto`, rulesWrap)
   const rulesTitle = el('div', 'font-size:17px;font-weight:600;margin-bottom:10px', rulesBox)
   const rulesBody = el('div', 'font-size:13px;line-height:1.65;opacity:0.92', rulesBox)
@@ -108,11 +113,12 @@ export function makeUi(host: HTMLElement, dict0: Dict): Ui {
     }
     rulesBody.appendChild(rulesClose)
   }
-  rulesBtn.onclick = () => {
+  const openRules = () => {
     rulesOpen = true
     renderRules()
     rulesWrap.style.display = 'flex'
   }
+  rulesBtn.onclick = openRules
   rulesClose.onclick = () => {
     rulesOpen = false
     rulesWrap.style.display = 'none'
@@ -124,13 +130,13 @@ export function makeUi(host: HTMLElement, dict0: Dict): Ui {
   const tray = el('div', 'position:absolute;bottom:14px;left:50%;transform:translateX(-50%);display:flex;gap:8px;pointer-events:auto', root)
   const selInfo = el('div', `position:absolute;bottom:82px;left:50%;transform:translateX(-50%);padding:5px 12px;${PANEL};font-size:12.5px;display:none;max-width:78%;text-align:center`, root)
 
-  const draftWrap = el('div', 'position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(6,9,18,0.45);pointer-events:auto', root)
+  const draftWrap = el('div', 'position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(6,9,18,0.45);pointer-events:auto;z-index:10', root)
   const draftBox = el('div', `padding:20px 22px;${PANEL};max-width:560px;width:86%`, draftWrap)
   const draftTitle = el('div', 'font-size:17px;font-weight:600;margin-bottom:4px', draftBox)
   const draftSub = el('div', 'font-size:12px;opacity:0.75;margin-bottom:14px', draftBox)
   const draftCards = el('div', 'display:flex;gap:12px', draftBox)
 
-  const settleWrap = el('div', 'position:absolute;inset:0;display:none;align-items:center;justify-content:center;pointer-events:auto', root)
+  const settleWrap = el('div', 'position:absolute;inset:0;display:none;align-items:center;justify-content:center;pointer-events:auto;z-index:10', root)
   const settleBox = el('div', `padding:24px 28px;${PANEL};text-align:center;max-width:400px;width:84%`, settleWrap)
   const settleTitle = el('div', 'font-size:20px;font-weight:600', settleBox)
   const settleSub = el('div', 'font-size:13px;opacity:0.8;margin:8px 0 14px', settleBox)
@@ -139,8 +145,8 @@ export function makeUi(host: HTMLElement, dict0: Dict): Ui {
   const settleStatusEl = el('div', 'font-size:12px;opacity:0.75;min-height:16px;margin-bottom:10px', settleBox)
   const settleBtn = el('button', BTN, settleBox)
 
-  const seaBtn = el('button', `position:absolute;top:96px;right:12px;${BTN};pointer-events:auto;font-size:12px;z-index:5`, root)
-  const seaWrap = el('div', 'position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(6,9,18,0.45);pointer-events:auto', root)
+  const seaBtn = el('button', `position:absolute;top:96px;right:12px;${BTN};pointer-events:auto;font-size:12px;z-index:15`, root)
+  const seaWrap = el('div', 'position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(6,9,18,0.45);pointer-events:auto;z-index:20', root)
   const seaBox = el('div', `padding:20px 22px;${PANEL};max-width:460px;width:86%;max-height:78%;display:flex;flex-direction:column`, seaWrap)
   const seaTitleEl = el('div', 'font-size:17px;font-weight:600;margin-bottom:10px', seaBox)
   const seaList = el('div', 'overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:8px', seaBox)
@@ -151,7 +157,16 @@ export function makeUi(host: HTMLElement, dict0: Dict): Ui {
     seaWrap.style.display = 'none'
   }
 
-  const visitBar = el('div', `position:absolute;bottom:14px;left:50%;transform:translateX(-50%);display:none;align-items:center;gap:12px;padding:9px 16px;${PANEL};pointer-events:auto`, root)
+  const welcomeWrap = el('div', 'position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(6,9,18,0.5);pointer-events:auto;z-index:12', root)
+  const welcomeBox = el('div', `padding:26px 30px;${PANEL};max-width:440px;width:86%`, welcomeWrap)
+  const welcomeTitle = el('div', 'font-size:21px;font-weight:600;margin-bottom:14px', welcomeBox)
+  const welcomeBody = el('div', 'font-size:13.5px;line-height:1.75;opacity:0.92', welcomeBox)
+  const welcomeBtns = el('div', 'display:flex;gap:10px;margin-top:18px', welcomeBox)
+  const welcomeStartBtn = el('button', `${BTN};border-color:#ffd27a;background:rgba(255,210,122,0.16);font-weight:600`, welcomeBtns)
+  const welcomeRulesBtn = el('button', BTN, welcomeBtns)
+  welcomeRulesBtn.onclick = () => openRules()
+
+  const visitBar = el('div', `position:absolute;bottom:14px;left:50%;transform:translateX(-50%);display:none;align-items:center;gap:12px;padding:9px 16px;${PANEL};pointer-events:auto;z-index:8`, root)
   const visitLabel = el('div', 'font-size:13px;font-weight:600;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap', visitBar)
   const visitLamps = el('div', 'font-size:12.5px;opacity:0.85', visitBar)
   const visitLampBtn = el('button', BTN + ';font-size:12px', visitBar)
@@ -248,6 +263,21 @@ export function makeUi(host: HTMLElement, dict0: Dict): Ui {
       d.style.left = `${Math.round(xf * 100)}%`
       d.style.top = `${Math.round(yf * 100)}%`
       window.setTimeout(() => d.remove(), 1250)
+    },
+    showWelcome(onStart) {
+      welcomeTitle.textContent = dict.title
+      welcomeBody.textContent = ''
+      for (const line of [dict.welcome1, dict.welcome2, dict.welcome3]) {
+        const p = el('p', 'margin:0 0 9px', welcomeBody)
+        p.textContent = line
+      }
+      welcomeStartBtn.textContent = dict.welcomeStart
+      welcomeRulesBtn.textContent = dict.welcomeRules
+      welcomeStartBtn.onclick = onStart
+      welcomeWrap.style.display = 'flex'
+    },
+    hideWelcome() {
+      welcomeWrap.style.display = 'none'
     },
     showDraft(round, onPick) {
       draftTitle.textContent = dict.draftTitle
