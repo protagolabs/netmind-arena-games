@@ -12,7 +12,7 @@ export interface Ui {
   setDay(day: string): void
   setScore(n: number): void
   setRound(r: number, nextUnlock: number | null): void
-  setTray(tray: BType[], selected: BType | null): void
+  setTray(tray: BType[], selected: BType | null, canRedraft: boolean): void
   hint(msg: string): void
   popup(xFrac: number, yFrac: number, text: string, good: boolean): void
   showPreview(pt: { x: number; y: number } | null, text: string, good: boolean): void
@@ -22,6 +22,7 @@ export interface Ui {
   hideSettle(): void
   onSelect: (t: BType) => void
   onMute: (muted: boolean) => void
+  onRedraft: () => void
   dispose(): void
 }
 
@@ -112,6 +113,7 @@ export function makeUi(host: HTMLElement, dict0: Dict): Ui {
     root,
     onSelect: () => undefined,
     onMute: () => undefined,
+    onRedraft: () => undefined,
     setDict(d) {
       dict = d
       muteBtn.textContent = muted ? dict.unmute : dict.mute
@@ -128,7 +130,7 @@ export function makeUi(host: HTMLElement, dict0: Dict): Ui {
       const tail = nextUnlock === null ? dict.hudDone : dict.hudNext(nextUnlock)
       roundEl.textContent = `${dict.round(r + 1, ROUNDS.length)} · ${tail}`
     },
-    setTray(items, selected) {
+    setTray(items, selected, canRedraft) {
       tray.textContent = ''
       const counts = new Map<BType, number>()
       for (const t of items) counts.set(t, (counts.get(t) ?? 0) + 1)
@@ -140,6 +142,11 @@ export function makeUi(host: HTMLElement, dict0: Dict): Ui {
         cnt.textContent = `×${n}`
         chip.onclick = () => api.onSelect(t)
         chip.title = dict.bHint[t] ?? ''
+      }
+      if (canRedraft && items.length) {
+        const back = el('button', `${BTN};font-size:12px;opacity:0.85;align-self:center`, tray)
+        back.textContent = dict.redraft
+        back.onclick = () => api.onRedraft()
       }
       if (selected && items.includes(selected)) {
         selInfo.textContent = `${dict.b[selected] ?? selected}：${dict.bHint[selected] ?? ''}`
@@ -224,8 +231,8 @@ export function makeUi(host: HTMLElement, dict0: Dict): Ui {
   return api
 }
 
-export function applyStateToUi(ui: Ui, state: GameState, selected: BType | null): void {
+export function applyStateToUi(ui: Ui, state: GameState, selected: BType | null, canRedraft: boolean): void {
   ui.setScore(state.score)
   ui.setRound(state.round, state.round + 1 < ROUNDS.length ? ROUNDS[state.round + 1]!.unlock : null)
-  ui.setTray(state.tray, selected)
+  ui.setTray(state.tray, selected, canRedraft)
 }

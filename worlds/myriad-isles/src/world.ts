@@ -27,12 +27,14 @@ export default defineWorld({
     const ui: Ui = makeUi(root, dict)
     const sfx = makeSfx(() => ctx.audio())
 
+    let placedAtDraft = 0
+    const canRedraft = () => state.phase === 'place' && state.placed.length === placedAtDraft
     const tierAt = (x: number, z: number): 0 | 1 | 2 => {
       if (!canPlaceAt(island, state.placed, x, z)) return 0
       return selected && bonusZoneAt(island, state.placed, selected, x, z) ? 2 : 1
     }
     const refreshAll = () => {
-      applyStateToUi(ui, state, selected)
+      applyStateToUi(ui, state, selected, canRedraft())
       scene.refreshOverlay(tierAt)
       scene.setNightTarget(dayProgress(state))
     }
@@ -42,6 +44,7 @@ export default defineWorld({
       modal = 'draft'
       ui.showDraft(ROUNDS[state.round]!, (which) => {
         draftPick(state, ROUNDS[state.round]![which])
+        placedAtDraft = state.placed.length
         ui.hideDraft()
         modal = null
         selected = state.tray[0] ?? null
@@ -183,11 +186,20 @@ export default defineWorld({
       if (state.phase !== 'place') return
       selected = t
       scene.setGhostType(t)
-      applyStateToUi(ui, state, selected)
+      applyStateToUi(ui, state, selected, canRedraft())
       scene.refreshOverlay(tierAt)
       scene.overlayWake()
     }
     ui.onMute = (m) => sfx.setMuted(m)
+    ui.onRedraft = () => {
+      if (!canRedraft()) return
+      state.tray.length = 0
+      state.phase = 'draft'
+      selected = null
+      scene.setGhostType(null)
+      refreshAll()
+      openDraft()
+    }
 
     // ------------------------------------------------------------- layout
     const size = () => {
@@ -203,7 +215,7 @@ export default defineWorld({
       dict = makeI18n(ctx.lang)
       ui.setDict(dict)
       ui.setDay(day)
-      applyStateToUi(ui, state, selected)
+      applyStateToUi(ui, state, selected, canRedraft())
       if (modal === 'draft') {
         ui.hideDraft()
         openDraft()
@@ -261,6 +273,7 @@ export default defineWorld({
       },
       pick: (which: 'a' | 'b') => {
         draftPick(state, ROUNDS[state.round]![which])
+        placedAtDraft = state.placed.length
         ui.hideDraft()
         modal = null
         selected = state.tray[0] ?? null
