@@ -42,6 +42,7 @@ export interface Ui {
   hint(msg: string): void
   popup(xFrac: number, yFrac: number, text: string, good: boolean): void
   showPreview(pt: { x: number; y: number } | null, text: string, good: boolean): void
+  showNeighborTip(pt: { x: number; y: number } | null, text: string): void
   showDraft(round: Round, onPick: (which: 'a' | 'b') => void): void
   hideDraft(): void
   showSettle(opts: SettleOpts): void
@@ -158,6 +159,7 @@ export function makeUi(host: HTMLElement, dict0: Dict): Ui {
 
   const popupLayer = el('div', 'position:absolute;inset:0;overflow:hidden;pointer-events:none', root)
   const previewChip = el('div', 'position:absolute;display:none;padding:2px 8px;border-radius:8px;background:rgba(10,14,26,0.72);font-size:13px;font-weight:600;pointer-events:none;transform:translate(-50%,-100%)', root)
+  const nbTip = el('div', 'position:absolute;display:none;padding:3px 10px;border-radius:8px;background:rgba(10,14,26,0.72);font-size:12.5px;pointer-events:none;transform:translate(-50%,-100%);color:#dfe8f5;max-width:240px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis', root)
 
   const styleTag = document.createElement('style')
   styleTag.textContent = '@keyframes mipop{from{opacity:1;transform:translateY(0)}to{opacity:0;transform:translateY(-36px)}}'
@@ -229,6 +231,16 @@ export function makeUi(host: HTMLElement, dict0: Dict): Ui {
       previewChip.style.top = `${(pt.y * 100).toFixed(2)}%`
       previewChip.style.color = good ? '#c8f0a8' : '#ffab98'
       previewChip.textContent = text
+    },
+    showNeighborTip(pt, text) {
+      if (!pt) {
+        nbTip.style.display = 'none'
+        return
+      }
+      nbTip.style.display = 'block'
+      nbTip.style.left = `${(pt.x * 100).toFixed(2)}%`
+      nbTip.style.top = `${(pt.y * 100).toFixed(2)}%`
+      nbTip.textContent = text
     },
     popup(xf, yf, text, good) {
       const d = el('div', `position:absolute;font-size:13px;font-weight:600;pointer-events:none;animation:mipop 1.15s ease-out forwards;color:${good ? '#c8f0a8' : '#ffab98'}`, popupLayer)

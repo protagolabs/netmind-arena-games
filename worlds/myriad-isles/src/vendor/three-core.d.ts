@@ -249,7 +249,7 @@ export class HemisphereLight extends Object3DBase {
 
 export class Raycaster {
   setFromCamera(ndc: Vector2, camera: PerspectiveCamera): void
-  intersectObject(object: Object3DBase): { point: Vector3; instanceId?: number }[]
+  intersectObject(object: Object3DBase, recursive?: boolean): { point: Vector3; object: Object3DBase; instanceId?: number }[]
 }
 
 export class WebGLRenderTarget {

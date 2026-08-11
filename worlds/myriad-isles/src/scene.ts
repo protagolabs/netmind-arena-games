@@ -138,6 +138,8 @@ export interface IsleScene {
   resetBuildings(): void
   unsettle(): void
   setLamps(n: number): void
+  setNeighbors(list: { id: string; label: string; score: number; bearing: number; dist: number }[]): void
+  pickNeighbor(): { id: string; label: string; top: Vector3 } | null
   project(x: number, y: number, z: number): { x: number; y: number } | null
   setNightTarget(t: number): void
   settle(): void
@@ -813,6 +815,59 @@ export function createScene(canvas: HTMLCanvasElement, island: Island): IsleScen
     }
   }
 
+  // Neighbor isles: silhouettes of other players' moored islands, placed on
+  // the horizon at their true bearing in sea-space. Windows glow at dusk.
+  const nbMoundGeo = track(new IcosahedronGeometry(4, 0))
+  const nbPeakGeo = track(new ConeGeometry(2.1, 4.6, 6))
+  const nbLampGeo = track(new SphereGeometry(0.18, 5, 4))
+  const nbMatA = std(0x55688a, 0.95)
+  const nbMatB = std(0x49597a, 0.95)
+  const nbLampMat = track(new MeshStandardMaterial({ color: 0x2a2f3a, emissive: 0xffc873, emissiveIntensity: 0 }))
+  const nbRoot = new Group()
+  scene.add(nbRoot)
+  interface NbEntry {
+    g: Group
+    id: string
+    label: string
+    top: Vector3
+  }
+  const nbs: NbEntry[] = []
+  let hoverNb: NbEntry | null = null
+  const setNeighbors = (list: { id: string; label: string; score: number; bearing: number; dist: number }[]) => {
+    for (const n of nbs) nbRoot.remove(n.g)
+    nbs.length = 0
+    list.forEach((n, i) => {
+      const g = new Group()
+      const s = 1.0 + Math.min(1.2, Math.log2(1 + n.score / 20) * 0.4)
+      const m1 = new Mesh(nbMoundGeo, nbMatA)
+      m1.scale.set(1.7, 0.8, 1.7)
+      g.add(m1)
+      const m2 = new Mesh(nbMoundGeo, nbMatB)
+      m2.scale.set(1.05, 0.62, 1.05)
+      m2.position.set(3.1, -0.4, -1.2)
+      g.add(m2)
+      const pk = new Mesh(nbPeakGeo, nbMatB)
+      pk.position.set(-1.4, 3.2, 0.6)
+      g.add(pk)
+      const lampN = 3 + Math.min(5, Math.floor(n.score / 25))
+      for (let k = 0; k < lampN; k++) {
+        const l = new Mesh(nbLampGeo, nbLampMat)
+        l.position.set((ihash(i, k, seed) - 0.5) * 5, 0.6 + ihash(k, i, seed) * 2.2, (ihash(i * 7, k, seed) - 0.5) * 5)
+        g.add(l)
+      }
+      g.scale.setScalar(s)
+      const R = 95 + n.dist * 35
+      g.position.set(Math.cos(n.bearing) * R, -0.6, Math.sin(n.bearing) * R)
+      g.rotation.y = ihash(i, 99, seed) * 6.28
+      g.traverse((o) => {
+        o.userData.nid = i
+      })
+      nbRoot.add(g)
+      const top = new Vector3(g.position.x, s * 4.2, g.position.z)
+      nbs.push({ g, id: n.id, label: n.label, top })
+    })
+  }
+
   // petals by day, fireflies by night
   const petMat = track(new MeshBasicMaterial({ color: 0xfff0f4, side: DoubleSide, transparent: true, opacity: 0.9 }))
   const petals: { m: Mesh; bx: number; bz: number; ph: number }[] = []
@@ -1237,6 +1292,10 @@ export function createScene(canvas: HTMLCanvasElement, island: Island): IsleScen
         g.visible = i < lit
       })
     },
+    setNeighbors,
+    pickNeighbor() {
+      return hoverNb ? { id: hoverNb.id, label: hoverNb.label, top: hoverNb.top } : null
+    },
     project(x, y, z) {
       P4.set(x, y, z).project(camera)
       if (P4.z > 1) return null
@@ -1266,6 +1325,7 @@ export function createScene(canvas: HTMLCanvasElement, island: Island): IsleScen
       rim.intensity = 0.3 - 0.16 * mixv
       winMat.emissiveIntensity = 1.9 * mixv
       lampMat.emissiveIntensity = 0.6 + 1.8 * mixv
+      nbLampMat.emissiveIntensity = 1.5 * mixv
       beamMat.opacity = 0.16 * smooth(0.55, 0.95, mixv)
       starMat.opacity = 0.9 * mixv
       cloudMat.opacity = 0.9 - 0.66 * mixv
@@ -1342,21 +1402,31 @@ export function createScene(canvas: HTMLCanvasElement, island: Island): IsleScen
         }
       }
       hover = null
-      if (!api.dragging && ghost) {
+      hoverNb = null
+      if (!api.dragging) {
         ray.setFromCamera(mouse, camera)
-        const hit = ray.intersectObject(terrain)[0]
-        if (hit) {
-          const hx = hit.point.x
-          const hz = hit.point.z
-          hover = { x: hx, z: hz }
-          ghost.visible = true
-          ring.visible = true
-          const h = terr(hx, hz)
-          ghost.position.set(hx, h - 0.02, hz)
-          ring.position.set(hx, Math.max(h + 0.12, 0.3), hz)
-        } else {
-          ghost.visible = false
-          ring.visible = false
+        if (ghost) {
+          const hit = ray.intersectObject(terrain)[0]
+          if (hit) {
+            const hx = hit.point.x
+            const hz = hit.point.z
+            hover = { x: hx, z: hz }
+            ghost.visible = true
+            ring.visible = true
+            const h = terr(hx, hz)
+            ghost.position.set(hx, h - 0.02, hz)
+            ring.position.set(hx, Math.max(h + 0.12, 0.3), hz)
+          } else {
+            ghost.visible = false
+            ring.visible = false
+          }
+        }
+        if (!hover && nbs.length) {
+          const nHit = ray.intersectObject(nbRoot, true)[0]
+          if (nHit) {
+            const nid = nHit.object.userData.nid as number | undefined
+            if (nid !== undefined && nbs[nid]) hoverNb = nbs[nid]!
+          }
         }
       } else if (ghost) {
         ghost.visible = false

@@ -108,6 +108,7 @@ export default defineWorld({
           }
         }
         ui.settleStatus(dict.saved)
+        void refreshNeighbors()
       } catch {
         ui.settleStatus(dict.saveFailed)
       }
@@ -203,6 +204,38 @@ export default defineWorld({
       }
     }
     ui.onSeaOpen = () => void loadSea(true)
+
+    const myXY = () => {
+      const m = me()
+      return m
+        ? { x: ihash(hashStr(m.id), 11, seed) * 8000 - 4000, y: ihash(hashStr(m.id), 12, seed) * 8000 - 4000 }
+        : { x: 0, y: 0 }
+    }
+    const refreshNeighbors = async () => {
+      try {
+        const page = await islands.list({ where: { 'payload.day': { eq: day } }, sort: ['-createdAt'], limit: 30 })
+        const m = me()
+        const origin = myXY()
+        scene.setNeighbors(
+          page.items
+            .filter((r) => !(m && r.author?.id === m.id))
+            .slice(0, 12)
+            .map((r) => {
+              const dx = r.payload.x - origin.x
+              const dy = r.payload.y - origin.y
+              return {
+                id: r.id,
+                label: `${r.payload.name || dict.unnamedIsle} · ${r.payload.score}`,
+                score: r.payload.score,
+                bearing: Math.atan2(dy, dx),
+                dist: Math.min(1, Math.hypot(dx, dy) / 6000),
+              }
+            }),
+        )
+      } catch {
+        /* the horizon can stay empty */
+      }
+    }
 
     const visitIsle = async (id: string) => {
       const rec = await islands.get(id)
@@ -324,7 +357,14 @@ export default defineWorld({
       ly = cy
     }
     const onUp = () => {
-      if (down && !dragged) tryPlace()
+      if (down && !dragged) {
+        if (scene.pickGround()) {
+          tryPlace()
+        } else if (mode === 'play' && !modal) {
+          const nb = scene.pickNeighbor()
+          if (nb) void visitIsle(nb.id)
+        }
+      }
       down = false
       scene.dragging = false
     }
@@ -419,6 +459,7 @@ export default defineWorld({
     const offLang = ctx.onLangChange(() => applyLang())
     const offVisitor = ctx.onVisitor(() => {
       if (modal === 'settle') openSettle()
+      void refreshNeighbors()
     })
 
     // --------------------------------------------------------------- loop
@@ -438,6 +479,14 @@ export default defineWorld({
       } else {
         ui.showPreview(null, '', true)
       }
+      const nb = mode === 'play' && !modal ? scene.pickNeighbor() : null
+      if (nb) {
+        ui.showNeighborTip(scene.project(nb.top.x, nb.top.y, nb.top.z), `${nb.label} · ${dict.seaVisit}`)
+        canvas.style.cursor = 'pointer'
+      } else {
+        ui.showNeighborTip(null, '')
+        canvas.style.cursor = 'grab'
+      }
     }
     let raf = 0
     let last = performance.now()
@@ -456,6 +505,7 @@ export default defineWorld({
     ui.hint(dict.hintPlace)
     openDraft()
 
+    void refreshNeighbors()
     // Retention whisper: did anyone lamp the isle you moored?
     void (async () => {
       try {
