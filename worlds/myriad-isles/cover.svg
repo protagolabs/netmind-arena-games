@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="350" viewBox="0 0 800 350">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#8cc7e6"/>
+      <stop offset="0.72" stop-color="#f2dcb8"/>
+      <stop offset="1" stop-color="#f7e4c3"/>
+    </linearGradient>
+    <linearGradient id="sea" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5fcfc0"/>
+      <stop offset="1" stop-color="#175d80"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="230" fill="url(#sky)"/>
+  <circle cx="620" cy="118" r="34" fill="#ffe8b8"/>
+  <circle cx="620" cy="118" r="52" fill="#ffe8b8" opacity="0.35"/>
+  <ellipse cx="180" cy="84" rx="58" ry="16" fill="#fffbf4" opacity="0.9"/>
+  <ellipse cx="238" cy="92" rx="40" ry="12" fill="#fffbf4" opacity="0.8"/>
+  <ellipse cx="480" cy="60" rx="46" ry="13" fill="#fffbf4" opacity="0.75"/>
+  <rect y="230" width="800" height="120" fill="url(#sea)"/>
+  <polygon points="120,230 210,168 320,196 430,150 560,188 680,230" fill="#cdb59a"/>
+  <polygon points="150,230 230,182 330,204 430,164 545,198 650,230" fill="#b7a184"/>
+  <polygon points="205,196 320,168 430,150 480,168 430,196 320,208" fill="#a9cb7c"/>
+  <polygon points="250,208 340,186 430,172 500,190 430,212 330,220" fill="#8cbb66"/>
+  <polygon points="160,230 240,206 340,218 470,206 590,218 660,230" fill="#ecd9a6"/>
+  <g transform="translate(300,150)">
+    <rect x="-7" y="0" width="14" height="34" fill="#f6ead6"/>
+    <polygon points="-11,0 11,0 0,-14" fill="#d1704f"/>
+    <g stroke="#7d5f43" stroke-width="4" stroke-linecap="round">
+      <line x1="0" y1="-10" x2="16" y2="-26"/>
+      <line x1="0" y1="-10" x2="-16" y2="-26"/>
+      <line x1="0" y1="-10" x2="16" y2="6"/>
+      <line x1="0" y1="-10" x2="-16" y2="6"/>
+    </g>
+  </g>
+  <g transform="translate(430,120)">
+    <rect x="-6" y="0" width="12" height="42" fill="#f7f4ec"/>
+    <rect x="-6" y="8" width="12" height="7" fill="#d6543f"/>
+    <rect x="-6" y="24" width="12" height="7" fill="#d6543f"/>
+    <rect x="-8" y="-6" width="16" height="6" fill="#4a4f5a"/>
+    <circle cx="0" cy="-10" r="5" fill="#ffdf88"/>
+  </g>
+  <g fill="#f6ead6">
+    <rect x="352" y="182" width="22" height="16"/>
+    <rect x="388" y="176" width="20" height="15"/>
+    <rect x="486" y="186" width="20" height="15"/>
+  </g>
+  <g fill="#d1704f">
+    <polygon points="349,182 377,182 363,170"/>
+    <polygon points="385,176 411,176 398,165"/>
+    <polygon points="483,186 509,186 496,175"/>
+  </g>
+  <g>
+    <rect x="238" y="188" width="5" height="12" fill="#7d5f43"/>
+    <polygon points="228,192 253,192 240.5,164" fill="#5f9a52"/>
+    <rect x="528" y="182" width="5" height="12" fill="#7d5f43"/>
+    <polygon points="518,186 543,186 530.5,158" fill="#6fae5e"/>
+    <rect x="560" y="192" width="4" height="10" fill="#7d5f43"/>
+    <polygon points="552,195 572,195 562,172" fill="#5f9a52"/>
+  </g>
+  <g fill="#f4fbf4" opacity="0.85">
+    <ellipse cx="400" cy="238" rx="240" ry="7"/>
+    <ellipse cx="400" cy="252" rx="290" ry="5" opacity="0.5"/>
+  </g>
+  <g transform="translate(120,282)">
+    <polygon points="-26,10 26,10 18,0 -20,0" fill="#f1e6cf"/>
+    <rect x="-2" y="-34" width="3" height="34" fill="#6f523b"/>
+    <polygon points="1,-34 1,-4 22,-6" fill="#fdf8ec"/>
+    <polygon points="-2,-30 -2,-6 -16,-8" fill="#fdf8ec"/>
+  </g>
+  <g stroke="#3f4652" stroke-width="2.5" fill="none" stroke-linecap="round">
+    <path d="M500,80 q7,-8 14,0 M514,80 q7,-8 14,0"/>
+    <path d="M545,96 q6,-7 12,0 M557,96 q6,-7 12,0"/>
+  </g>
+  <text x="712" y="330" font-family="Georgia,serif" font-size="21" fill="#f7f4ec" text-anchor="end" opacity="0.92">千屿 · Myriad Isles</text>
+</svg>
