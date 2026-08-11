@@ -137,6 +137,7 @@ export interface IsleScene {
   addBuilding(p: Placed): void
   resetBuildings(): void
   unsettle(): void
+  setLamps(n: number): void
   project(x: number, y: number, z: number): { x: number; y: number } | null
   setNightTarget(t: number): void
   settle(): void
@@ -615,6 +616,32 @@ export function createScene(canvas: HTMLCanvasElement, island: Island): IsleScen
     }
     scene.add(dock)
   }
+  // Lantern slots around the shore — lit one per lamp when visiting an isle.
+  const lampSlots: Group[] = []
+  for (let s = 0; s < 20; s++) {
+    const k = (s * 8) % 160
+    let r = shoreR[k]! - 0.7
+    let lx = shoreDX[k]! * r
+    let lz = shoreDZ[k]! * r
+    if (terr(lx, lz) < 0.08) {
+      r = shoreR[k]! - 1.4
+      lx = shoreDX[k]! * r
+      lz = shoreDZ[k]! * r
+    }
+    const g = new Group()
+    const post = new Mesh(track(new CylinderGeometry(0.035, 0.05, 0.55, 5)), mats.wood)
+    post.position.y = 0.26
+    post.castShadow = true
+    g.add(post)
+    const glow = new Mesh(track(new SphereGeometry(0.07, 6, 5)), lampMat)
+    glow.position.y = 0.58
+    g.add(glow)
+    g.position.set(lx, terr(lx, lz) - 0.02, lz)
+    g.visible = false
+    scene.add(g)
+    lampSlots.push(g)
+  }
+
   const rowboat = new Group()
   {
     const hull = new Mesh(track(new BoxGeometry(0.5, 0.2, 1.0)), std(0xc9a97e))
@@ -1203,6 +1230,12 @@ export function createScene(canvas: HTMLCanvasElement, island: Island): IsleScen
     unsettle() {
       settled = false
       mixTgt = 0
+    },
+    setLamps(n) {
+      const lit = Math.min(20, Math.max(0, n))
+      lampSlots.forEach((g, i) => {
+        g.visible = i < lit
+      })
     },
     project(x, y, z) {
       P4.set(x, y, z).project(camera)

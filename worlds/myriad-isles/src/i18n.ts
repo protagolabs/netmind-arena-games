@@ -46,6 +46,7 @@ const zh = {
   lampCount: (n: number) => `灯 ${n}`,
   backHome: '回我的岛',
   saveFailed: '存岛没成功，再试一次',
+  lampsReceived: (n: number) => `你存进海里的岛收到了 ${n} 盏灯`,
   mute: '静音',
   unmute: '声音',
   b: {
@@ -135,6 +136,7 @@ const en: typeof zh = {
   lampCount: (n: number) => `${n} lamps`,
   backHome: 'Back to my isle',
   saveFailed: 'Mooring failed — try again',
+  lampsReceived: (n: number) => `Your moored isle has received ${n} lamps`,
   mute: 'Mute',
   unmute: 'Sound',
   b: {

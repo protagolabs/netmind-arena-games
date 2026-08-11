@@ -11,6 +11,7 @@ export interface SeaRow {
   name: string
   author: string
   score: number
+  lamps: number
   mine: boolean
 }
 
@@ -300,6 +301,10 @@ export function makeUi(host: HTMLElement, dict0: Dict): Ui {
         nm.textContent = row.name + (row.mine ? ` · ${dict.seaMine}` : '')
         const by = el('div', 'font-size:11.5px;opacity:0.7;overflow:hidden;text-overflow:ellipsis;white-space:nowrap', info)
         by.textContent = dict.seaBy(row.author)
+        if (row.lamps > 0) {
+          const lp = el('div', 'font-size:12px;opacity:0.8;flex-shrink:0;color:#ffd98a', line)
+          lp.textContent = dict.lampCount(row.lamps)
+        }
         const sc = el('div', 'font-size:13px;font-weight:600;flex-shrink:0', line)
         sc.textContent = dict.seaScore(row.score)
         const go = el('button', BTN + ';font-size:12px;flex-shrink:0', line)

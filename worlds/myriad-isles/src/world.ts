@@ -147,15 +147,32 @@ export default defineWorld({
     // ------------------------------------------------------- the myriad sea
     let seaRows: import('./ui.js').SeaRow[] = []
     let seaCursor: string | null = null
-    const rowFrom = (r: { id: string; author: { id?: string; name?: string } | null; payload: IslandRecord }) => {
+    const rowFrom = (r: { id: string; author: { id?: string; name?: string } | null; payload: IslandRecord }, lamps: number) => {
       const m = me()
       return {
         id: r.id,
         name: r.payload.name || dict.unnamedIsle,
         author: r.author?.name ?? '…',
         score: r.payload.score,
+        lamps,
         mine: !!m && r.author?.id === m.id,
       }
+    }
+    const lampCounts = async (ids: string[]): Promise<Map<string, number>> => {
+      const by = new Map<string, number>()
+      if (!ids.length) return by
+      try {
+        let cursor: string | undefined
+        for (let i = 0; i < 4; i++) {
+          const lp = await lampsCol.list({ where: { 'payload.target': { in: ids } }, limit: 100, ...(cursor ? { cursor } : {}) })
+          for (const l of lp.items) by.set(l.payload.target, (by.get(l.payload.target) ?? 0) + 1)
+          if (!lp.cursor) break
+          cursor = lp.cursor
+        }
+      } catch {
+        /* counts are decoration */
+      }
+      return by
     }
     const renderSea = (hasMore: boolean) => {
       ui.showSea(
@@ -178,7 +195,8 @@ export default defineWorld({
           ...(seaCursor ? { cursor: seaCursor } : {}),
         })
         seaCursor = page.cursor
-        seaRows = seaRows.concat(page.items.map(rowFrom))
+        const lamps = await lampCounts(page.items.map((r) => r.id))
+        seaRows = seaRows.concat(page.items.map((r) => rowFrom(r, lamps.get(r.id) ?? 0)))
         renderSea(page.hasMore)
       } catch {
         renderSea(false)
@@ -215,6 +233,7 @@ export default defineWorld({
       } catch {
         /* counts are decoration */
       }
+      scene.setLamps(visitLampN)
       ui.showVisit(
         { label: rec.payload.name || dict.unnamedIsle, score: rec.payload.score, lamps: visitLampN, lamped, canLamp: !!m && !mineRow },
         () => void lampIsle(),
@@ -228,6 +247,7 @@ export default defineWorld({
         await lampsCol.add({ target: visitingId })
         visitLampN += 1
         ui.updateVisit(visitLampN, true)
+        scene.setLamps(visitLampN)
         sfx.draft()
       } catch (e) {
         if ((e as { code?: string }).code === 'unique') ui.updateVisit(visitLampN, true)
@@ -238,6 +258,7 @@ export default defineWorld({
       mode = 'play'
       visitingId = null
       ui.hideVisit()
+      scene.setLamps(0)
       scene.resetBuildings()
       for (const p of state.placed) scene.addBuilding(p)
       if (state.phase === 'settled') scene.setNightTarget(1)
@@ -430,45 +451,23 @@ export default defineWorld({
     }
     raf = requestAnimationFrame(tick)
 
-    // Test hook for sandboxed automation (rAF freezes in hidden panes).
-    // TODO(myriad-isles): strip before opening the PR.
-    ;(window as unknown as Record<string, unknown>).__mi = {
-      advance,
-      place: (t: BType, x: number, z: number) => {
-        selected = t
-        const res = placeAt(state, island, t, x, z, 0)
-        if (res.ok) {
-          scene.addBuilding(state.placed[state.placed.length - 1]!)
-          refreshAll()
-          if (res.next === 'draft') openDraft()
-          if (res.next === 'settled') settleFlow()
-        }
-        return res
-      },
-      pick: (which: 'a' | 'b') => {
-        draftPick(state, ROUNDS[state.round]![which])
-        placedAtDraft = state.placed.length
-        ui.hideDraft()
-        modal = null
-        selected = state.tray[0] ?? null
-        scene.setGhostType(selected)
-        refreshAll()
-      },
-      get state() {
-        return state
-      },
-      get who() {
-        const m = me()
-        return m ? { id: m.id, name: m.name } : null
-      },
-      day,
-      seed,
-    }
-
     ui.setDay(day)
     refreshAll()
     ui.hint(dict.hintPlace)
     openDraft()
+
+    // Retention whisper: did anyone lamp the isle you moored?
+    void (async () => {
+      try {
+        const mine = await islands.list({ mine: true, sort: ['-createdAt'], limit: 1 })
+        const rec = mine.items[0]
+        if (!rec) return
+        const n = await lampsCol.count({ where: { 'payload.target': { eq: rec.id } } })
+        if (n > 0) window.setTimeout(() => ui.hint(dict.lampsReceived(n)), 1200)
+      } catch {
+        /* decorative */
+      }
+    })()
 
     this.unmount = () => {
       alive = false
@@ -479,7 +478,6 @@ export default defineWorld({
       ui.dispose()
       sfx.dispose()
       scene.dispose()
-      delete (window as unknown as Record<string, unknown>).__mi
     }
   },
 
