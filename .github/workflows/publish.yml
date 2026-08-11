@@ -60,10 +60,12 @@ jobs:
         run: |
           set -euo pipefail
           # Fingerprint = every hash a release actually ships: logic bundle, view HTML,
-          # and rules markdown (all three are inlined into index.json, so a rules-only
-          # edit IS a shipped change and must publish). Releases cut before
-          # rulesContentHash existed have no such field → jq yields null → the first
-          # run after this change publishes once, then the gate is stable again.
+          # rules markdown, and the catalog presentation — blurb + cover — that the
+          # Arena homepage renders (all four are inlined into index.json, so a
+          # rules-only or logo-only edit IS a shipped change and must publish).
+          # Releases cut before rulesContentHash / metaContentHash existed have no such
+          # field → jq yields null → the first run after this change publishes once,
+          # then the gate is stable again.
           # Worlds are folded into the SAME fingerprint: they ship in the same
           # index.json, so a world-only change is a shipped change and must
           # publish. `// []` keeps this working against a release cut before
@@ -78,7 +80,7 @@ jobs:
           # the gate working against releases cut before releaseHash existed: they
           # fall back to the old value, differ once, and publish a single time.
           fp() { jq -Sc '{
-                   games:  [(.games  // [])[] | {type, contentHash, viewContentHash, rulesContentHash}] | sort_by(.type),
+                   games:  [(.games  // [])[] | {type, contentHash, viewContentHash, rulesContentHash, metaContentHash}] | sort_by(.type),
                    worlds: [(.worlds // [])[] | {type, hash: (.releaseHash // .contentHash)}] | sort_by(.type)
                  }' "$1"; }
           new=$(fp dist/index.json)

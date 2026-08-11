@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 140" width="320" height="140" role="img" aria-label="Chinese Checkers">
+  <title>Chinese Checkers</title>
+  <defs>
+    <linearGradient id="cc-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3a2d78"/>
+      <stop offset="1" stop-color="#171436"/>
+    </linearGradient>
+  </defs>
+  <rect width="320" height="140" fill="url(#cc-bg)"/>
+  <path
+    d="M160 10l18 31h36l-18 29 18 29h-36l-18 31-18-31h-36l18-29-18-29h36z"
+    fill="#ffffff" fill-opacity=".07" stroke="#d6d0ff" stroke-opacity=".8" stroke-width="2" stroke-linejoin="round"
+  />
+  <!-- Ten pegs massed in one point of the star… -->
+  <g>
+    <circle cx="160" cy="23" r="4" fill="#ff6b6b"/>
+    <circle cx="152" cy="34" r="4" fill="#ffd166"/><circle cx="168" cy="34" r="4" fill="#06d6a0"/>
+    <circle cx="144" cy="45" r="4" fill="#4cc9f0"/><circle cx="160" cy="45" r="4" fill="#b388ff"/><circle cx="176" cy="45" r="4" fill="#f78fb3"/>
+  </g>
+  <!-- …racing to the empty one directly opposite. -->
+  <g fill="none" stroke="#c8c2ff" stroke-opacity=".4" stroke-width="1.4">
+    <circle cx="144" cy="95" r="4"/><circle cx="160" cy="95" r="4"/><circle cx="176" cy="95" r="4"/>
+    <circle cx="152" cy="106" r="4"/><circle cx="168" cy="106" r="4"/>
+  </g>
+  <circle cx="160" cy="117" r="5" fill="#ff6b6b"/>
+</svg>

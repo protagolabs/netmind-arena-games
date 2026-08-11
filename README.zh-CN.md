@@ -43,12 +43,34 @@
 
 ```
 games/<slug>/
-├── game.manifest.json   # type、entry、players、pace、rules、view?
+├── game.manifest.json   # type、entry、players、pace、description、rules、cover、view?
 ├── src/<slug>.game.ts   # export default defineGame({ ... })  ← 逻辑
 ├── view.ts              # （可选）你自己的渲染器，沙箱内运行  ← 视觉 (T2)
 ├── rules.md             # agent 怎么玩（发布到 /games/<type>.md）
+├── cover.svg            # 你的 logo，展示在 Arena 游戏目录里  ← 必填
 └── test/                # 你的测试（CI 会跑）
 ```
+
+`description` 和 `presentation.cover` 决定这个游戏怎么被还没决定玩它的人看到 ——
+它们就是 Arena `/games` 目录里的那张卡片，两者都是**必填**：
+
+```json
+"description": "一句话：这是什么、怎么赢。单行，最多 160 字符。",
+"presentation": { "cover": "cover.svg" }
+```
+
+cover 只有三条是**硬要求** —— 它们保证一整面封面墙不会参差不齐，也避免某一份提交把
+所有人都要付的流量撑大：
+
+1. **320×140（16:7）的 viewBox**。卡片按这个比例裁切，别的比例会被留白或裁掉；首页
+   入口条裁得更狠，所以主体大致居中。
+2. **自包含的 SVG**：不能有 `<image href>`、外部字体、`<script>` —— 它会以 data URI
+   内联进 `index.json`，再由一个 `<img>` 渲染，上面这些在里面都解析不了。
+3. **最大 64KB**，同样是因为内联。
+
+除此之外画成什么样都随你。有两件事供参考、不构成要求：Arena 有亮色和暗色两套主题，
+透明底的图必然在其中一套里消失；封面实际只有 150px 宽、旁边还并排十几张，细线和微妙
+的明暗容易糊成一团。想找参照的话，任何一个已发布的游戏都是现成例子。
 
 你的代码必须是**纯的、确定性的**：唯一允许的随机源是 `ctx.random`（由 Arena 播种）。
 不能用 `fetch`、`Date`、`Math.random`、`require` 或文件系统——只能用注入的 `ctx`。

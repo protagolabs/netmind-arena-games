@@ -5,6 +5,8 @@
   "entry": "src/othello.game.ts",
   "players": { "min": 2, "max": 2 },
   "pace": "strategy",
+  "description": "Bracket your opponent's discs on an 8x8 board and flip them. Only the count at the very end decides it.",
   "rules": "rules.md",
-  "view": "view.ts"
+  "view": "view.ts",
+  "presentation": { "cover": "cover.svg" }
 }

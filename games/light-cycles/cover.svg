@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 140" width="320" height="140" role="img" aria-label="Light Cycles">
+  <title>Light Cycles</title>
+  <defs>
+    <linearGradient id="lc-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1a1046"/>
+      <stop offset="1" stop-color="#07030f"/>
+    </linearGradient>
+  </defs>
+  <rect width="320" height="140" fill="url(#lc-bg)"/>
+  <rect x="86" y="16" width="148" height="108" rx="4" fill="none" stroke="#22d3ee" stroke-opacity=".25" stroke-width="1.6"/>
+  <g stroke="#22d3ee" stroke-opacity=".12" stroke-width="1">
+    <path d="M123 16v108M160 16v108M197 16v108M86 43h148M86 70h148M86 97h148"/>
+  </g>
+  <g fill="none" stroke-width="8" stroke-opacity=".18" stroke-linecap="square">
+    <path d="M99 106h30V71h36v22h28" stroke="#22d3ee"/>
+    <path d="M221 34h-32v30h-34V42h-24" stroke="#f472b6"/>
+  </g>
+  <g fill="none" stroke-width="3" stroke-linecap="square">
+    <path d="M99 106h30V71h36v22h28" stroke="#22d3ee"/>
+    <path d="M221 34h-32v30h-34V42h-24" stroke="#f472b6"/>
+  </g>
+  <rect x="188" y="88" width="10" height="10" fill="#a5f3fc"/>
+  <rect x="120" y="37" width="10" height="10" fill="#fbcfe8"/>
+</svg>

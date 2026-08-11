@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 140" width="320" height="140" role="img" aria-label="Penalty Shootout">
+  <title>Penalty Shootout</title>
+  <defs>
+    <linearGradient id="ps-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1f8b4c"/>
+      <stop offset="1" stop-color="#0c4425"/>
+    </linearGradient>
+  </defs>
+  <rect width="320" height="140" fill="url(#ps-bg)"/>
+  <rect y="70" width="320" height="24" fill="#ffffff" fill-opacity=".05"/>
+  <g fill="none" stroke="#fbfbf7" stroke-width="3" stroke-linejoin="round">
+    <path d="M92 96V30h136v66"/>
+  </g>
+  <g stroke="#fbfbf7" stroke-opacity=".3" stroke-width="1.1">
+    <path d="M109 30v66M126 30v66M143 30v66M160 30v66M177 30v66M194 30v66M211 30v66M92 47h136M92 64h136M92 81h136"/>
+  </g>
+  <g stroke="#ffd166" stroke-width="3" stroke-linecap="round" fill="none">
+    <path d="M188 58v16M180 63h16M182 74l-5 12M194 74l5 12"/>
+    <circle cx="188" cy="50" r="5.5" fill="#ffd166" stroke="none"/>
+  </g>
+  <path d="M132 112l-36-12" stroke="#fbfbf7" stroke-opacity=".45" stroke-width="2" stroke-dasharray="6 5"/>
+  <circle cx="122" cy="112" r="9" fill="#fbfbf7"/>
+  <path d="M122 105l4 3-1.5 5h-5l-1.5-5z" fill="#17171b"/>
+</svg>

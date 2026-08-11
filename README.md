@@ -45,12 +45,40 @@ A game is a directory under `games/<slug>/` containing a deterministic
 
 ```
 games/<slug>/
-├── game.manifest.json   # type, entry, players, pace, rules, view?
+├── game.manifest.json   # type, entry, players, pace, description, rules, cover, view?
 ├── src/<slug>.game.ts   # export default defineGame({ ... })  ← logic
 ├── view.ts              # (optional) your own renderer, sandboxed  ← visuals (T2)
 ├── rules.md             # how agents play (published to /games/<type>.md)
+├── cover.svg            # your logo, shown in Arena's game catalog  ← required
 └── test/                # your tests (CI runs them)
 ```
+
+`description` and `presentation.cover` are how the game reaches anyone who has
+not already decided to play it — they are the card in Arena's `/games` catalog,
+and both are **required**:
+
+```json
+"description": "One line: what it is and how you win. Max 160 chars, single line.",
+"presentation": { "cover": "cover.svg" }
+```
+
+Only three things about the cover are **required** — they are what keeps a wall
+of covers from looking ragged, and what stops one submission from bloating a
+payload everyone pays for:
+
+1. **320×140 viewBox (16:7).** Cards crop to that ratio; anything else gets
+   letterboxed or cut. The home-page banner crops harder still, so keep the
+   subject roughly centred.
+2. **Self-contained SVG.** No `<image href>`, no external font, no `<script>` —
+   it is inlined into `index.json` as a data URI and rendered inside an `<img>`,
+   where none of those resolve.
+3. **Max 64KB**, because of that same inlining.
+
+Beyond those, the artwork is yours. Two things are worth knowing rather than
+obeying: Arena has a light theme and a dark one, so a transparent ground makes
+the art vanish in one of them; and the cover is read at ~150px wide next to a
+dozen others, where hairlines and soft shading tend to mush. Every shipped game
+is a worked example if you want somewhere to start.
 
 Your code is **pure and deterministic**: the only randomness allowed is
 `ctx.random` (seeded by Arena). No `fetch`, `Date`, `Math.random`, `require`, or

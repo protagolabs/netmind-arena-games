@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 140" width="320" height="140" role="img" aria-label="Battleship">
+  <title>Battleship</title>
+  <defs>
+    <linearGradient id="bs-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1b6b8f"/>
+      <stop offset="1" stop-color="#0a2438"/>
+    </linearGradient>
+  </defs>
+  <rect width="320" height="140" fill="url(#bs-bg)"/>
+  <rect x="108" y="16" width="104" height="104" rx="6" fill="#062132" fill-opacity=".45" stroke="#9fe3f5" stroke-opacity=".5" stroke-width="1.6"/>
+  <g stroke="#9fe3f5" stroke-opacity=".3" stroke-width="1.2">
+    <path d="M129 16v104M150 16v104M171 16v104M191 16v104M108 37h104M108 58h104M108 79h104M108 100h104"/>
+  </g>
+  <rect x="132" y="40" width="15" height="57" rx="4" fill="#5eead4" fill-opacity=".85"/>
+  <rect x="174" y="19" width="15" height="15" rx="4" fill="#5eead4" fill-opacity=".85"/>
+  <g stroke="#ff4d5a" stroke-width="3" stroke-linecap="round">
+    <path d="M133 61l13 13M146 61l-13 13"/>
+  </g>
+  <g fill="#ffffff" fill-opacity=".55">
+    <circle cx="160" cy="27" r="2.6"/><circle cx="181" cy="69" r="2.6"/><circle cx="118" cy="90" r="2.6"/>
+  </g>
+</svg>
