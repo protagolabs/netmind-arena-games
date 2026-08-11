@@ -132,7 +132,7 @@ export interface IsleScene {
   pickGround(): { x: number; z: number } | null
   setGhostType(t: BType | null): void
   setGhostState(ok: boolean, positive: boolean): void
-  refreshOverlay(valid: (x: number, z: number) => boolean): void
+  refreshOverlay(tier: (x: number, z: number) => 0 | 1 | 2): void
   overlayWake(): void
   addBuilding(p: Placed): void
   resetBuildings(): void
@@ -284,24 +284,28 @@ export function createScene(canvas: HTMLCanvasElement, island: Island): IsleScen
   scene.add(terrain)
 
   // Buildable-area overlay shares the terrain positions; per-vertex green.
-  const ogeo = track(new BufferGeometry())
-  ogeo.setAttribute('position', posAttr)
-  const ocol = new Float32Array(gIdx.length * 3)
-  ogeo.setAttribute('color', new BufferAttribute(ocol, 3))
-  const overlayMat = track(
-    new MeshBasicMaterial({
-      vertexColors: true,
-      transparent: true,
-      opacity: 0,
-      blending: AdditiveBlending,
-      depthWrite: false,
-      polygonOffset: true,
-      polygonOffsetFactor: -1,
-      polygonOffsetUnits: -1,
-      fog: false,
-    }),
-  )
-  scene.add(new Mesh(ogeo, overlayMat))
+  const ovCap = gIdx.length * 3
+  const mkOverlayLayer = (hex: number, alpha: number) => {
+    const geo = track(new BufferGeometry())
+    const attr = new BufferAttribute(new Float32Array(ovCap), 3)
+    geo.setAttribute('position', attr)
+    geo.setDrawRange(0, 0)
+    const mat = track(
+      new MeshBasicMaterial({
+        color: hex,
+        transparent: true,
+        opacity: 0,
+        depthWrite: false,
+        fog: false,
+      }),
+    )
+    const mesh = new Mesh(geo, mat)
+    mesh.frustumCulled = false
+    scene.add(mesh)
+    return { geo, attr, mat, alpha }
+  }
+  const ovGreen = mkOverlayLayer(0xa8f5c6, 0.42)
+  const ovGold = mkOverlayLayer(0xffc226, 0.6)
 
   const deep = new Mesh(track(new CircleGeometry(115, 24)), track(new MeshStandardMaterial({ color: 0x12374a, roughness: 0.95 })))
   deep.rotation.x = -Math.PI / 2
@@ -1162,16 +1166,29 @@ export function createScene(canvas: HTMLCanvasElement, island: Island): IsleScen
       ghostMat.color.setHex(hex)
       ringMat.color.setHex(hex)
     },
-    refreshOverlay(valid) {
+    refreshOverlay(tier) {
       const vGrid = new Uint8Array(GN * GN)
-      for (let g = 0; g < GN * GN; g++) vGrid[g] = valid(px[g]!, pz[g]!) ? 1 : 0
-      for (let v = 0; v < gIdx.length; v++) {
-        const ok = vGrid[gIdx[v]!]!
-        ocol[v * 3] = ok ? 0.14 : 0
-        ocol[v * 3 + 1] = ok ? 0.5 : 0
-        ocol[v * 3 + 2] = ok ? 0.2 : 0
+      for (let g = 0; g < GN * GN; g++) vGrid[g] = tier(px[g]!, pz[g]!)
+      const greenA = ovGreen.attr.array as Float32Array
+      const goldA = ovGold.attr.array as Float32Array
+      let gn = 0
+      let go = 0
+      for (let v = 0; v < gIdx.length; v += 3) {
+        const t1 = vGrid[gIdx[v]!]!
+        const t2 = vGrid[gIdx[v + 1]!]!
+        const t3 = vGrid[gIdx[v + 2]!]!
+        const top = Math.max(t1, t2, t3)
+        if (top === 0) continue
+        const arr = top === 2 ? goldA : greenA
+        let at = top === 2 ? go : gn
+        for (let k = 0; k < 9; k++) arr[at + k] = tp[v * 3 + k]! + (k % 3 === 1 ? 0.05 : 0)
+        if (top === 2) go = at + 9
+        else gn = at + 9
       }
-      ;(ogeo.attributes.color as InstanceType<typeof BufferAttribute>).needsUpdate = true
+      ovGreen.attr.needsUpdate = true
+      ovGold.attr.needsUpdate = true
+      ovGreen.geo.setDrawRange(0, gn / 3)
+      ovGold.geo.setDrawRange(0, go / 3)
     },
     overlayWake() {
       lastActive = tNow
@@ -1247,8 +1264,10 @@ export function createScene(canvas: HTMLCanvasElement, island: Island): IsleScen
       }
       rowboat.position.y = 0.06 + 0.05 * Math.sin(tNow * 1.2)
       rowboat.rotation.z = 0.03 * Math.sin(tNow * 1.4)
-      const act = 1 - smooth(1.4, 3.0, tNow - lastActive)
-      overlayMat.opacity = act * (0.15 + 0.05 * Math.sin(tNow * 2.4)) * (1 - 0.5 * mixv)
+      const act = 1 - smooth(4.0, 7.0, tNow - lastActive)
+      const pulse = act * (0.85 + 0.15 * Math.sin(tNow * 2.4)) * (1 - 0.35 * mixv)
+      ovGreen.mat.opacity = ovGreen.alpha * pulse
+      ovGold.mat.opacity = ovGold.alpha * pulse
       for (const m of mills) m.rotation.z += dt * 1.3
       for (const b of beams) {
         if (b.up) b.g.rotation.y += dt * 0.25

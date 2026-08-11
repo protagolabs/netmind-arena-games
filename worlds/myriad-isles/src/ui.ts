@@ -15,6 +15,7 @@ export interface Ui {
   setTray(tray: BType[], selected: BType | null): void
   hint(msg: string): void
   popup(xFrac: number, yFrac: number, text: string, good: boolean): void
+  showPreview(pt: { x: number; y: number } | null, text: string, good: boolean): void
   showDraft(round: Round, onPick: (which: 'a' | 'b') => void): void
   hideDraft(): void
   showSettle(score: number, stuck: boolean, onAgain: () => void): void
@@ -57,18 +58,18 @@ export function makeUi(host: HTMLElement, dict0: Dict): Ui {
     rulesTitle.textContent = dict.rulesTitle
     rulesClose.textContent = dict.rulesClose
     rulesBody.textContent = ''
-    for (const line of [dict.rulesFlow, dict.rulesPlace, dict.rulesGhost, dict.rulesLadder(ROUNDS.slice(1).map((r) => r.unlock).join(' / '))]) {
+    for (const line of [dict.rulesFlow, dict.rulesPlace, dict.rulesGold, dict.rulesGhost, dict.rulesLadder(ROUNDS.slice(1).map((r) => r.unlock).join(' / '))]) {
       const p = el('p', 'margin:0 0 8px', rulesBody)
       p.textContent = line
     }
     const listTitle = el('div', 'font-weight:600;margin:10px 0 6px', rulesBody)
     listTitle.textContent = dict.tray
     for (const t of B_TYPES) {
-      const row = el('div', 'display:flex;gap:8px;margin:0 0 5px', rulesBody)
-      const name = el('span', 'font-weight:600;min-width:56px;flex-shrink:0', row)
+      const row = el('div', 'margin:0 0 7px', rulesBody)
+      const name = el('div', 'font-weight:600', row)
       name.textContent = dict.b[t] ?? t
-      const desc = el('span', 'opacity:0.85', row)
-      desc.textContent = dict.bHint[t] ?? ''
+      const desc = el('div', 'opacity:0.85;font-size:12.5px', row)
+      desc.textContent = dict.bRule[t] ?? dict.bHint[t] ?? ''
     }
     rulesBody.appendChild(rulesClose)
   }
@@ -101,6 +102,7 @@ export function makeUi(host: HTMLElement, dict0: Dict): Ui {
   const settleBtn = el('button', BTN, settleBox)
 
   const popupLayer = el('div', 'position:absolute;inset:0;overflow:hidden;pointer-events:none', root)
+  const previewChip = el('div', 'position:absolute;display:none;padding:2px 8px;border-radius:8px;background:rgba(10,14,26,0.72);font-size:13px;font-weight:600;pointer-events:none;transform:translate(-50%,-100%)', root)
 
   const styleTag = document.createElement('style')
   styleTag.textContent = '@keyframes mipop{from{opacity:1;transform:translateY(0)}to{opacity:0;transform:translateY(-36px)}}'
@@ -153,6 +155,17 @@ export function makeUi(host: HTMLElement, dict0: Dict): Ui {
       hintTimer = window.setTimeout(() => {
         hintEl.style.opacity = '0'
       }, 2600)
+    },
+    showPreview(pt, text, good) {
+      if (!pt) {
+        previewChip.style.display = 'none'
+        return
+      }
+      previewChip.style.display = 'block'
+      previewChip.style.left = `${(pt.x * 100).toFixed(2)}%`
+      previewChip.style.top = `${(pt.y * 100).toFixed(2)}%`
+      previewChip.style.color = good ? '#c8f0a8' : '#ffab98'
+      previewChip.textContent = text
     },
     popup(xf, yf, text, good) {
       const d = el('div', `position:absolute;font-size:13px;font-weight:600;pointer-events:none;animation:mipop 1.15s ease-out forwards;color:${good ? '#c8f0a8' : '#ffab98'}`, popupLayer)

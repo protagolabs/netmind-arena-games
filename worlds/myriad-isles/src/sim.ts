@@ -36,13 +36,13 @@ export function makeIsland(seed: number): Island {
     const fr = lv - f
     const land = 0.55 + (f + smooth(0.62, 0.94, fr)) * 1.12
     const raw = -1.7 + (land + 1.7) * inside + (vnoise(x * 0.9 + o1, z * 0.9 + o3, seed, 14) - 0.5) * 0.06
-    if (raw > 0.02 && raw < 0.55) return 0.28 + (raw - 0.28) * 0.4
+    if (raw > 0.02 && raw < 0.75) return 0.3 + (raw - 0.3) * 0.35
     return raw
   }
 
   const slopeOk = (x: number, z: number): boolean => {
-    const e = 0.5
-    return Math.max(Math.abs(terr(x + e, z) - terr(x - e, z)), Math.abs(terr(x, z + e) - terr(x, z - e))) < 0.55
+    const e = 0.35
+    return Math.max(Math.abs(terr(x + e, z) - terr(x - e, z)), Math.abs(terr(x, z + e) - terr(x, z - e))) < 0.42
   }
 
   const trees: Island['trees'] = []
@@ -144,6 +144,21 @@ export function scoreAt(island: Island, placed: Placed[], t: BType, x: number, z
       return s
     }
   }
+}
+
+/** "This would be a great spot" — drives the gold tint on the overlay. */
+const GOLD: Record<BType, number> = {
+  house: 5,
+  fisher: 7,
+  mill: 8,
+  field: 4,
+  shrine: 6,
+  lighthouse: 10,
+  observatory: 8,
+}
+
+export function goldAt(island: Island, placed: Placed[], t: BType, x: number, z: number): boolean {
+  return scoreAt(island, placed, t, x, z) >= GOLD[t]
 }
 
 // ---------------------------------------------------------------------------

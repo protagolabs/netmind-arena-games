@@ -1,6 +1,6 @@
 import { defineWorld } from '@arena/world-sdk'
 import { dayString, hashStr, ihash } from './seed.js'
-import { makeIsland, newGame, draftPick, placeAt, canPlaceAt, scoreAt, dayProgress, ROUNDS, type BType, type GameState } from './sim.js'
+import { makeIsland, newGame, draftPick, placeAt, canPlaceAt, scoreAt, goldAt, dayProgress, ROUNDS, type BType, type GameState } from './sim.js'
 import { createScene, type IsleScene } from './scene.js'
 import { makeUi, applyStateToUi, type Ui } from './ui.js'
 import { makeI18n } from './i18n.js'
@@ -27,10 +27,14 @@ export default defineWorld({
     const ui: Ui = makeUi(root, dict)
     const sfx = makeSfx(() => ctx.audio())
 
-    const validAt = (x: number, z: number) => canPlaceAt(island, state.placed, x, z)
+    const tierAt = (x: number, z: number): 0 | 1 | 2 => {
+      if (!canPlaceAt(island, state.placed, x, z)) return 0
+      if (selected && goldAt(island, state.placed, selected, x, z)) return 2
+      return 1
+    }
     const refreshAll = () => {
       applyStateToUi(ui, state, selected)
-      scene.refreshOverlay(validAt)
+      scene.refreshOverlay(tierAt)
       scene.setNightTarget(dayProgress(state))
     }
 
@@ -181,7 +185,8 @@ export default defineWorld({
       selected = t
       scene.setGhostType(t)
       applyStateToUi(ui, state, selected)
-      ui.hint(dict.bHint[t] ?? '')
+      scene.refreshOverlay(tierAt)
+      scene.overlayWake()
     }
     ui.onMute = (m) => sfx.setMuted(m)
 
@@ -214,10 +219,18 @@ export default defineWorld({
     const advance = (dt: number) => {
       scene.frame(dt)
       const at = scene.pickGround()
-      if (at && selected && state.phase === 'place') {
+      if (at && selected && state.phase === 'place' && !modal) {
         const ok = canPlaceAt(island, state.placed, at.x, at.z)
-        const positive = ok && scoreAt(island, state.placed, selected, at.x, at.z) >= 0
-        scene.setGhostState(ok, positive)
+        const gained = scoreAt(island, state.placed, selected, at.x, at.z)
+        scene.setGhostState(ok, gained >= 0)
+        if (ok) {
+          const pt = scene.project(at.x, island.terr(at.x, at.z) + 1.5, at.z)
+          ui.showPreview(pt, `${gained >= 0 ? '+' : ''}${gained}`, gained >= 0)
+        } else {
+          ui.showPreview(null, '', true)
+        }
+      } else {
+        ui.showPreview(null, '', true)
       }
     }
     let raf = 0
