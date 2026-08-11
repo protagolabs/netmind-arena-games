@@ -1,0 +1,74 @@
+{
+  "type": "myriad-isles",
+  "kind": "world",
+  "displayName": "千屿 · Myriad Isles",
+  "sdkVersion": "0.0.1",
+  "entry": "src/world.ts",
+  "schemaVersion": 1,
+  "supportedSchemaVersions": [1],
+  "storage": {
+    "collections": {
+      "islands": {
+        "schema": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["day", "x", "y", "score", "builds"],
+          "properties": {
+            "day": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+            "x": { "type": "number", "minimum": -6000, "maximum": 6000 },
+            "y": { "type": "number", "minimum": -6000, "maximum": 6000 },
+            "name": { "type": "string", "maxLength": 18 },
+            "score": { "type": "integer", "minimum": 0, "maximum": 99999 },
+            "builds": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 80,
+              "items": {
+                "type": "array",
+                "minItems": 4,
+                "maxItems": 4,
+                "prefixItems": [
+                  { "type": "integer", "minimum": 0, "maximum": 15 },
+                  { "type": "number", "minimum": -20, "maximum": 20 },
+                  { "type": "number", "minimum": -20, "maximum": 20 },
+                  { "type": "number", "minimum": 0, "maximum": 6.3 }
+                ]
+              }
+            }
+          }
+        },
+        "write": "owner",
+        "maxRecordBytes": 8192,
+        "maxRecordsPerAuthor": 10,
+        "indexes": ["payload.day", "payload.x", "payload.y"],
+        "unique": [["author.id", "payload.day"]],
+        "anonymousCanWrite": false
+      },
+      "lamps": {
+        "schema": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["target"],
+          "properties": {
+            "target": { "type": "string", "maxLength": 32 }
+          }
+        },
+        "write": "none",
+        "maxRecordBytes": 128,
+        "indexes": ["payload.target"],
+        "unique": [["author.id", "payload.target"]],
+        "anonymousCanWrite": false
+      }
+    },
+    "quota": {
+      "totalRecords": 50000,
+      "writesPerHourPerAuthor": 60
+    }
+  },
+  "presentation": {
+    "surface": "fullscreen",
+    "cover": "cover.svg",
+    "audio": true
+  },
+  "about": "about.md"
+}

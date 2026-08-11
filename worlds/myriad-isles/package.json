@@ -1,0 +1,18 @@
+{
+  "name": "@arena-worlds/myriad-isles",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/world.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@arena/world-sdk": "workspace:*",
+    "three": "^0.185.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "@types/three": "^0.185.3"
+  }
+}
