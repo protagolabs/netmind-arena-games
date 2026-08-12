@@ -49,6 +49,34 @@ export default defineWorld({
     let visitingId: string | null = null
     let visitLampN = 0
     let resumeModal: 'draft' | 'settle' | null = null
+    // The intro is a side panel, never a gate: it can be closed at any time and
+    // reopened from the intro button, and it hides while you are away visiting.
+    let welcomeOpen = false
+    let welcomeSuspended = false
+    let started = false
+    let savedToSea = false
+    const openWelcome = () => {
+      welcomeOpen = true
+      ui.showWelcome({
+        canStart: !started,
+        onStart: () => {
+          closeWelcome()
+          ui.hint(dict.hintPlace)
+          openDraft()
+        },
+        onClose: () => {
+          closeWelcome()
+          if (!started) ui.hint(dict.introClosed)
+        },
+      })
+    }
+    const closeWelcome = () => {
+      if (!welcomeOpen) return
+      welcomeOpen = false
+      welcomeSuspended = false
+      ui.hideWelcome()
+      void ctx.local.set('welcomed', '1').catch(() => undefined)
+    }
 
     let placedAtDraft = 0
     const canRedraft = () => state.phase === 'place' && state.placed.length === placedAtDraft
@@ -65,6 +93,8 @@ export default defineWorld({
     let modal: 'draft' | 'settle' | null = null
     const openDraft = () => {
       modal = 'draft'
+      started = true
+      ui.setStarted(true)
       ui.showDraft(ROUNDS[state.round]!, (which) => {
         draftPick(state, ROUNDS[state.round]![which])
         placedAtDraft = state.placed.length
@@ -93,7 +123,7 @@ export default defineWorld({
         const existing = mine.items[0]
         if (existing) {
           if (state.score <= existing.payload.score) {
-            ui.settleStatus(dict.keptBest(existing.payload.score))
+            finishSave(dict.keptBest(existing.payload.score))
             return
           }
           await islands.put(existing.id, payload, { version: existing.version })
@@ -107,15 +137,58 @@ export default defineWorld({
             await islands.add(payload)
           }
         }
-        ui.settleStatus(dict.saved)
+        finishSave(dict.saved)
         void refreshNeighbors()
       } catch {
         ui.settleStatus(dict.saveFailed)
       }
     }
 
+    // Mooring is the last thing the sunset panel is for, so it steps aside the
+    // moment it succeeds — the isle it was covering is the point.
+    const finishSave = (msg: string) => {
+      savedToSea = true
+      if (modal === 'settle') {
+        ui.hideSettle()
+        modal = null
+      }
+      ui.hint(msg)
+      syncSettledBar()
+    }
+
+    // Shown whenever the isle is finished and nothing is covering it, so
+    // dismissing the sunset panel is never a one-way door.
+    const syncSettledBar = () => {
+      if (mode !== 'play' || modal || state.phase !== 'settled') {
+        ui.hideSettledBar()
+        return
+      }
+      ui.showSettledBar({
+        score: state.score,
+        canSave: !!me(),
+        saved: savedToSea,
+        onSave: openSettle,
+        onAgain: startOver,
+      })
+    }
+
+    const startOver = () => {
+      if (modal === 'settle') ui.hideSettle()
+      modal = null
+      state = newGame()
+      savedToSea = false
+      scene.resetBuildings()
+      scene.unsettle()
+      selected = null
+      scene.setGhostType(null)
+      syncSettledBar()
+      refreshAll()
+      openDraft()
+    }
+
     const openSettle = () => {
       modal = 'settle'
+      ui.hideSettledBar()
       const stuck = state.round < ROUNDS.length - 1
       ui.showSettle({
         score: state.score,
@@ -123,16 +196,10 @@ export default defineWorld({
         canSave: !!me(),
         signInHint: !me(),
         onSave: (name) => void saveIsland(name),
-        onAgain: () => {
+        onLook: () => {
           ui.hideSettle()
           modal = null
-          state = newGame()
-          scene.resetBuildings()
-          scene.unsettle()
-          selected = null
-          scene.setGhostType(null)
-          refreshAll()
-          openDraft()
+          syncSettledBar()
         },
       })
     }
@@ -204,6 +271,19 @@ export default defineWorld({
       }
     }
     ui.onSeaOpen = () => void loadSea(true)
+    ui.onIntro = () => {
+      if (mode !== 'play') return
+      // Before the first draft the button says "start building", so it starts
+      // building — it must not merely toggle the panel it is named after.
+      if (!started) {
+        closeWelcome()
+        ui.hint(dict.hintPlace)
+        openDraft()
+        return
+      }
+      if (welcomeOpen) closeWelcome()
+      else openWelcome()
+    }
 
     const myXY = () => {
       const m = me()
@@ -241,6 +321,13 @@ export default defineWorld({
       const rec = await islands.get(id)
       if (!rec) return
       ui.hideSea()
+      // The intro steps aside for the visit rather than being spent by it —
+      // browsing the sea first is a legitimate way in, not a skipped tutorial.
+      if (welcomeOpen) {
+        welcomeOpen = false
+        welcomeSuspended = true
+        ui.hideWelcome()
+      }
       if (modal) {
         resumeModal = modal
         modal = null
@@ -250,25 +337,41 @@ export default defineWorld({
       mode = 'visit'
       visitingId = id
       scene.setGhostType(null)
+      ui.hideSettledBar()
       ui.showPreview(null, '', true)
       ui.setTray([], null, false)
       scene.refreshOverlay(() => 0)
       scene.resetBuildings()
       for (const p of deserializeBuilds(rec.payload.builds)) scene.addBuilding(p)
       scene.setNightTarget(0.85)
+      visitedRec = { id, name: rec.payload.name || dict.unnamedIsle, score: rec.payload.score, authorId: rec.author?.id }
+      await renderVisitBar()
+    }
+
+    /**
+     * Identity arrives asynchronously, so a visit opened before ctx.me resolves
+     * would read canLamp === false and hide the lamp for good. The bar is a
+     * function of the current identity, not of the moment the visit started —
+     * ctx.onVisitor calls this again.
+     */
+    let visitedRec: { id: string; name: string; score: number; authorId?: string } | null = null
+    const renderVisitBar = async () => {
+      const rec = visitedRec
+      if (!rec || mode !== 'visit') return
       const m = me()
-      const mineRow = !!m && rec.author?.id === m.id
+      const mine = !!m && rec.authorId === m.id
       visitLampN = 0
       let lamped = false
       try {
-        visitLampN = await lampsCol.count({ where: { 'payload.target': { eq: id } } })
-        if (m && !mineRow) lamped = (await lampsCol.count({ where: { 'payload.target': { eq: id } }, mine: true })) > 0
+        visitLampN = await lampsCol.count({ where: { 'payload.target': { eq: rec.id } } })
+        if (m && !mine) lamped = (await lampsCol.count({ where: { 'payload.target': { eq: rec.id } }, mine: true })) > 0
       } catch {
         /* counts are decoration */
       }
+      if (visitedRec !== rec || mode !== 'visit') return
       scene.setLamps(visitLampN)
       ui.showVisit(
-        { label: rec.payload.name || dict.unnamedIsle, score: rec.payload.score, lamps: visitLampN, lamped, canLamp: !!m && !mineRow },
+        { label: rec.name, score: rec.score, lamps: visitLampN, lamped, canLamp: !!m && !mine },
         () => void lampIsle(),
         backHome,
       )
@@ -290,6 +393,7 @@ export default defineWorld({
     const backHome = () => {
       mode = 'play'
       visitingId = null
+      visitedRec = null
       ui.hideVisit()
       scene.setLamps(0)
       scene.resetBuildings()
@@ -301,6 +405,11 @@ export default defineWorld({
       if (resumeModal === 'draft') openDraft()
       else if (resumeModal === 'settle') openSettle()
       resumeModal = null
+      if (welcomeSuspended) {
+        welcomeSuspended = false
+        openWelcome()
+      }
+      syncSettledBar()
     }
 
     const tryPlace = () => {
@@ -360,7 +469,7 @@ export default defineWorld({
       if (down && !dragged) {
         if (scene.pickGround()) {
           tryPlace()
-        } else if (mode === 'play' && !modal && !welcomeOpen) {
+        } else if (mode === 'play' && !modal) {
           const nb = scene.pickNeighbor()
           if (nb) void visitIsle(nb.id)
         }
@@ -455,10 +564,14 @@ export default defineWorld({
         ui.hideSettle()
         openSettle()
       }
+      if (welcomeOpen) openWelcome()
+      syncSettledBar()
     }
     const offLang = ctx.onLangChange(() => applyLang())
     const offVisitor = ctx.onVisitor(() => {
       if (modal === 'settle') openSettle()
+      syncSettledBar()
+      void renderVisitBar()
       void refreshNeighbors()
     })
 
@@ -504,7 +617,6 @@ export default defineWorld({
     refreshAll()
 
     // First visit ever gets a welcome; ctx.local remembers across devices.
-    let welcomeOpen = false
     void (async () => {
       let seen = false
       try {
@@ -517,14 +629,7 @@ export default defineWorld({
         openDraft()
         return
       }
-      welcomeOpen = true
-      ui.showWelcome(() => {
-        welcomeOpen = false
-        ui.hideWelcome()
-        void ctx.local.set('welcomed', '1').catch(() => undefined)
-        ui.hint(dict.hintPlace)
-        openDraft()
-      })
+      openWelcome()
     })()
 
     void refreshNeighbors()

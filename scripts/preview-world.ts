@@ -269,8 +269,8 @@ function ops(name, op, args) {
       let items = live(name)
       if (args.mine) { if (!me.id) throw fail('unauthenticated', 'mine=true needs an identity'); items = items.filter(r => r.author.id === me.id) }
       for (const [p, f] of Object.entries(args.where || {})) {
-        // Same index rule as `list`. Without it, a `where` that counts fine
-        // locally fails `invalid` on the platform — and it fails on the ONE call
+        // Same index rule as \`list\`. Without it, a \`where\` that counts fine
+        // locally fails \`invalid\` on the platform — and it fails on the ONE call
         // an author is least likely to have a fallback for.
         if (p !== 'createdAt' && p !== 'updatedAt' && !(spec.indexes || []).includes(p)) {
           throw fail('invalid', "'" + p + "' is not an indexed field (declare it in the manifest's indexes)")
@@ -312,15 +312,15 @@ function ops(name, op, args) {
       return view(rec)
     }
     case 'del': {
-      // `write: 'none'` means append-only, and append-only has to include delete
+      // \`write: 'none'\` means append-only, and append-only has to include delete
       // — otherwise the collection is not append-only, it is just awkward to
-      // edit. This mirrored `put`/`patch` incorrectly: locally a world could
+      // edit. This mirrored \`put\`/\`patch\` incorrectly: locally a world could
       // delete from an append-only collection and the platform would refuse it.
       if (spec.write === 'none') throw fail('forbidden', "collection '" + name + "' is append-only")
       const rec = live(name).find(r => r.id === args.id)
       if (!rec) throw fail('not-found', 'record not found')
       // An anonymous visitor has no records of their own to delete, so on
-      // `write: 'anyone'` the id check below passed vacuously and let them delete
+      // \`write: 'anyone'\` the id check below passed vacuously and let them delete
       // everyone else's.
       if (!me.id) throw fail('unauthenticated', 'this action requires an identity')
       if (spec.write !== 'anyone' && rec.author.id !== me.id) throw fail('forbidden', 'you can only modify your own records')
