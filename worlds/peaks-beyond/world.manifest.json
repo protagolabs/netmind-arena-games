@@ -1,0 +1,53 @@
+{
+  "type": "peaks-beyond",
+  "kind": "world",
+  "displayName": "山外山 · Peaks Beyond",
+  "sdkVersion": "0.0.1",
+  "entry": "src/world.ts",
+  "schemaVersion": 1,
+  "supportedSchemaVersions": [1],
+  "storage": {
+    "collections": {
+      "stones": {
+        "schema": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["x", "y", "style", "day"],
+          "properties": {
+            "x": { "type": "integer", "minimum": 0, "maximum": 10000000 },
+            "y": { "type": "integer", "minimum": -100000, "maximum": 1000000 },
+            "style": { "type": "integer", "minimum": 0, "maximum": 5 },
+            "day": { "type": "integer", "minimum": 19000, "maximum": 40000 },
+            "mark": { "type": "string", "maxLength": 14 }
+          }
+        },
+        "write": "owner",
+        "maxRecordBytes": 192,
+        "maxRecordsPerAuthor": 400,
+        "indexes": ["payload.x", "payload.day"],
+        "unique": [["author.id", "payload.day"]]
+      },
+      "bells": {
+        "schema": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["target"],
+          "properties": {
+            "target": { "type": "string", "maxLength": 40 }
+          }
+        },
+        "write": "owner",
+        "maxRecordBytes": 128,
+        "maxRecordsPerAuthor": 12,
+        "indexes": ["payload.target"],
+        "unique": [["author.id", "payload.target"]]
+      }
+    },
+    "quota": { "totalRecords": 200000, "writesPerHourPerAuthor": 60 }
+  },
+  "presentation": { "surface": "fullscreen", "cover": "cover.svg", "audio": true },
+  "about": "about.md",
+  "credits": {
+    "author": { "name": "NetMind", "url": "https://www.netmind.ai" }
+  }
+}
