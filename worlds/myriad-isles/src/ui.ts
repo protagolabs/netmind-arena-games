@@ -21,7 +21,21 @@ export interface SettleOpts {
   canSave: boolean
   signInHint: boolean
   onSave: (name: string) => void
+  onLook: () => void
+}
+
+export interface SettledBarOpts {
+  score: number
+  canSave: boolean
+  saved: boolean
+  onSave: () => void
   onAgain: () => void
+}
+
+export interface WelcomeOpts {
+  canStart: boolean
+  onStart: () => void
+  onClose: () => void
 }
 
 export interface VisitInfo {
@@ -43,13 +57,15 @@ export interface Ui {
   popup(xFrac: number, yFrac: number, text: string, good: boolean): void
   showPreview(pt: { x: number; y: number } | null, text: string, good: boolean): void
   showNeighborTip(pt: { x: number; y: number } | null, text: string): void
-  showWelcome(onStart: () => void): void
+  showWelcome(opts: WelcomeOpts): void
   hideWelcome(): void
   showDraft(round: Round, onPick: (which: 'a' | 'b') => void): void
   hideDraft(): void
   showSettle(opts: SettleOpts): void
   settleStatus(msg: string): void
   hideSettle(): void
+  showSettledBar(opts: SettledBarOpts): void
+  hideSettledBar(): void
   showSea(rows: SeaRow[], hasMore: boolean, onVisit: (row: SeaRow) => void, onMore: () => void): void
   hideSea(): void
   showVisit(info: VisitInfo, onLamp: () => void, onBack: () => void): void
@@ -59,6 +75,8 @@ export interface Ui {
   onMute: (muted: boolean) => void
   onRedraft: () => void
   onSeaOpen: () => void
+  onIntro: () => void
+  setStarted(started: boolean): void
   dispose(): void
 }
 
@@ -82,9 +100,10 @@ export function makeUi(host: HTMLElement, dict0: Dict): Ui {
   const scoreEl = el('div', 'font-size:22px;font-weight:600;letter-spacing:0.5px', top)
   const roundEl = el('div', 'font-size:12px;opacity:0.75', top)
 
-  // Layering: base modals (draft, settle, welcome) sit at z 10-12, the
-  // top-right buttons float above them at 15, and the reference panels
-  // (rules, sea) cover everything at 20 so stacked dialogs never interleave.
+  // Layering: base modals (draft, settle) sit at z 10, the welcome side panel
+  // at 12, the top-right buttons float above them at 15, and the reference
+  // panels (rules, sea) cover everything at 20 so stacked dialogs never
+  // interleave.
   const muteBtn = el('button', `position:absolute;top:12px;right:12px;${BTN};pointer-events:auto;font-size:12px;z-index:15`, root)
   let muted = false
   const rulesBtn = el('button', `position:absolute;top:54px;right:12px;${BTN};pointer-events:auto;font-size:12px;z-index:15`, root)
@@ -143,9 +162,25 @@ export function makeUi(host: HTMLElement, dict0: Dict): Ui {
   const settleName = el('input', 'display:none;width:100%;box-sizing:border-box;margin:0 0 10px;padding:9px 12px;border-radius:9px;border:1px solid rgba(255,255,255,0.25);background:rgba(255,255,255,0.08);color:#f2f5fa;font:inherit;font-size:13px;text-align:center', settleBox)
   const settleSave = el('button', `${BTN};display:none;margin:0 6px 10px`, settleBox)
   const settleStatusEl = el('div', 'font-size:12px;opacity:0.75;min-height:16px;margin-bottom:10px', settleBox)
-  const settleBtn = el('button', BTN, settleBox)
+  const settleBtns = el('div', 'display:flex;gap:10px;justify-content:center', settleBox)
+  const settleLookBtn = el('button', BTN, settleBtns)
+
+  // The isle you just finished is the reward — the sunset panel has to get out
+  // of the way, and this bar is how it comes back.
+  const settledBar = el('div', `position:absolute;bottom:14px;left:50%;transform:translateX(-50%);display:none;align-items:center;gap:12px;padding:9px 16px;${PANEL};pointer-events:auto;z-index:8`, root)
+  const settledBarLabel = el('div', 'font-size:13px;font-weight:600', settledBar)
+  const settledSaveBtn = el('button', BTN + ';font-size:12px', settledBar)
+  const settledAgainBtn = el('button', BTN + ';font-size:12px', settledBar)
 
   const seaBtn = el('button', `position:absolute;top:96px;right:12px;${BTN};pointer-events:auto;font-size:12px;z-index:15`, root)
+  // The intro button carries the next step, not a category: it offers the
+  // first draft until the game is under way, and the story of the world after.
+  const introBtn = el('button', `position:absolute;top:138px;right:12px;${BTN};pointer-events:auto;font-size:12px;z-index:15`, root)
+  let started = false
+  const renderIntroBtn = () => {
+    introBtn.textContent = started ? dict.introBtn : dict.welcomeStart
+    introBtn.style.borderColor = started ? 'rgba(255,255,255,0.22)' : '#ffd27a'
+  }
   const seaWrap = el('div', 'position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(6,9,18,0.45);pointer-events:auto;z-index:20', root)
   const seaBox = el('div', `padding:20px 22px;${PANEL};max-width:460px;width:86%;max-height:78%;display:flex;flex-direction:column`, seaWrap)
   const seaTitleEl = el('div', 'font-size:17px;font-weight:600;margin-bottom:10px', seaBox)
@@ -157,11 +192,15 @@ export function makeUi(host: HTMLElement, dict0: Dict): Ui {
     seaWrap.style.display = 'none'
   }
 
-  const welcomeWrap = el('div', 'position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(6,9,18,0.5);pointer-events:auto;z-index:12', root)
-  const welcomeBox = el('div', `padding:26px 30px;${PANEL};max-width:440px;width:86%`, welcomeWrap)
-  const welcomeTitle = el('div', 'font-size:21px;font-weight:600;margin-bottom:14px', welcomeBox)
-  const welcomeBody = el('div', 'font-size:13.5px;line-height:1.75;opacity:0.92', welcomeBox)
-  const welcomeBtns = el('div', 'display:flex;gap:10px;margin-top:18px', welcomeBox)
+  // A side panel, not a gate: the isle, the sea and the buttons all stay live
+  // behind it, and the intro button in the right stack brings it back.
+  const welcomeBox = el('div', `position:absolute;right:12px;top:182px;bottom:96px;width:min(340px,44vw);box-sizing:border-box;display:none;flex-direction:column;padding:20px 22px;${PANEL};pointer-events:auto;z-index:12;overflow-y:auto`, root)
+  const welcomeHead = el('div', 'display:flex;align-items:flex-start;gap:10px;margin-bottom:12px', welcomeBox)
+  const welcomeTitle = el('div', 'font-size:19px;font-weight:600;flex:1', welcomeHead)
+  const welcomeClose = el('button', `${BTN};padding:2px 9px;font-size:15px;line-height:1.2;flex-shrink:0`, welcomeHead)
+  welcomeClose.textContent = '×'
+  const welcomeBody = el('div', 'font-size:13px;line-height:1.7;opacity:0.92;flex:1', welcomeBox)
+  const welcomeBtns = el('div', 'display:flex;flex-wrap:wrap;gap:10px;margin-top:16px', welcomeBox)
   const welcomeStartBtn = el('button', `${BTN};border-color:#ffd27a;background:rgba(255,210,122,0.16);font-weight:600`, welcomeBtns)
   const welcomeRulesBtn = el('button', BTN, welcomeBtns)
   welcomeRulesBtn.onclick = () => openRules()
@@ -186,11 +225,17 @@ export function makeUi(host: HTMLElement, dict0: Dict): Ui {
     onMute: () => undefined,
     onRedraft: () => undefined,
     onSeaOpen: () => undefined,
+    onIntro: () => undefined,
+    setStarted(v) {
+      started = v
+      renderIntroBtn()
+    },
     setDict(d) {
       dict = d
       muteBtn.textContent = muted ? dict.unmute : dict.mute
       rulesBtn.textContent = dict.rulesBtn
       seaBtn.textContent = dict.sea
+      renderIntroBtn()
       if (rulesOpen) renderRules()
     },
     setDay(day) {
@@ -264,7 +309,7 @@ export function makeUi(host: HTMLElement, dict0: Dict): Ui {
       d.style.top = `${Math.round(yf * 100)}%`
       window.setTimeout(() => d.remove(), 1250)
     },
-    showWelcome(onStart) {
+    showWelcome(opts) {
       welcomeTitle.textContent = dict.title
       welcomeBody.textContent = ''
       for (const line of [dict.welcome1, dict.welcome2, dict.welcome3]) {
@@ -273,11 +318,13 @@ export function makeUi(host: HTMLElement, dict0: Dict): Ui {
       }
       welcomeStartBtn.textContent = dict.welcomeStart
       welcomeRulesBtn.textContent = dict.welcomeRules
-      welcomeStartBtn.onclick = onStart
-      welcomeWrap.style.display = 'flex'
+      welcomeStartBtn.style.display = opts.canStart ? 'inline-block' : 'none'
+      welcomeStartBtn.onclick = opts.onStart
+      welcomeClose.onclick = opts.onClose
+      welcomeBox.style.display = 'flex'
     },
     hideWelcome() {
-      welcomeWrap.style.display = 'none'
+      welcomeBox.style.display = 'none'
     },
     showDraft(round, onPick) {
       draftTitle.textContent = dict.draftTitle
@@ -318,8 +365,8 @@ export function makeUi(host: HTMLElement, dict0: Dict): Ui {
         settleSave.disabled = true
         opts.onSave(settleName.value.trim())
       }
-      settleBtn.textContent = dict.again
-      settleBtn.onclick = opts.onAgain
+      settleLookBtn.textContent = dict.settledLook
+      settleLookBtn.onclick = opts.onLook
       settleWrap.style.display = 'flex'
     },
     settleStatus(msg) {
@@ -328,6 +375,29 @@ export function makeUi(host: HTMLElement, dict0: Dict): Ui {
     },
     hideSettle() {
       settleWrap.style.display = 'none'
+    },
+    showSettledBar(opts) {
+      settledBarLabel.textContent = dict.settledScore(opts.score)
+      settledSaveBtn.textContent = opts.saved ? dict.savedShort : dict.saveIsle
+      settledSaveBtn.disabled = opts.saved
+      settledSaveBtn.style.display = opts.canSave || opts.saved ? 'inline-block' : 'none'
+      settledSaveBtn.onclick = opts.onSave
+      // Rebuilding throws the isle away. If it is not in the sea yet, the first
+      // tap only warns — the second one is the one that costs something.
+      let armed = opts.saved || !opts.canSave
+      settledAgainBtn.textContent = dict.again
+      settledAgainBtn.onclick = () => {
+        if (!armed) {
+          armed = true
+          settledAgainBtn.textContent = dict.againUnsaved
+          return
+        }
+        opts.onAgain()
+      }
+      settledBar.style.display = 'flex'
+    },
+    hideSettledBar() {
+      settledBar.style.display = 'none'
     },
     showSea(rows, hasMore, onVisit, onMore) {
       seaTitleEl.textContent = dict.seaTitle
@@ -390,6 +460,8 @@ export function makeUi(host: HTMLElement, dict0: Dict): Ui {
   rulesBtn.textContent = dict.rulesBtn
   seaBtn.textContent = dict.sea
   seaBtn.onclick = () => api.onSeaOpen()
+  renderIntroBtn()
+  introBtn.onclick = () => api.onIntro()
   muteBtn.onclick = () => {
     muted = !muted
     muteBtn.textContent = muted ? dict.unmute : dict.mute
