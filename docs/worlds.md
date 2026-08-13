@@ -62,6 +62,11 @@ elsewhere is visible before the click. CI rejects non-https URLs and embedded
 credentials; the backend registry re-checks and silently drops a bad link rather
 than delisting a live world over it.
 
+For a fullscreen world that chrome is a chip laid over the world's own
+bottom-right corner, so declaring `credits` costs you that corner. `preview-world`
+draws the same chip in the same place: keep bottom-right controls clear of it
+there and they are clear of it on Arena.
+
 ### Worlds to read first
 
 | World | Shows |

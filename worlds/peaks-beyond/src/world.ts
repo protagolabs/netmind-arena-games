@@ -57,12 +57,16 @@ export default defineWorld({
     root.innerHTML = ''
     const style = document.createElement('style')
     style.textContent = `
-      .pb-root{position:absolute;inset:0;overflow:hidden;background:#1a1e2c;font-family:${ctx.theme.font},'PingFang SC',system-ui,sans-serif;user-select:none;-webkit-user-select:none;touch-action:none;color:#e8ecf5}
+      /* Arena draws the manifest's \`credits\` chip in its own chrome at the
+         bottom-right of the frame, over the world. --pb-chrome is the band we
+         leave free for it, so every bottom-anchored control sits above it
+         instead of underneath. */
+      .pb-root{--pb-chrome:46px;position:absolute;inset:0;overflow:hidden;background:#1a1e2c;font-family:${ctx.theme.font},'PingFang SC',system-ui,sans-serif;user-select:none;-webkit-user-select:none;touch-action:none;color:#e8ecf5}
       .pb-root canvas{position:absolute;inset:0;display:block;cursor:pointer}
-      .pb-corner{position:absolute;right:12px;bottom:12px;display:flex;gap:8px;z-index:15}
+      .pb-corner{position:absolute;right:12px;bottom:calc(12px + var(--pb-chrome));display:flex;gap:8px;z-index:15}
       .pb-btn{pointer-events:auto;font-size:12px;line-height:1;padding:7px 12px;border-radius:9px;border:1px solid rgba(255,255,255,0.22);background:rgba(16,20,32,0.55);color:#e8ecf5;cursor:pointer;backdrop-filter:blur(4px)}
       .pb-btn.pb-off{opacity:0.5}
-      .pb-bell{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);z-index:15;display:none}
+      .pb-bell{position:absolute;left:50%;bottom:calc(14px + var(--pb-chrome));transform:translateX(-50%);z-index:15;display:none}
       .pb-veil{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(10,13,22,0.55);z-index:12}
       .pb-card{max-width:420px;margin:16px;padding:26px 28px;border-radius:16px;background:rgba(18,22,36,0.92);border:1px solid rgba(255,255,255,0.14);text-align:center}
       .pb-card h1{margin:0 0 14px;font-size:22px;font-weight:600;letter-spacing:0.2em}
@@ -75,7 +79,7 @@ export default defineWorld({
       .pb-panel li{font-size:13px;line-height:1.8;color:#c3cadd;margin:0 0 2px}
       .pb-mark{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(10,13,22,0.45);z-index:18}
       .pb-mark input{width:100%;box-sizing:border-box;margin-top:10px;padding:9px 12px;border-radius:9px;border:1px solid rgba(255,255,255,0.25);background:rgba(10,13,22,0.6);color:#e8ecf5;font-size:14px;text-align:center;outline:none}
-      .pb-toast{position:absolute;left:50%;bottom:64px;transform:translateX(-50%);background:rgba(18,22,36,0.9);border:1px solid rgba(255,255,255,0.16);border-radius:10px;padding:8px 16px;font-size:12.5px;opacity:0;transition:opacity 0.35s ease;pointer-events:none;z-index:14;max-width:80%;text-align:center}
+      .pb-toast{position:absolute;left:50%;bottom:calc(64px + var(--pb-chrome));transform:translateX(-50%);background:rgba(18,22,36,0.9);border:1px solid rgba(255,255,255,0.16);border-radius:10px;padding:8px 16px;font-size:12.5px;opacity:0;transition:opacity 0.35s ease;pointer-events:none;z-index:14;max-width:80%;text-align:center}
     `
     const wrap = document.createElement('div')
     wrap.className = 'pb-root'

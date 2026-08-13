@@ -62,23 +62,6 @@ const assets = await readAssets(dir)
 
 const PORT = Number(process.env.PORT ?? 4321)
 
-/**
- * `credits` the way the real host shows it: in the page's chrome, outside the
- * frame. Rendered here so an author can see their attribution before publishing
- * — it is the one manifest field with no in-world representation at all, so
- * without this the first sight of it would be production.
- */
-function creditsBar(m: WorldManifest): string {
-  const esc = (s: string) => s.replace(/[<>&"]/g, (c) => `&#${c.charCodeAt(0)};`)
-  const parts = Object.entries(m.credits ?? {}).map(([field, party]) => {
-    const label = field === 'basedOn' ? `based on ${party.name}` : `by ${party.name}`
-    return party.url
-      ? `<a href="${esc(party.url)}" target="_blank" rel="noopener noreferrer" style="color:#a1a1aa">${esc(label)} ↗</a>`
-      : `<span style="color:#a1a1aa">${esc(label)}</span>`
-  })
-  return parts.length ? `<span style="color:#52525b">${parts.join(' · ')}</span>` : ''
-}
-
 const harness = /* html */ `<!doctype html>
 <html><head><meta charset="utf-8"><title>preview · ${manifest.displayName}</title>
 <style>
@@ -88,11 +71,23 @@ const harness = /* html */ `<!doctype html>
   #bar select,#bar button{background:#0b0b0f;color:#f5f5f5;border:1px solid rgba(255,255,255,.18);border-radius:6px;padding:4px 9px;font:inherit;cursor:pointer}
   #log{margin-left:auto;color:#a1a1aa;font-size:12px;max-width:52%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   iframe{position:fixed;top:38px;left:0;width:100%;height:calc(100% - 38px);border:none}
+  /* The credits chip, geometry and styling copied from the host's WorldCredit
+     (variant="overlay"): pinned INSIDE the frame's bottom-right corner, on top
+     of the world. Deliberately not in #bar — a chip in the chrome is a chip
+     that covers nothing, and what an author needs to see is which of their own
+     bottom-right controls it lands on. That collision only exists here. */
+  #credit{position:fixed;right:12px;bottom:12px;z-index:10;display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:4px 12px;max-width:70%;padding:6px 12px;border:1px solid rgba(255,255,255,.1);border-radius:9999px;background:rgba(0,0,0,.45);backdrop-filter:blur(4px);font-size:11px;line-height:1.4;color:#888;pointer-events:none}
+  /* Most worlds declare no credits; the host renders nothing at all for them,
+     not an empty pill. */
+  #credit:empty{display:none}
+  #credit a{pointer-events:auto;display:inline-flex;align-items:center;gap:2px;max-width:100%;color:inherit;text-decoration:none}
+  #credit a:hover{color:#f5f5f5;text-decoration:underline}
+  #credit span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #credit .host{opacity:.6}
 </style></head>
 <body>
 <div id="bar">
   <b>${manifest.displayName}</b>
-  ${creditsBar(manifest)}
   <span style="color:#a1a1aa">as</span>
   <select id="who">
     <option value="hu_you|human|You">You (human)</option>
@@ -125,6 +120,7 @@ const harness = /* html */ `<!doctype html>
   <span id="log"></span>
 </div>
 <iframe id="frame" sandbox="allow-scripts" srcdoc="__DOC__"></iframe>
+<div id="credit"></div>
 <script>
 const CH = '__arenaWorld'
 const MANIFEST = __MANIFEST__
@@ -423,7 +419,7 @@ document.getElementById('theme').onclick = () => { theme = theme.mode === 'dark'
 // visitor can pick, which is not enough to find a world that only handles those.
 const langSel = document.getElementById('lang')
 langSel.value = lang
-langSel.onchange = () => { lang = langSel.value; sendEnv() }
+langSel.onchange = () => { lang = langSel.value; sendEnv(); renderCredit() }
 const aiSel = document.getElementById('ai')
 if (aiSel) {
   aiSel.value = aiMode
@@ -434,6 +430,76 @@ if (aiSel) {
   aiSel.onchange = () => { aiMode = aiSel.value; remount() }
 }
 document.getElementById('wipe').onclick = () => { rows = []; save(); for (const k of Object.keys(local)) delete local[k]; saveLocal(); remount() }
+
+/* ── credits chip ────────────────────────────────────────────────────────────
+ *
+ * \`credits\` is the one manifest field with no in-world representation at all:
+ * the document is sandboxed without \`allow-popups\` and cannot navigate the top
+ * frame, so a link an author draws inside the world does nothing when clicked.
+ * The host renders it in its own chrome instead — and for a fullscreen world
+ * that chrome is a chip laid over the world's own bottom-right corner. Without
+ * this the first sight of it, including whatever it covers, would be production.
+ *
+ * Only zh and en exist as host translations; every other language falls back to
+ * English there, so it does here too. The hostname beside the name is the part a
+ * visitor can check: a manifest may say \`name: "Google"\` and point elsewhere.
+ */
+const CREDIT_T = {
+  zh: { author: '作者 ', basedOn: '基于 ' },
+  en: { author: 'by ', basedOn: 'based on ' },
+}
+
+/** The host's \`safeExternalUrl\`: no \`javascript:\`, no \`user:pass@\` disguises. */
+function creditUrl(raw) {
+  if (!raw) return null
+  let u
+  try { u = new URL(raw) } catch { return null }
+  if (u.protocol !== 'https:' && u.protocol !== 'http:') return null
+  if (u.username || u.password) return null
+  return u
+}
+
+function renderCredit() {
+  const el = document.getElementById('credit')
+  el.textContent = ''
+  const t = CREDIT_T[lang] || CREDIT_T.en
+  for (const field of ['author', 'basedOn']) {
+    const party = (MANIFEST.credits || {})[field]
+    if (!party) continue
+    const label = t[field] + party.name
+    const url = creditUrl(party.url)
+    if (!url) {
+      // A dropped link is not a dropped credit — the host keeps the name and
+      // shows it as plain text, and so does the registry.
+      const span = document.createElement('span')
+      span.textContent = label
+      el.appendChild(span)
+      continue
+    }
+    const a = document.createElement('a')
+    a.href = url.toString()
+    a.target = '_blank'
+    a.rel = 'noopener noreferrer'
+    const name = document.createElement('span')
+    name.textContent = label
+    const host = document.createElement('span')
+    host.className = 'host'
+    host.textContent = url.hostname.replace(/^www\\./, '')
+    const arrow = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+    arrow.setAttribute('width', '12')
+    arrow.setAttribute('height', '12')
+    arrow.setAttribute('viewBox', '0 0 24 24')
+    arrow.setAttribute('fill', 'none')
+    arrow.setAttribute('stroke', 'currentColor')
+    arrow.setAttribute('stroke-width', '2')
+    arrow.setAttribute('stroke-linecap', 'round')
+    arrow.setAttribute('stroke-linejoin', 'round')
+    arrow.innerHTML = '<path d="M7 7h10v10"/><path d="M7 17 17 7"/>'
+    a.append(name, host, arrow)
+    el.appendChild(a)
+  }
+}
+renderCredit()
 </script>
 <script src="/ajv.js"></script>
 </body></html>`
