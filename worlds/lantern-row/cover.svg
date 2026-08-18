@@ -1,0 +1,145 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="350" viewBox="0 0 800 350">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#04060e"/>
+      <stop offset="0.55" stop-color="#0a0e20"/>
+      <stop offset="1" stop-color="#1a1430"/>
+    </linearGradient>
+    <linearGradient id="ground" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1a1522"/>
+      <stop offset="1" stop-color="#110d16"/>
+    </linearGradient>
+    <radialGradient id="warm" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#ffba69" stop-opacity="0.85"/>
+      <stop offset="0.35" stop-color="#ffba69" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#ffba69" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="moonhalo" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#ffe9c4" stop-opacity="0.5"/>
+      <stop offset="1" stop-color="#ffe9c4" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="800" height="350" fill="url(#sky)"/>
+
+  <g fill="#d2e1ff">
+    <circle cx="60" cy="40" r="1.2" opacity="0.7"/>
+    <circle cx="150" cy="90" r="1" opacity="0.5"/>
+    <circle cx="240" cy="30" r="1.4" opacity="0.8"/>
+    <circle cx="330" cy="70" r="1" opacity="0.55"/>
+    <circle cx="420" cy="26" r="1.2" opacity="0.7"/>
+    <circle cx="500" cy="80" r="1" opacity="0.5"/>
+    <circle cx="560" cy="36" r="1.3" opacity="0.75"/>
+    <circle cx="680" cy="90" r="1" opacity="0.5"/>
+    <circle cx="740" cy="50" r="1.2" opacity="0.65"/>
+    <circle cx="90" cy="130" r="1" opacity="0.4"/>
+    <circle cx="620" cy="120" r="1" opacity="0.45"/>
+    <circle cx="380" cy="110" r="1" opacity="0.4"/>
+  </g>
+
+  <circle cx="620" cy="66" r="46" fill="url(#moonhalo)"/>
+  <circle cx="620" cy="66" r="22" fill="#f2e6ce"/>
+  <circle cx="613" cy="61" r="3.4" fill="#beaf96" opacity="0.6"/>
+  <circle cx="626" cy="73" r="2.6" fill="#beaf96" opacity="0.6"/>
+
+  <path d="M0 236 L60 208 L130 232 L210 200 L300 234 L380 210 L470 236 L560 206 L650 232 L730 212 L800 236 L800 350 L0 350 Z" fill="#0c1122"/>
+  <path d="M0 256 L80 238 L170 258 L260 236 L360 260 L470 240 L580 260 L690 240 L800 258 L800 350 L0 350 Z" fill="#101728"/>
+
+  <rect y="268" width="800" height="82" fill="url(#ground)"/>
+
+  <g>
+    <ellipse cx="150" cy="272" rx="120" ry="26" fill="url(#warm)" opacity="0.5"/>
+    <ellipse cx="420" cy="272" rx="130" ry="28" fill="url(#warm)" opacity="0.55"/>
+    <ellipse cx="680" cy="272" rx="110" ry="24" fill="url(#warm)" opacity="0.5"/>
+  </g>
+
+  <g stroke="#46341e" stroke-width="1.4" fill="none" opacity="0.9">
+    <path d="M92 172 Q 200 196 288 174"/>
+    <path d="M364 176 Q 470 198 556 174"/>
+    <path d="M630 176 Q 700 194 768 174"/>
+  </g>
+  <g>
+    <circle cx="160" cy="190" r="14" fill="url(#warm)"/>
+    <rect x="155" y="184" width="10" height="13" rx="4" fill="#c8433a"/>
+    <circle cx="238" cy="188" r="12" fill="url(#warm)"/>
+    <rect x="233.5" y="182" width="9" height="12" rx="4" fill="#d8903c"/>
+    <circle cx="428" cy="192" r="14" fill="url(#warm)"/>
+    <rect x="423" y="186" width="10" height="13" rx="4" fill="#c8433a"/>
+    <circle cx="506" cy="188" r="12" fill="url(#warm)"/>
+    <rect x="501.5" y="182" width="9" height="12" rx="4" fill="#d8903c"/>
+    <circle cx="700" cy="188" r="12" fill="url(#warm)"/>
+    <rect x="695.5" y="182" width="9" height="12" rx="4" fill="#c8433a"/>
+  </g>
+
+  <g>
+    <rect x="64" y="168" width="10" height="106" fill="#2c2118"/>
+    <rect x="228" y="168" width="10" height="106" fill="#2c2118"/>
+    <path d="M56 170 L74 138 L228 138 L246 170 Z" fill="#31538a"/>
+    <path d="M56 170 L94 170 A19 19 0 0 1 56 170 Z" fill="#274268"/>
+    <path d="M94 170 L132 170 A19 19 0 0 1 94 170 Z" fill="#3a5f9c"/>
+    <path d="M132 170 L170 170 A19 19 0 0 1 132 170 Z" fill="#274268"/>
+    <path d="M170 170 L208 170 A19 19 0 0 1 170 170 Z" fill="#3a5f9c"/>
+    <path d="M208 170 L246 170 A19 19 0 0 1 208 170 Z" fill="#274268"/>
+    <rect x="88" y="196" width="126" height="52" fill="#0e1526"/>
+    <path d="M88 236 L110 222 L128 232 L150 216 L172 230 L192 220 L214 234 L214 248 L88 248 Z" fill="#2b3d63"/>
+    <circle cx="128" cy="212" r="3" fill="#dce8ff"/>
+    <rect x="84" y="192" width="134" height="60" fill="none" stroke="#4a3620" stroke-width="3"/>
+    <rect x="76" y="252" width="158" height="22" fill="#241a12"/>
+  </g>
+
+  <g>
+    <rect x="336" y="168" width="10" height="106" fill="#2c2118"/>
+    <rect x="500" y="168" width="10" height="106" fill="#2c2118"/>
+    <path d="M328 170 L346 138 L500 138 L518 170 Z" fill="#2f7a54"/>
+    <path d="M328 170 L366 170 A19 19 0 0 1 328 170 Z" fill="#25603f"/>
+    <path d="M366 170 L404 170 A19 19 0 0 1 366 170 Z" fill="#3a9066"/>
+    <path d="M404 170 L442 170 A19 19 0 0 1 404 170 Z" fill="#25603f"/>
+    <path d="M442 170 L480 170 A19 19 0 0 1 442 170 Z" fill="#3a9066"/>
+    <path d="M480 170 L518 170 A19 19 0 0 1 480 170 Z" fill="#25603f"/>
+    <rect x="360" y="196" width="126" height="52" fill="#0d2430"/>
+    <ellipse cx="420" cy="228" rx="26" ry="9" fill="#caa96a"/>
+    <ellipse cx="420" cy="222" rx="15" ry="6" fill="#4bbd82"/>
+    <circle cx="464" cy="206" r="5" fill="#f0c060"/>
+    <rect x="356" y="192" width="134" height="60" fill="none" stroke="#4a3620" stroke-width="3"/>
+    <rect x="348" y="252" width="158" height="22" fill="#241a12"/>
+  </g>
+
+  <g>
+    <rect x="606" y="176" width="9" height="98" fill="#1b1410"/>
+    <rect x="756" y="176" width="9" height="98" fill="#1b1410"/>
+    <rect x="600" y="168" width="172" height="9" fill="#1b1410"/>
+    <rect x="612" y="200" width="148" height="74" fill="none" stroke="#c8aa78" stroke-width="1.6" stroke-dasharray="7 6" opacity="0.5"/>
+    <circle cx="686" cy="212" r="18" fill="url(#warm)"/>
+    <rect x="678" y="200" width="16" height="22" rx="6" fill="#e8a44a"/>
+    <text x="686" y="215" font-family="PingFang SC, Hiragino Sans GB, sans-serif" font-size="9" font-weight="600" fill="#4a2c08" text-anchor="middle">招</text>
+    <text x="686" y="252" font-family="PingFang SC, Hiragino Sans GB, sans-serif" font-size="13" fill="#c8aa78" text-anchor="middle" opacity="0.85">此位招租</text>
+  </g>
+
+  <g fill="#241d38">
+    <ellipse cx="120" cy="304" rx="7" ry="14"/>
+    <circle cx="120" cy="286" r="5"/>
+    <ellipse cx="186" cy="308" rx="6" ry="12"/>
+    <circle cx="186" cy="292" r="4.4"/>
+    <ellipse cx="398" cy="306" rx="7" ry="14"/>
+    <circle cx="398" cy="288" r="5"/>
+    <ellipse cx="452" cy="310" rx="6" ry="12"/>
+    <circle cx="452" cy="294" r="4.4"/>
+    <ellipse cx="660" cy="306" rx="7" ry="13"/>
+    <circle cx="660" cy="289" r="5"/>
+  </g>
+  <g>
+    <circle cx="136" cy="300" r="9" fill="url(#warm)"/>
+    <circle cx="136" cy="300" r="2.4" fill="#ffca7a"/>
+    <circle cx="414" cy="302" r="9" fill="url(#warm)"/>
+    <circle cx="414" cy="302" r="2.4" fill="#ffca7a"/>
+    <circle cx="676" cy="301" r="8" fill="url(#warm)"/>
+    <circle cx="676" cy="301" r="2.2" fill="#ffca7a"/>
+  </g>
+
+  <g>
+    <rect x="30" y="30" width="216" height="66" rx="8" fill="#100a06" opacity="0.88"/>
+    <rect x="35" y="35" width="206" height="56" rx="6" fill="none" stroke="#7a5524" stroke-width="1.6"/>
+    <text x="138" y="70" font-family="PingFang SC, Hiragino Sans GB, sans-serif" font-size="30" font-weight="600" fill="#ffdf9e" text-anchor="middle" letter-spacing="6">万 灯 市</text>
+    <text x="138" y="86" font-family="Helvetica, Arial, sans-serif" font-size="8.5" fill="#b8a888" text-anchor="middle" letter-spacing="4">LANTERN ROW</text>
+  </g>
+</svg>
