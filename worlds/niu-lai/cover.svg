@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 350" width="800" height="350">
+  <!-- left: the ink-wash POSTER world -->
+  <rect x="0" y="0" width="420" height="350" fill="#f3ead8"/>
+  <path d="M0 210 Q 90 120 180 200 T 420 190 L 420 350 L 0 350 Z" fill="#46705f" opacity="0.20"/>
+  <path d="M0 260 Q 120 190 240 250 T 420 245 L 420 350 L 0 350 Z" fill="#345649" opacity="0.24"/>
+  <circle cx="300" cy="66" r="30" fill="#d86a4a" opacity="0.5"/>
+  <path d="M0 300 Q 105 288 210 298 T 420 296 L 420 350 L 0 350 Z" fill="#2c2822"/>
+  <!-- red-caped ink calf -->
+  <g transform="translate(196,258)">
+    <path d="M8 -11 Q -10 -22 -30 -10 Q -36 0 -20 7 Q -6 9 8 -2 Z" fill="#c8402a"/>
+    <ellipse cx="-1" cy="-1" rx="17" ry="10.5" fill="#26221d"/>
+    <circle cx="14" cy="-8" r="8" fill="#26221d"/>
+    <path d="M11 -14 Q 10 -20 5 -20 M16 -14 Q 17 -20 22 -19" stroke="#26221d" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+    <path d="M-9 8 l-3 9 M-2 9 l0 9 M4 9 l1 9 M10 7 l3 9" stroke="#26221d" stroke-width="3.4" stroke-linecap="round"/>
+    <circle cx="16.5" cy="-9.5" r="1.6" fill="#f3ead8"/>
+  </g>
+  <!-- vermilion lark -->
+  <g transform="translate(268,128)">
+    <path d="M-14 -4 Q -5 -10 0 0 Q 5 -10 14 -4" stroke="#c2512f" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+    <ellipse cx="0" cy="2" rx="6" ry="3.6" fill="#c0432a"/>
+  </g>
+  <!-- title, kept low-left so the platform badge corner stays clear -->
+  <text x="42" y="102" font-family="'Kaiti SC','STKaiti',serif" font-size="82" letter-spacing="12" fill="#26221d">牛来</text>
+  <text x="46" y="130" font-family="'Kaiti SC','STKaiti',serif" font-size="19" letter-spacing="6" fill="#c8402a">Niu Lai · 海报与正片</text>
+  <rect x="248" y="40" width="34" height="34" rx="3" fill="#c8402a"/>
+  <text x="265" y="65" font-family="'Kaiti SC','STKaiti',serif" font-size="22" fill="#f3ead8" text-anchor="middle">牛</text>
+  <text x="46" y="158" font-family="'Kaiti SC','STKaiti',serif" font-size="15" letter-spacing="2" fill="#6b3226">梦是画出来的，路是手搓出来的。</text>
+
+  <!-- right: the crude low-poly REEL world -->
+  <g>
+    <rect x="420" y="0" width="380" height="58" fill="#87a0b8"/>
+    <rect x="420" y="58" width="380" height="58" fill="#93abc1"/>
+    <rect x="420" y="116" width="380" height="58" fill="#a2b7ca"/>
+    <rect x="420" y="174" width="380" height="58" fill="#b3c4d4"/>
+    <rect x="420" y="232" width="380" height="40" fill="#c5d2de"/>
+    <rect x="420" y="272" width="380" height="78" fill="#cfc4b0"/>
+    <circle cx="716" cy="52" r="22" fill="#fdfdf6"/>
+    <circle cx="660" cy="88" r="10" fill="#ffffff" opacity="0.35"/>
+    <circle cx="614" cy="118" r="7" fill="#ffe9b0" opacity="0.35"/>
+    <path d="M470 272 L 570 150 L 680 272 Z" fill="#8b9198" stroke="#3a3d41"/>
+    <path d="M640 272 L 726 190 L 800 268 L 800 272 Z" fill="#7d848c" stroke="#3a3d41"/>
+    <!-- the upright orange cow, as the reel renders him -->
+    <g transform="translate(596,238)" stroke="#26282b" stroke-width="1.6">
+      <path d="M-13 -18 L -32 -12 L -32 10 L -13 3 Z" fill="#c0392b"/>
+      <rect x="-18" y="-18" width="33" height="24" fill="#e0a13d"/>
+      <rect x="-9" y="-12" width="18" height="15" fill="#ecc989"/>
+      <rect x="-11" y="6" width="9" height="17" fill="#e0a13d"/>
+      <rect x="2" y="6" width="9" height="17" fill="#e0a13d"/>
+      <rect x="0" y="-42" width="31" height="25" fill="#e0a13d"/>
+      <path d="M0 -36 L -9 -40 L 0 -30 Z" fill="#e0a13d"/>
+      <path d="M31 -36 L 40 -40 L 31 -30 Z" fill="#e0a13d"/>
+      <path d="M4 -42 L 1 -50 L 10 -42 Z" fill="#cfc8b8"/>
+      <path d="M20 -42 L 26 -50 L 26 -42 Z" fill="#cfc8b8"/>
+      <rect x="12" y="-29" width="22" height="13" fill="#e8ded2"/>
+      <rect x="25" y="-26" width="3" height="3" fill="#d8a8a0" stroke="none"/>
+      <rect x="30" y="-26" width="3" height="3" fill="#d8a8a0" stroke="none"/>
+      <rect x="13" y="-35" width="3" height="3" fill="#26282b" stroke="none"/>
+      <rect x="22" y="-35" width="3" height="3" fill="#26282b" stroke="none"/>
+      <path d="M10 -38 L 18 -39.5" stroke="#3e4f63" stroke-width="3"/>
+      <path d="M21 -39.5 L 29 -38" stroke="#3e4f63" stroke-width="3"/>
+    </g>
+    <!-- stilted subtitle bar -->
+    <rect x="420" y="312" width="380" height="38" fill="#000000" opacity="0.85"/>
+    <text x="610" y="337" font-family="'Songti SC','SimSun',serif" font-size="17" fill="#ffffff" text-anchor="middle">。。。加油。牛来。</text>
+    <text x="792" y="304" font-family="'Songti SC','SimSun',serif" font-size="10" fill="#555555" text-anchor="end" opacity="0.7">样片 DEMO</text>
+  </g>
+
+  <!-- the tear between the two worlds -->
+  <path d="M420 0 L 414 30 L 426 62 L 412 100 L 428 138 L 414 176 L 427 214 L 413 252 L 426 292 L 416 322 L 422 350 L 400 350 L 400 0 Z" fill="#efe6d2"/>
+  <path d="M400 0 L 407 26 L 396 60 L 410 96 L 397 136 L 409 174 L 396 212 L 408 250 L 397 290 L 405 320 L 398 350 L 388 350 L 388 0 Z" fill="#26221d" opacity="0.85"/>
+</svg>
