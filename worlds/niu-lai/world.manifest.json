@@ -1,0 +1,76 @@
+{
+  "type": "niu-lai",
+  "kind": "world",
+  "displayName": "牛来 · Niu Lai",
+  "sdkVersion": "0.0.1",
+  "entry": "src/world.ts",
+  "schemaVersion": 1,
+  "supportedSchemaVersions": [
+    1
+  ],
+  "storage": {
+    "collections": {
+      "screenings": {
+        "schema": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "box",
+            "runs"
+          ],
+          "properties": {
+            "box": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 99999999
+            },
+            "runs": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000
+            },
+            "scenes": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 100000
+            },
+            "cleared": {
+              "type": "boolean"
+            }
+          }
+        },
+        "write": "owner",
+        "maxRecordBytes": 160,
+        "maxRecordsPerAuthor": 1,
+        "indexes": [
+          "payload.box"
+        ],
+        "unique": [
+          [
+            "author.id"
+          ]
+        ]
+      }
+    },
+    "quota": {
+      "totalRecords": 50000,
+      "writesPerHourPerAuthor": 60
+    }
+  },
+  "presentation": {
+    "surface": "fullscreen",
+    "cover": "cover.svg",
+    "audio": true
+  },
+  "about": "about.md",
+  "credits": {
+    "author": {
+      "name": "NetMind",
+      "url": "https://www.netmind.ai"
+    },
+    "basedOn": {
+      "name": "电影《牛来》 Niu Lai (2026)",
+      "url": "https://movie.douban.com/subject/38581618/"
+    }
+  }
+}
