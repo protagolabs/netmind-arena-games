@@ -100,25 +100,86 @@ export function replayFrames(opts: ReplayOptions): () => void {
 
 export interface HostViewOptions {
   frames: unknown[]
-  /** Seat identity posted once via `onPlayers`. */
+  /** Seat identity posted via `onPlayers` (avatars inlined first — see `inlineAvatars`). */
   players?: PlayerInfo[]
   ended?: boolean
   frameMs?: number
 }
 
 /**
+ * Fetch a remote image URL and return it as a `data:` URI, or null on any failure.
+ *
+ * The sandboxed view's CSP caps `img-src` to `data:` (no `https:`) — an `<img>`
+ * beacon is an outbound channel out of the browser even with `connect-src 'none'`,
+ * so author view code must not be able to load a remote URL (#2031). That means a
+ * remote `https://` avatar posted into the sandbox is blocked by the browser. This
+ * runs in the PARENT frame (normal network, no CSP), inlining the bytes so the
+ * sandboxed `<img src="data:…">` is allowed.
+ */
+export async function fetchAsDataUri(url: string): Promise<string | null> {
+  try {
+    const res = await fetch(url)
+    if (!res.ok) return null
+    const blob = await res.blob()
+    return await new Promise<string | null>((resolve) => {
+      const reader = new FileReader()
+      reader.onloadend = () => resolve(typeof reader.result === 'string' ? reader.result : null)
+      reader.onerror = () => resolve(null)
+      reader.readAsDataURL(blob)
+    })
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Return a copy of `players` with every remote avatar URL inlined as a `data:` URI,
+ * so avatars survive the sandbox's `img-src data:` CSP. Already-inlined (`data:`)
+ * avatars pass through untouched; a fetch failure drops that avatar to `null` (author
+ * views guard on a missing avatar and fall back to a generated monogram), never
+ * blocking the others.
+ *
+ * This is part of the HOST's contract with a view, not an optimisation: a view that
+ * renders `info.avatar` directly is correct, because the host guarantees whatever it
+ * posts is already CSP-safe. Mirrors the platform's `inlineAvatars`.
+ */
+export async function inlineAvatars(players: PlayerInfo[]): Promise<PlayerInfo[]> {
+  return Promise.all(
+    players.map(async (p) => {
+      if (!p.avatar || p.avatar.startsWith('data:')) return p
+      const dataUri = await fetchAsDataUri(p.avatar)
+      return { ...p, avatar: dataUri ?? undefined }
+    }),
+  )
+}
+
+/**
  * T2: drive an author `view.ts` iframe exactly as the platform does — wait for
- * its `ready`, post `players` once, then post each `frame`. `iframe` MUST be a
+ * its `ready`, post `players`, then post each `frame`. `iframe` MUST be a
  * sandboxed iframe whose srcdoc is the bundled view HTML. Returns a cleanup fn.
+ *
+ * Players are posted twice, as the platform does: once immediately so identity is
+ * available from the first frame, then again once remote avatars have been inlined
+ * as `data:` URIs (the sandbox CSP blocks `https:` images — see `inlineAvatars`).
+ * Views already re-render on every `onPlayers`, so the second post just fills in
+ * the avatars.
  */
 export function hostSandboxedView(iframe: HTMLIFrameElement, opts: HostViewOptions): () => void {
   let stopReplay = () => {}
+  let stopped = false
   const onMsg = (e: MessageEvent) => {
     if (e.source !== iframe.contentWindow) return
     const d = e.data as { __arenaView?: boolean; type?: string } | null
     if (d && d.__arenaView === true && d.type === 'ready') {
       const win = iframe.contentWindow
-      if (opts.players?.length) win?.postMessage({ __arenaView: true, type: 'players', players: opts.players }, '*')
+      if (opts.players?.length) {
+        const players = opts.players
+        win?.postMessage({ __arenaView: true, type: 'players', players }, '*')
+        void inlineAvatars(players).then((inlined) => {
+          // The view may have been torn down while we were fetching.
+          if (!stopped) win?.postMessage({ __arenaView: true, type: 'players', players: inlined }, '*')
+        })
+      }
       stopReplay = replayFrames({
         frames: opts.frames,
         ended: opts.ended,
@@ -129,6 +190,7 @@ export function hostSandboxedView(iframe: HTMLIFrameElement, opts: HostViewOptio
   }
   window.addEventListener('message', onMsg)
   return () => {
+    stopped = true
     window.removeEventListener('message', onMsg)
     stopReplay()
   }
