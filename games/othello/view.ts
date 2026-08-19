@@ -148,6 +148,14 @@ function ensureDom(root: HTMLElement): HTMLCanvasElement {
 // —— identity (onPlayers) + the frame the HUD currently reflects ——
 let players: PlayerInfo[] = []
 let hudFrame: Frame | null = null
+/**
+ * Seat to highlight while a move is animating. A frame's status names whoever
+ * moves NEXT, but the board is still visibly playing the move that just
+ * happened — so honouring the status during the animation highlights the wrong
+ * card for ~2s and reads as inverted. While animating we pin the highlight to
+ * the mover; `null` hands it back to the status line.
+ */
+let turnOverride: number | null = null
 
 const playerAt = (seat: number): PlayerInfo | undefined => players.find((p) => p.seat === seat)
 
@@ -163,7 +171,8 @@ function renderHud(): void {
   if (cards.length < 2) return
   const sb = hudFrame?.panels?.find((p) => p.type === 'scoreboard')
   const statusText = hudFrame?.panels?.find((p) => p.type === 'status')?.text ?? ''
-  const turn = /Black to move/.test(statusText) ? 0 : /White to move/.test(statusText) ? 1 : -1
+  const turn =
+    turnOverride ?? (/Black to move/.test(statusText) ? 0 : /White to move/.test(statusText) ? 1 : -1)
 
   for (let seat = 0; seat < 2; seat++) {
     const c = cards[seat]!
@@ -275,10 +284,11 @@ function pump(): void {
     return
   }
   hudFrame = next
-  renderHud()
 
   // First frame, or a rewind/reset (board shrank) → snap, no animation.
   if (!from || from.cols !== to.cols || discCount(to) < discCount(from)) {
+    turnOverride = null
+    renderHud()
     paint(ctx, canvas.width, to, to.palette ?? { 1: BLACK, 2: WHITE }, undefined)
     lastMoveRing(ctx, canvas.width, to)
     shown = next
@@ -313,6 +323,12 @@ function animate(ctx: CanvasRenderingContext2D, size: number, from: Board, to: B
     }
   }
 
+  // Highlight the seat whose disc is going down (colour 1 = seat 0, 2 = seat 1),
+  // not the one the status line says moves next. Nothing placed (rare: a frame
+  // that only flips) → fall back to the status line.
+  turnOverride = placed[0] ? placed[0].c - 1 : null
+  renderHud()
+
   const start = performance.now()
   const frame = (now: number) => {
     const t = Math.min(1, (now - start) / FLIP_MS)
@@ -333,7 +349,10 @@ function animate(ctx: CanvasRenderingContext2D, size: number, from: Board, to: B
     if (t < 1) {
       requestAnimationFrame(frame)
     } else {
+      // Move is fully on the board now — hand the highlight to whoever is next.
       shown = toFrame
+      turnOverride = null
+      renderHud()
       setTimeout(() => {
         busy = false
         pump()
