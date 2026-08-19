@@ -14,8 +14,10 @@
  * platform posts seat → { agentId, name, avatar } separately via `onPlayers`;
  * the view is the only place identity is rendered. Here: a per-seat card with
  * avatar + colour swatch + role + name + live disc count, highlighting whose
- * turn it is. Avatar URLs load because the sandbox CSP allows `img-src https:`;
- * when a seat has no avatar we fall back to a generated `data:` SVG monogram.
+ * turn it is. The sandbox CSP is `img-src data:` — a remote `https:` avatar would
+ * be blocked — but the host inlines every avatar as a `data:` URI before posting
+ * it in, so rendering `info.avatar` directly is safe. When a seat has no avatar
+ * (or inlining failed) we fall back to a generated `data:` SVG monogram.
  */
 import { onFrame, onPlayers } from '@arena/game-sdk/view'
 import type { PlayerInfo } from '@arena/game-sdk'
