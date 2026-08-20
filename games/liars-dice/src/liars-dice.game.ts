@@ -8,8 +8,19 @@
  * the real count meets the bid, the challenger loses a die; otherwise the bidder
  * loses a die. Lose your last die and you're out. Last player standing wins.
  *
- * Turn-based pace: each agent submits one action and `reduce` advances one step.
- * Illegal moves are rejected with `ctx.reject('code')`.
+ * Both paces from one definition (like gomoku):
+ *  - turn-based (the default): each agent submits one action and `reduce`
+ *    advances one step. Illegal moves are rejected with `ctx.reject('code')`.
+ *  - strategy: each agent submits `params` once and the match settles headless.
+ *    `play` turns those knobs into a bid or a challenge; `apply` advances.
+ * Both paces share ONE rule kernel (`step`) so a strategy match and a turn-based
+ * match cannot drift apart on what is legal.
+ *
+ * Strategy pace and hidden information: `play` is handed the FULL State, every
+ * cup included, and the engine does not mask it. So `play` reads a `View` built
+ * by `maskFor(state, seat)` — the mover's own cup plus public knowledge — and
+ * never the State itself. That indirection is the only thing standing between a
+ * bluffing game and open dice; see the note above `View`.
  *
  * Hidden info (`meta.hiddenInfo`): `render(state, ctx)` is viewer-scoped — you see
  * only your own cup mid-game; the no-viewer public frame omits every living cup.
@@ -98,15 +109,291 @@ function raises(prev: Bid | null, next: Bid): boolean {
   return next.count === prev.count && next.face > prev.face
 }
 
-export default defineGame<State, Record<string, number>>({
+// ———————————————————————————————————————————————————————————————————————————
+// Strategy pace — the masked view and the knob-driven policy
+// ———————————————————————————————————————————————————————————————————————————
+
+// A type alias, not an interface: only an alias of an object literal gets TS's
+// implicit index signature, which is what lets these knobs satisfy the testkit's
+// `P extends Record<string, number>` without a cast at every call.
+type Params = {
+  /** How many dice you'll invent when you raise. 0 = only claim what you can justify. */
+  bluff: number
+  /** How readily you call a lie. 1 = challenge any bid above your own estimate. */
+  skepticism: number
+  /** Pull toward bidding faces you actually hold, rather than the cheapest raise. */
+  faceLoyalty: number
+  /** How much you count other people's 1s as wild. 1 = the true 1/6; 0 = ignore them. */
+  wildTrust: number
+  /** How high you open a fresh round: 0 = under your estimate, 1 = over it. */
+  openStrength: number
+  /** How far running out of dice pushes you toward gambling (bluff + challenge both rise). */
+  endgamePressure: number
+}
+
+/**
+ * Everything ONE seat is allowed to know: its own cup, plus what every player
+ * can see anyway (dice counts and the standing bid).
+ *
+ * This exists because the engine does not mask State for `play`. A policy handed
+ * the raw State could read all three cups and would never lose a challenge —
+ * strategy pace would be open dice with extra steps. So the policy takes a
+ * `View`, and `maskFor` is the only place a cup is read. Keep it that way: if a
+ * future heuristic reaches back into `State`, the game is quietly broken in a way
+ * no test of the RULES would catch.
+ */
+interface View {
+  me: number
+  /** The mover's own cup. */
+  mine: number[]
+  /** Living dice under cups the mover cannot see. */
+  unseen: number
+  /** Seat → dice remaining (public; eliminated seats read 0). */
+  counts: number[]
+  /** Living dice on the table (public). */
+  total: number
+  /** The standing bid (public), or null on a fresh round. */
+  bid: Bid | null
+}
+
+function maskFor(s: State, me: number): View {
+  const counts = s.dice.map((d, seat) => (s.alive[seat] ? d.length : 0))
+  const total = counts.reduce((a, b) => a + b, 0)
+  return {
+    me,
+    mine: s.alive[me] ? [...s.dice[me]!] : [],
+    unseen: total - counts[me]!,
+    counts,
+    total,
+    bid: s.bid ? { ...s.bid } : null,
+  }
+}
+
+/** Widest lie a fully trusting seat (`skepticism: 0`) lets stand, in dice (~2σ at a full table). */
+const MAX_TOLERANCE = 3
+/** Dice a fully bold seat (`bluff: 1`) will invent out of nothing to keep bidding. */
+const MAX_OVERCLAIM = 3
+/** Rounding room even an honest seat allows itself before folding to a challenge. */
+const HONEST_SLACK = 0.75
+
+/** How many `face` the mover can see in its own cup (own 1s are wild). */
+function mineOf(v: View, face: number): number {
+  return v.mine.filter((d) => d === face || d === WILD).length
+}
+
+/**
+ * Expected total of `face` on the table = what I hold + a share of what I can't
+ * see. A non-1 face lands on an unseen die 1/6 of the time as itself and 1/6 as a
+ * wild 1, so `wildTrust` slides the per-die share between 1/6 and 2/6.
+ */
+function expected(v: View, face: number, p: Params): number {
+  const share = face === WILD ? 1 / 6 : (1 + p.wildTrust) / 6
+  return mineOf(v, face) + v.unseen * share
+}
+
+/** 0 = holding my own against the table; →1 = down to scraps while a rival is stacked. */
+function desperation(v: View): number {
+  const mine = v.mine.length
+  let rival = 0
+  for (let seat = 0; seat < NUM; seat++) {
+    if (seat !== v.me && v.counts[seat]! > rival) rival = v.counts[seat]!
+  }
+  if (rival <= 0 || mine >= rival) return 0
+  return (rival - mine) / rival
+}
+
+/** Lift a knob toward 1 as the short stack runs out of dice (see `endgamePressure`). */
+function pressured(base: number, v: View, p: Params): number {
+  return base + (1 - base) * p.endgamePressure * desperation(v)
+}
+
+/** Dice-worth of lie the mover lets stand before calling it. */
+const tolerance = (v: View, p: Params): number => MAX_TOLERANCE * (1 - pressured(p.skepticism, v, p))
+/** Dice-worth of lie the mover is willing to tell. */
+const boldness = (v: View, p: Params): number => pressured(p.bluff, v, p)
+
+/**
+ * Every legal raise worth considering: same count on a higher face, or up to two
+ * counts higher on any face. Two is enough to jump a face you like without
+ * opening a ladder that never converges — and the window is what bounds a round.
+ */
+function legalRaises(v: View): Bid[] {
+  const b = v.bid!
+  const out: Bid[] = []
+  for (let face = b.face + 1; face <= 6; face++) out.push({ count: b.count, face })
+  for (let count = b.count + 1; count <= Math.min(b.count + 2, v.total); count++) {
+    for (const face of FACES) out.push({ count, face })
+  }
+  return out
+}
+
+/** Score a candidate raise: hold what you bid, don't invent more than you dare. */
+function rankBid(v: View, p: Params, cand: Bid): number {
+  const over = Math.max(0, cand.count - expected(v, cand.face, p))
+  const bold = boldness(v, p)
+  return (
+    p.faceLoyalty * mineOf(v, cand.face) - // bid a face you actually hold
+    (2 - bold) * over - // inventing dice costs less the bolder you are
+    (1 - bold) * 0.5 * (cand.count - v.bid!.count) // so does burning bidding space
+  )
+}
+
+/** The face with the highest expected total — folds in `wildTrust`, so 1s must be earned. */
+function favouriteFace(v: View, p: Params): number {
+  let fav: number = FACES[0]
+  let best = -Infinity
+  for (const face of FACES) {
+    const e = expected(v, face, p)
+    if (e > best + 1e-9) {
+      best = e
+      fav = face
+    }
+  }
+  return fav
+}
+
+/** Opening claim on a fresh round: `openStrength` slides it ±1 around the honest estimate. */
+function openingBid(v: View, p: Params): Bid {
+  const face = favouriteFace(v, p)
+  const count = Math.round(expected(v, face, p) - 1 + 2 * p.openStrength)
+  return { count: Math.max(1, Math.min(v.total, count)), face }
+}
+
+/**
+ * The policy. Reads a `View` — never a `State` — and never `ctx.random`, so it
+ * cannot shift the re-roll stream `step` draws from.
+ *
+ * Terminates by construction: a raise strictly increases `(count, face)`, count
+ * is capped at the dice in play, and once no legal raise is left the only move
+ * returned is a challenge — which always removes a die.
+ */
+function decide(v: View, p: Params): Action {
+  if (!v.bid) return { bid: openingBid(v, p) }
+
+  const raiseOptions = legalRaises(v)
+  if (raiseOptions.length === 0) return { challenge: true } // count and face both maxed
+
+  // Does the standing bid claim more dice than I think exist?
+  if (v.bid.count - expected(v, v.bid.face, p) > tolerance(v, p)) return { challenge: true }
+
+  let best = raiseOptions[0]!
+  let bestScore = -Infinity
+  for (const cand of raiseOptions) {
+    const score = rankBid(v, p, cand)
+    if (score > bestScore) {
+      // Candidates are generated in ascending (count, face), so `>` breaks ties
+      // toward the cheapest raise — deterministically, with no RNG.
+      bestScore = score
+      best = cand
+    }
+  }
+
+  // Even my best raise would mean inventing more dice than I'm willing to lie
+  // about. An honest seat calls here instead of talking itself into a bad bid.
+  const cost = Math.max(0, best.count - expected(v, best.face, p))
+  if (cost > HONEST_SLACK + MAX_OVERCLAIM * boldness(v, p)) return { challenge: true }
+
+  return { bid: best }
+}
+
+/**
+ * The rule kernel both paces run on. `seat` is the mover — resolved from
+ * `ctx.actor` in turn-based pace, from `state.turn` in strategy pace — and is
+ * already known to be the seat whose turn it is.
+ */
+function step(s: State, seat: number, action: Action, ctx: Ctx): State {
+  const a = action as { bid?: { count?: unknown; face?: unknown }; challenge?: unknown }
+
+  // —— raise the bid ——
+  if (a.bid !== undefined) {
+    const count = a.bid.count
+    const face = a.bid.face
+    if (!Number.isInteger(count) || !Number.isInteger(face)) ctx.reject('bad-bid')
+    const c = count as number
+    const f = face as number
+    if (f < 1 || f > 6 || c < 1) ctx.reject('bad-bid')
+    if (c > livingDice(s)) ctx.reject('impossible-bid') // can't claim more dice than exist
+    const next: Bid = { count: c, face: f }
+    if (!raises(s.bid, next)) ctx.reject('bad-bid') // must strictly out-bid the standing bid
+    const turn = nextAlive(seat, s.alive)
+    const lastBid = [...s.lastBid]
+    lastBid[seat] = next
+    return { ...s, bid: next, bidder: seat, lastBid, turn, side: turn, reveal: null }
+  }
+
+  // —— challenge the standing bid ——
+  if (a.challenge === true) {
+    if (!s.bid) ctx.reject('nothing-to-challenge')
+    const bid = s.bid
+    const bidder = s.bidder
+    const actual = tally(s, bid.face)
+    const held = actual >= bid.count // did the bid hold up?
+    const loser = held ? seat : bidder // challenger loses if the bid held; else the bidder
+    const snapshot = s.dice.map((d, i) => (s.alive[i] ? [...d] : []))
+
+    const dice = s.dice.map((d, i) => (i === loser ? d.slice(1) : d)) // loser drops one die
+    const alive = [...s.alive]
+    const eliminationOrder = [...s.eliminationOrder]
+    let eliminated: number | null = null
+    if (dice[loser]!.length === 0) {
+      alive[loser] = false
+      eliminationOrder.push(loser)
+      eliminated = loser
+    }
+
+    const reveal: Reveal = { challenger: seat, bidder, bid, actual, dice: snapshot, loser, eliminated }
+
+    const remaining = alive.filter(Boolean).length
+    if (remaining <= 1) {
+      const finisher = alive.indexOf(true)
+      return { ...s, phase: 'done', dice, alive, eliminationOrder, reveal, finisher, bid: null, bidder: -1 }
+    }
+
+    // Next round: re-roll every living cup; the loser leads (or the next living
+    // seat if the loser was just knocked out).
+    const rolled = dice.map((d, i) => (alive[i] ? roll(d.length, ctx) : d))
+    const turn = alive[loser] ? loser : nextAlive(loser, alive)
+    return {
+      ...s,
+      dice: rolled,
+      alive,
+      eliminationOrder,
+      reveal,
+      bid: null,
+      bidder: -1,
+      lastBid: [null, null, null], // fresh round → clear each seat's shown bid
+      turn,
+      side: turn,
+      round: s.round + 1,
+    }
+  }
+
+  return ctx.reject('bad-action')
+}
+
+export default defineGame<State, Params>({
   meta: {
     type: 'liars-dice',
     players: { min: NUM, max: NUM },
-    pace: 'turn-based',
-    paces: ['turn-based'],
+    pace: 'turn-based', // the native mode; a competition can pick 'strategy' instead
+    paces: ['strategy', 'turn-based'],
     turnTimeoutSec: 45,
-    maxSteps: 500,
+    submitWindowSec: 600,
+    // Above the structural worst case, so hitting it means a policy stalled
+    // rather than a match being cut off: a round's bid ladder is bounded by the
+    // 6 faces times the counts a bid can climb before every seat challenges
+    // (~12 at a full table), and there are at most 13 dice to lose.
+    maxSteps: 1000,
     hiddenInfo: true,
+  },
+
+  params: {
+    bluff: { min: 0, max: 1, default: 0.4 },
+    skepticism: { min: 0, max: 1, default: 0.5 },
+    faceLoyalty: { min: 0, max: 1, default: 0.5 },
+    wildTrust: { min: 0, max: 1, default: 0.8 },
+    openStrength: { min: 0, max: 1, default: 0.5 },
+    endgamePressure: { min: 0, max: 1, default: 0.4 },
   },
 
   init: (cfg, ctx): State => ({
@@ -125,80 +412,27 @@ export default defineGame<State, Record<string, number>>({
     finisher: -1,
   }),
 
+  // —— turn-based pace ——
+  // The engine does NOT check `ctx.actor` for us: without the seat checks below,
+  // any registered agent could act as whichever seat holds the move.
   reduce: (s, action, ctx: Ctx): State => {
     if (s.phase === 'done') ctx.reject('game-over')
     const seat = s.players.indexOf(ctx.actor)
     if (seat < 0) ctx.reject('not-a-player')
     if (!s.alive[seat]) ctx.reject('not-alive')
     if (seat !== s.turn) ctx.reject('not-your-turn')
+    return step(s, seat, action, ctx)
+  },
 
-    const a = action as { bid?: { count?: unknown; face?: unknown }; challenge?: unknown }
-
-    // —— raise the bid ——
-    if (a.bid !== undefined) {
-      const count = a.bid.count
-      const face = a.bid.face
-      if (!Number.isInteger(count) || !Number.isInteger(face)) ctx.reject('bad-bid')
-      const c = count as number
-      const f = face as number
-      if (f < 1 || f > 6 || c < 1) ctx.reject('bad-bid')
-      if (c > livingDice(s)) ctx.reject('impossible-bid') // can't claim more dice than exist
-      const next: Bid = { count: c, face: f }
-      if (!raises(s.bid, next)) ctx.reject('bad-bid') // must strictly out-bid the standing bid
-      const turn = nextAlive(seat, s.alive)
-      const lastBid = [...s.lastBid]
-      lastBid[seat] = next
-      return { ...s, bid: next, bidder: seat, lastBid, turn, side: turn, reveal: null }
-    }
-
-    // —— challenge the standing bid ——
-    if (a.challenge === true) {
-      if (!s.bid) ctx.reject('nothing-to-challenge')
-      const bid = s.bid
-      const bidder = s.bidder
-      const actual = tally(s, bid.face)
-      const held = actual >= bid.count // did the bid hold up?
-      const loser = held ? seat : bidder // challenger loses if the bid held; else the bidder
-      const snapshot = s.dice.map((d, i) => (s.alive[i] ? [...d] : []))
-
-      const dice = s.dice.map((d, i) => (i === loser ? d.slice(1) : d)) // loser drops one die
-      const alive = [...s.alive]
-      const eliminationOrder = [...s.eliminationOrder]
-      let eliminated: number | null = null
-      if (dice[loser]!.length === 0) {
-        alive[loser] = false
-        eliminationOrder.push(loser)
-        eliminated = loser
-      }
-
-      const reveal: Reveal = { challenger: seat, bidder, bid, actual, dice: snapshot, loser, eliminated }
-
-      const remaining = alive.filter(Boolean).length
-      if (remaining <= 1) {
-        const finisher = alive.indexOf(true)
-        return { ...s, phase: 'done', dice, alive, eliminationOrder, reveal, finisher, bid: null, bidder: -1 }
-      }
-
-      // Next round: re-roll every living cup; the loser leads (or the next living
-      // seat if the loser was just knocked out).
-      const rolled = dice.map((d, i) => (alive[i] ? roll(d.length, ctx) : d))
-      const turn = alive[loser] ? loser : nextAlive(loser, alive)
-      return {
-        ...s,
-        dice: rolled,
-        alive,
-        eliminationOrder,
-        reveal,
-        bid: null,
-        bidder: -1,
-        lastBid: [null, null, null], // fresh round → clear each seat's shown bid
-        turn,
-        side: turn,
-        round: s.round + 1,
-      }
-    }
-
-    return ctx.reject('bad-action')
+  // —— strategy pace ——
+  // The mover is `state.turn` (kept identical to `state.side`, which is what the
+  // engine reads to route this seat's params into `play`). There is no submitter
+  // to authenticate here — the action came from `play` — so the only checks left
+  // are the ones about the action itself, inside `step`.
+  apply: (s, action, ctx: Ctx): State => {
+    if (s.phase === 'done') ctx.reject('game-over')
+    if (!s.alive[s.turn]) ctx.reject('not-alive')
+    return step(s, s.turn, action, ctx)
   },
 
   terminal: (s) => (s.phase === 'done' ? { done: true, winner: s.players[s.finisher] ?? null } : { done: false }),
@@ -220,40 +454,13 @@ export default defineGame<State, Record<string, number>>({
   },
 
   /**
-   * A weak, fully deterministic heuristic so `pnpm sim`/`preview` can self-play
-   * (AGENTS.md SHOULD). It reads ONLY the mover's own cup + public state — never
-   * `ctx.random` — so it can't desync the re-roll RNG shared by `reduce`.
+   * The mover's action under its own knobs. This is the whole of strategy pace,
+   * and it also drives `pnpm sim` / `pnpm preview` for the turn-based build.
+   *
+   * `maskFor` first, on purpose: the State it is handed contains all three cups,
+   * and everything after this line can only see one.
    */
-  play: (s, _p, _ctx): Action => {
-    const seat = s.turn
-    const mine = s.dice[seat]!
-    const others = livingDice(s) - mine.length
-
-    // How many of `face` I can see in my own cup (my 1s are wild for non-1 faces).
-    const mineOf = (face: number): number => mine.filter((d) => d === face || d === WILD).length
-    // Expected total of `face` on the table: my known dice + others' share.
-    const expected = (face: number): number => mineOf(face) + others * (face === WILD ? 1 / 6 : 2 / 6)
-
-    // My strongest face (most in hand); tie-break to the lower face for determinism.
-    let fav = 2
-    for (const f of FACES) if (mineOf(f) > mineOf(fav)) fav = f
-
-    if (s.bid) {
-      // Challenge when the standing bid clearly exceeds what we'd expect to exist.
-      if (s.bid.count > expected(s.bid.face) + 1) return { challenge: true }
-      const total = livingDice(s)
-      // Prefer a same-count bump onto a higher face we like; else raise the count;
-      // else nudge the face up at the (already max) count; else nothing legal → challenge.
-      if (fav > s.bid.face) return { bid: { count: s.bid.count, face: fav } }
-      if (s.bid.count < total) return { bid: { count: s.bid.count + 1, face: fav } }
-      if (s.bid.face < 6) return { bid: { count: s.bid.count, face: s.bid.face + 1 } }
-      return { challenge: true }
-    }
-
-    // Opening bid: claim a modest, defensible count on our strongest face.
-    const count = Math.max(1, Math.min(Math.floor(expected(fav)), livingDice(s)))
-    return { bid: { count, face: fav } }
-  },
+  play: (s, p): Action => decide(maskFor(s, s.turn), p),
 
   render: (s, ctx?: RenderCtx): RenderSpec => {
     const viewer = ctx?.viewer
@@ -301,5 +508,12 @@ export default defineGame<State, Record<string, number>>({
 })
 
 // Re-exported for tests.
-export type { State, Bid, Reveal }
+export type { State, Bid, Reveal, Params, View }
 export type { Action }
+
+/**
+ * Internals the tests pin directly. Exported so the masking rule can be checked
+ * as a rule — `maskFor` must not carry another seat's cup — instead of being left
+ * to a comment.
+ */
+export const __policy = { maskFor, decide, expected, legalRaises, favouriteFace }

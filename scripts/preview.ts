@@ -10,6 +10,11 @@
  *
  *   pnpm preview gomoku            # open http://localhost:4321
  *   pnpm preview doudizhu --script m.json --port 4321
+ *   pnpm preview liars-dice --pace strategy --params '[{"bluff":1},{"skepticism":1},{}]'
+ *
+ * `--params` gives each seat its own knobs (see sim.ts). Without it every seat
+ * plays the declared defaults, which previews a strategy game only against
+ * itself — the one match-up a competition will never run.
  *
  * Note: editing your game LOGIC needs a restart (ESM import cache); editing
  * view.ts is picked up on reload (re-bundled each request).
@@ -21,7 +26,7 @@ import { readFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import esbuild from 'esbuild'
 import type { Action } from '@arena/game-sdk'
-import { simMatch } from './sim.js'
+import { readSeatParams, simMatch, type SeatParams } from './sim.js'
 import { bundleView, viewHtml } from './build-bundles.js'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -44,6 +49,16 @@ import { drawRenderSpec, replayFrames, hostSandboxedView } from '@arena/game-sdk
   const S = await res.json()
   meta.textContent =
     S.slug + ' · ' + S.pace + ' · ' + S.viewMode + ' · ' + S.frames.length + ' frames · scores ' + JSON.stringify(S.scores)
+  // Which knobs each seat played. Without this the page cannot tell a match
+  // between two tunings from a match between two copies of the default.
+  if (S.params && S.params.length) {
+    const knobs = document.getElementById('knobs')
+    S.params.forEach((p, seat) => {
+      const line = document.createElement('div')
+      line.textContent = (S.players[seat] ? S.players[seat].name : 'seat ' + seat) + ' · ' + JSON.stringify(p)
+      knobs.appendChild(line)
+    })
+  }
   if (S.viewMode === 'sandboxed') {
     const iframe = document.createElement('iframe')
     iframe.setAttribute('sandbox', 'allow-scripts')
@@ -74,7 +89,10 @@ async function bundleBrowserEntry(): Promise<string> {
 }
 
 /** The sim payload served at /sim.json and fetched by the browser entry. */
-async function simData(slug: string, opts: { pace?: 'strategy' | 'turn-based'; seed?: number; script?: Action[] }) {
+async function simData(
+  slug: string,
+  opts: { pace?: 'strategy' | 'turn-based'; seed?: number; script?: Action[]; params?: SeatParams },
+) {
   const sim = await simMatch(slug, opts)
   return {
     slug: sim.slug,
@@ -83,6 +101,7 @@ async function simData(slug: string, opts: { pace?: 'strategy' | 'turn-based'; s
     frames: sim.frames,
     players: sim.players,
     scores: sim.scores,
+    params: sim.params,
     viewHtml: sim.viewEntry ? viewHtml(await bundleView(sim.viewEntry)) : '',
     frameMs: 1200,
   }
@@ -93,6 +112,7 @@ function shell(slug: string, entry: string): string {
 <style>body{margin:0;background:#0b0b0f;color:#f5f5f5;font:14px system-ui;display:flex;flex-direction:column;align-items:center;gap:14px;padding:28px}#meta{color:#a1a1aa;font-size:12px}#app{width:100%;max-width:560px}a{color:#e5484d}</style>
 </head><body>
 <div id="meta">loading…</div>
+<div id="knobs" style="color:#71717a;font-size:11px;text-align:center;line-height:1.6"></div>
 <div id="app"></div>
 <div style="color:#71717a;font-size:11px">reload to replay · edit view.ts and reload · restart after editing game logic</div>
 <script type="module">${entry}</script>
@@ -102,7 +122,10 @@ function shell(slug: string, entry: string): string {
 async function main() {
   const [slug, ...rest] = process.argv.slice(2)
   if (!slug) {
-    console.error('Usage: pnpm preview <slug> [--port N] [--pace strategy|turn-based] [--seed N] [--script file.json]')
+    console.error(
+      'Usage: pnpm preview <slug> [--port N] [--pace strategy|turn-based] [--seed N] [--script file.json]\n' +
+        '                          [--params \'[{"knob":0.9},{}]\' | --params file.json]',
+    )
     process.exit(1)
   }
   // This repo publishes two kinds of thing and each has its own previewer.
@@ -124,13 +147,16 @@ async function main() {
   const seed = flag('--seed') ? Number(flag('--seed')) : undefined
   const scriptPath = flag('--script')
   const script = scriptPath ? (JSON.parse(await readFile(scriptPath, 'utf8')) as Action[]) : undefined
+  // Parsed once, at startup: a bad --params should fail the command, not every
+  // page load with a 500 the terminal never sees.
+  const params: SeatParams | undefined = await readSeatParams(flag('--params'))
 
   const entry = await bundleBrowserEntry() // static — bundle once
   const server = http.createServer(async (req, res) => {
     const url = (req.url ?? '/').split('?')[0]
     try {
       if (url === '/sim.json') {
-        const data = await simData(slug, { pace, seed, script })
+        const data = await simData(slug, { pace, seed, script, params })
         res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' }).end(JSON.stringify(data))
         return
       }
@@ -140,6 +166,10 @@ async function main() {
       }
       res.writeHead(404).end('not found')
     } catch (e) {
+      // Also to the terminal: the sim runs per REQUEST, so a bad --params knob or
+      // a throwing `play` otherwise only ever appears in the browser, and the
+      // window you're watching says nothing is wrong.
+      console.error(`sim failed: ${e instanceof Error ? e.message : String(e)}`)
       res.writeHead(500, { 'content-type': 'text/plain' }).end(e instanceof Error ? e.stack ?? e.message : String(e))
     }
   })

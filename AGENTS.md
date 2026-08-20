@@ -186,10 +186,23 @@ Rules you **MUST** follow:
 - `pnpm --filter @arena-games/<slug> test` — unit tests. Use the testkit:
   `runStrategyMatch`, `assertMatchSane`, `makeCtx`, `clampParams`.
 - `pnpm sim <slug>` — play a full match with your own code; prints steps,
-  players, scores. `--seed N`, `--pace strategy|turn-based`, `--script f.json`.
+  players, scores, and the knobs each seat played. `--seed N`,
+  `--pace strategy|turn-based`, `--script f.json`, `--params <json|file.json>`.
 - `pnpm preview <slug>` — a browser page that renders your game EXACTLY as the
   platform will: T2 views run in the real sandboxed-iframe contract; T1 uses the
-  platform's board renderer. Both driven by `@arena/game-sdk/preview`.
+  platform's board renderer. Both driven by `@arena/game-sdk/preview`. Takes the
+  same flags as `sim`.
+- `--params` is an ARRAY, one entry per seat, positionally; missing seats and
+  missing knobs take the declared defaults, and unknown knob names are an error
+  (a silently ignored typo would preview a match you did not ask for):
+
+  ```
+  pnpm preview liars-dice --pace strategy --params '[{"bluff":1},{"skepticism":1},{}]'
+  ```
+
+  Without it every seat plays the same defaults, which shows a strategy game only
+  against itself — the one match-up a competition never runs. If your knobs make
+  no visible difference here, they will not decide a competition either.
 
 ---
 
