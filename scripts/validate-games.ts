@@ -177,7 +177,14 @@ async function validateGame(dir: string): Promise<string> {
   // Strategy games get a headless self-play determinism/termination sweep.
   // Turn-based games need an agent driver to play out, so the sim is skipped here
   // (their per-move logic is covered by the game's own unit tests).
-  if (def.meta.pace === 'strategy') {
+  //
+  // Keyed on `meta.paces`, not `meta.pace`: a dual-pace game whose DEFAULT is
+  // turn-based still settles headless when a competition picks strategy, and
+  // that is exactly the mode where a stalled `play` or a non-deterministic
+  // `apply` never reaches an agent to complain. Gating on the default alone let
+  // that half ship unswept.
+  const paces = def.meta.paces ?? [def.meta.pace]
+  if (paces.includes('strategy')) {
     const players = Array.from({ length: def.meta.players.min }, (_, i) => `seat${i}`)
     const defaults = clampParams(def, {})
     for (let seed = 0; seed < 30; seed++) {
