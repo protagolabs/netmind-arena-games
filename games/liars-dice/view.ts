@@ -78,8 +78,50 @@ const humanize = (text: string): string => {
   return out
 }
 
-// —— dice rendering ——
+// —— responsive metrics ——
+// Dice keep their size at every width — a narrow screen buys room by STACKING
+// the cup, not by shrinking it. The binding constraint is the top row: two
+// stations sit side by side, so each gets at most half the stage, and whatever
+// doesn't fit on one line there moves to a second (or third) line.
 const DIE = 34 // px
+const GAP = 5 // px between dice
+const ROW_MAX = 5 * DIE + 4 * GAP // a full cup of 5 on one line
+let TOP_MAX = ROW_MAX // width budget for each top station
+let CENTER_MAX = 220 // width cap for the standing-bid / reveal block
+
+function measure(stageW: number): void {
+  // -14 keeps a visible gutter between the two top cups instead of letting them
+  // meet in the middle at phone widths.
+  TOP_MAX = Math.max(DIE, Math.min(ROW_MAX, Math.floor(stageW / 2) - 14))
+  CENTER_MAX = Math.min(220, Math.max(160, stageW - 48))
+}
+
+/**
+ * How to break `n` dice across lines inside `avail` px — balanced, not greedy:
+ * a cup of 5 that can't fit on one line reads better as 3+2 than as 4+1. Rows
+ * are ordered widest-first, and the count per row never exceeds what fits.
+ */
+function diceLines(n: number, avail: number): number[] {
+  const perRow = Math.max(1, Math.min(5, Math.floor((avail + GAP) / (DIE + GAP))))
+  const rows = Math.max(1, Math.ceil(n / perRow))
+  const lines: number[] = []
+  let left = n
+  for (let r = rows; r > 0; r--) {
+    const take = Math.ceil(left / r) // widest row first, then even out
+    lines.push(take)
+    left -= take
+  }
+  return lines
+}
+
+/** How many lines a seat's cup will take at `avail` — drives the stage height. */
+function cupLines(sv: SeatView, f: DiceFrame, avail: number): number {
+  const faces = f.reveal ? (f.reveal.dice[sv.seat] ?? null) : (sv.dice ?? null)
+  const n = faces ? faces.length : sv.count
+  return n <= 1 ? 1 : diceLines(n, avail).length
+}
+
+// —— dice rendering ——
 // Pip positions on a 3×3 grid (index 0..8, row-major) per face 1..6.
 const PIPS: Record<number, number[]> = {
   1: [4],
@@ -135,27 +177,42 @@ function die(face: number, opts: { faceDown?: boolean; dim?: boolean; highlight?
   return el
 }
 
-/** A row of dice for a seat. `faces` (open cups) → pips; otherwise `count` cups. */
-function diceRow(sv: SeatView, faces: number[] | null, bidFace: number | null, isLoser: boolean): HTMLDivElement {
-  const row = document.createElement('div')
-  row.style.cssText = 'display:flex;gap:5px;justify-content:center;align-items:center;min-height:40px;flex-wrap:wrap;max-width:220px'
+/**
+ * One seat's cup. `faces` (open cup) → pips; otherwise `count` face-down dice.
+ * `avail` is how much width this station has, and decides how the cup stacks.
+ */
+function diceRow(
+  sv: SeatView,
+  faces: number[] | null,
+  bidFace: number | null,
+  isLoser: boolean,
+  avail: number,
+): HTMLDivElement {
+  const box = document.createElement('div')
+  box.style.cssText = `display:flex;flex-direction:column;gap:${GAP}px;align-items:center;min-height:${DIE + 6}px`
   if (sv.count === 0 && !faces) {
     const out = document.createElement('span')
     out.textContent = '☠ out'
-    out.style.cssText = `font:600 12px ${T.font};color:${T.fgSubtle}`
-    row.appendChild(out)
-    return row
+    out.style.cssText = `font:600 12px ${T.font};color:${T.fgSubtle};line-height:${DIE + 6}px`
+    box.appendChild(out)
+    return box
   }
-  if (faces) {
-    for (const f of faces) {
-      const counts = bidFace !== null && (f === bidFace || (f === 1 && bidFace !== 1))
-      const hl = counts ? (f === 1 && bidFace !== 1 ? 'wild' : 'match') : undefined
-      row.appendChild(die(f, { dim: isLoser, highlight: hl }))
-    }
-  } else {
-    for (let i = 0; i < sv.count; i++) row.appendChild(die(0, { faceDown: true }))
+  // Build every die once, then deal them into balanced lines.
+  const dice: HTMLDivElement[] = faces
+    ? faces.map((f) => {
+        const counts = bidFace !== null && (f === bidFace || (f === 1 && bidFace !== 1))
+        const hl = counts ? (f === 1 && bidFace !== 1 ? 'wild' : 'match') : undefined
+        return die(f, { dim: isLoser, highlight: hl })
+      })
+    : Array.from({ length: sv.count }, () => die(0, { faceDown: true }))
+  let i = 0
+  for (const n of diceLines(dice.length, avail)) {
+    const line = document.createElement('div')
+    line.style.cssText = `display:flex;gap:${GAP}px;justify-content:center;align-items:center`
+    for (let k = 0; k < n; k++) line.appendChild(dice[i++]!)
+    box.appendChild(line)
   }
-  return row
+  return box
 }
 
 /** A pill under a seat showing what that player last did this round. */
@@ -219,8 +276,11 @@ function badge(sv: SeatView): HTMLDivElement {
   return box
 }
 
-/** A seat station = badge + its dice, stacked. `order`: badge above dice or below. */
-function station(sv: SeatView, f: DiceFrame, order: 'badge-top' | 'dice-top'): HTMLDivElement {
+/**
+ * A seat station = badge + its dice, stacked. `order`: badge above dice or
+ * below. `avail` is the width this station may use, which sets how its cup wraps.
+ */
+function station(sv: SeatView, f: DiceFrame, order: 'badge-top' | 'dice-top', avail: number): HTMLDivElement {
   const wrap = document.createElement('div')
   wrap.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:6px'
   const rev = f.reveal
@@ -229,7 +289,7 @@ function station(sv: SeatView, f: DiceFrame, order: 'badge-top' | 'dice-top'): H
   const isLoser = !!rev && rev.loser === sv.seat
   const b = badge(sv)
   const chip = actionChip(sv, f)
-  const d = diceRow(sv, faces, bidFace, isLoser)
+  const d = diceRow(sv, faces, bidFace, isLoser, avail)
   // Chip always sits next to the avatar; dice sit toward the felt centre.
   if (order === 'badge-top') {
     wrap.appendChild(b)
@@ -246,7 +306,8 @@ function station(sv: SeatView, f: DiceFrame, order: 'badge-top' | 'dice-top'): H
 /** The centre of the felt: the standing bid, or the just-resolved challenge. */
 function center(f: DiceFrame): HTMLDivElement {
   const c = document.createElement('div')
-  c.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;max-width:220px'
+  c.style.cssText =
+    `display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;max-width:${CENTER_MAX}px`
 
   const round = document.createElement('div')
   round.textContent = `Round ${f.round ?? 1}`
@@ -305,6 +366,15 @@ function ensureRoot(h: HTMLElement): HTMLElement {
     root = document.createElement('div')
     root.style.cssText = `padding:12px;max-width:600px;margin:0 auto;font-family:${T.font}`
     host.appendChild(root)
+    // Sizes are baked in at draw time, so a rotation / pane resize has to redraw.
+    let pending = 0
+    addEventListener('resize', () => {
+      if (pending) return
+      pending = requestAnimationFrame(() => {
+        pending = 0
+        draw()
+      })
+    })
   }
   return root
 }
@@ -312,6 +382,20 @@ function ensureRoot(h: HTMLElement): HTMLElement {
 const at = (el: HTMLElement, css: string): HTMLElement => {
   el.style.cssText += ';position:absolute;' + css
   return el
+}
+
+/**
+ * Centre horizontally by spanning the stage, NOT by `left:50%;transform`. An
+ * absolutely positioned box shrink-to-fits against the room from its `left` edge
+ * to the containing block's right edge — `left:50%` caps it at HALF the stage,
+ * and the transform comes too late to help. On a phone that squeezed the anchor
+ * seat's cup to ~183px and stacked it even though the stage had room for one line.
+ */
+const centred = (el: HTMLElement): HTMLElement => {
+  const box = document.createElement('div')
+  box.style.cssText = 'display:flex;justify-content:center'
+  box.appendChild(el)
+  return box
 }
 
 let lastFrame: DiceFrame | null = null
@@ -328,24 +412,43 @@ function draw(): void {
   const [oppL, oppR] = others
   const mine = seats.find((s) => s.seat === me)!
 
+  // Size everything off the stage's real width (root is padded 12px a side).
+  const stageW = Math.min(600, Math.max(200, (root.clientWidth || 624) - 24))
+  measure(stageW)
+
   root.innerHTML = ''
+
+  // A stacked cup makes its station taller — the top ones grow down toward the
+  // felt, the anchor grows up. The stage height is FIXED (the platform hands the
+  // view a 560px iframe; growing it just clips the status line), so the felt
+  // gives the room up instead: it flattens by exactly the overflow, and the
+  // centre rides with it. A 3+2 or 2+2+1 cup then never lands on the bid.
+  const botAvail = stageW - 16
+  const LINE = DIE + GAP
+  const extraTop = (Math.max(oppL ? cupLines(oppL, f, TOP_MAX) : 1, oppR ? cupLines(oppR, f, TOP_MAX) : 1) - 1) * LINE
+  const extraBot = (cupLines(mine, f, botAvail) - 1) * LINE
 
   const stage = document.createElement('div')
   stage.style.cssText = 'position:relative;width:100%;max-width:600px;height:460px;margin:0 auto'
 
   const felt = document.createElement('div')
   felt.style.cssText =
-    `position:absolute;top:96px;left:16px;right:16px;bottom:104px;border-radius:48%/44%;` +
+    `position:absolute;top:${96 + extraTop}px;left:16px;right:16px;bottom:${104 + extraBot}px;border-radius:48%/44%;` +
     `background:radial-gradient(ellipse at center,#241a2e,#0b0b0f);border:8px solid #3a2b1e;` +
     `box-shadow:inset 0 0 40px rgba(0,0,0,.6),0 8px 22px rgba(0,0,0,.6)`
   stage.appendChild(felt)
 
-  stage.appendChild(at(center(f), 'top:46%;left:50%;transform:translate(-50%,-50%)'))
+  // 212px sits a touch above the felt's midpoint; keep that relation as it moves.
+  stage.appendChild(
+    at(centred(center(f)), `top:${212 + Math.round((extraTop - extraBot) / 2)}px;left:0;right:0;transform:translateY(-50%)`),
+  )
 
-  // Two opponents across the top, the anchor seat at the bottom.
-  if (oppL) stage.appendChild(at(station(oppL, f, 'badge-top'), 'top:0;left:2%'))
-  if (oppR) stage.appendChild(at(station(oppR, f, 'badge-top'), 'top:0;right:2%'))
-  stage.appendChild(at(station(mine, f, 'dice-top'), 'bottom:0;left:50%;transform:translateX(-50%)'))
+  // Two opponents across the top, the anchor seat at the bottom. Each top
+  // station only gets half the stage, so on a phone its cup stacks (5 → 3+2)
+  // instead of the two of them colliding. The anchor seat has the full width.
+  if (oppL) stage.appendChild(at(station(oppL, f, 'badge-top', TOP_MAX), `top:0;left:2%`))
+  if (oppR) stage.appendChild(at(station(oppR, f, 'badge-top', TOP_MAX), `top:0;right:2%`))
+  stage.appendChild(at(centred(station(mine, f, 'dice-top', botAvail)), 'bottom:0;left:0;right:0'))
 
   root.appendChild(stage)
 
