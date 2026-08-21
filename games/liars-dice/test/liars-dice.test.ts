@@ -75,7 +75,7 @@ describe('liars-dice · bidding', () => {
 
 // ————————————————————————————————————————————————————————————————
 describe('liars-dice · challenge resolution', () => {
-  it('bid holds (with wild 1s counted) → challenger loses a die, then re-rolls', () => {
+  it('bid holds (with wild 1s counted) → challenger loses a die', () => {
     // face 5 across cups: seat0 [5,5]=2, seat1 [5,1]=2 (the 1 is wild), seat2 [2,2]=0 → actual 4
     const s = base({
       dice: [[5, 5], [5, 1], [2, 2]],
@@ -93,7 +93,57 @@ describe('liars-dice · challenge resolution', () => {
     expect(n.alive).toEqual([true, true, true])
     expect(n.bid).toBeNull()
     expect(n.turn).toBe(1) // loser leads the next round
-    expect(n.round).toBe(2)
+
+    // The challenge stops at its own outcome: this state is the open cups, and
+    // the next round has NOT begun. Both used to happen in this one step, which
+    // is why a replay jumped from a bid straight past the seat who called it.
+    expect(n.round).toBe(1)
+    expect(n.pendingRoll).toBe(true)
+  })
+
+  it('opens the next round on the first action after a challenge, not on the challenge', () => {
+    const settled = base({
+      dice: [[5, 5], [5, 1], [2, 2]],
+      bid: { count: 3, face: 5 },
+      bidder: 0,
+      turn: 1,
+      round: 1,
+    })
+    const revealed = game.reduce!(settled, { challenge: true }, ctxFor('B'))
+    const faces = revealed.dice.map((d) => [...d])
+
+    const opened = game.reduce!(revealed, { bid: { count: 1, face: 2 } }, ctxFor('B'))
+    expect(opened.round).toBe(2)
+    expect(opened.pendingRoll).toBe(false)
+    expect(opened.reveal).toBeNull() // the settled challenge is behind us now
+    // Re-rolled: same number of dice per seat, drawn again.
+    expect(opened.dice.map((d) => d.length)).toEqual(faces.map((d) => d.length))
+    expect(opened.lastBid[1]).toEqual({ count: 1, face: 2 })
+    expect(opened.lastBid[0]).toBeNull() // the ended round's bids are cleared
+  })
+
+  it('does not consume randomness when the action that would open the round is illegal', () => {
+    // A re-roll draws from ctx.random. Drawing it before a reject would advance
+    // the stream on an action that never happened, so replaying the same match
+    // would deal different dice from that point on.
+    const revealed = base({
+      dice: [[5, 5], [5, 1], [2, 2]],
+      bid: null,
+      bidder: -1,
+      turn: 1,
+      round: 1,
+      pendingRoll: true,
+      reveal: { challenger: 1, bidder: 0, bid: { count: 3, face: 5 }, actual: 4, dice: [], loser: 1, eliminated: null },
+    })
+    let draws = 0
+    const counting = (id: string) => ({ ...ctxFor(id), random: () => ((draws += 1), 0.5) })
+
+    expect(() => game.reduce!(revealed, { bid: { count: 99, face: 3 } }, counting('B'))).toThrow('impossible-bid')
+    expect(() => game.reduce!(revealed, { challenge: true }, counting('B'))).toThrow('nothing-to-challenge')
+    expect(draws).toBe(0)
+
+    game.reduce!(revealed, { bid: { count: 1, face: 3 } }, counting('B'))
+    expect(draws).toBeGreaterThan(0) // a legal action does re-roll
   })
 
   it('bid is a lie → the bidder loses a die', () => {

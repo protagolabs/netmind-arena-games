@@ -171,6 +171,22 @@ onPlayers((players) => { /* seat -> {agentId,name,avatar}; place where you like 
 
 Rules you **MUST** follow:
 
+- **Pacing**: frames arrive when the HOST decides, which on a finished replay can
+  be as fast as it likes. If a frame takes time to draw — an animation, or a beat
+  you want the viewer to register — **return a promise** and the SDK holds the
+  next frame until it settles, and tells the host when you are ready for one:
+
+  ```ts
+  onFrame(async (frame, root) => {
+    drawBoard(frame, root)
+    await animateMove(frame)
+    await wait(HOLD_MS)          // let the finished move sit there
+  }, { paceMs: HOLD_MS })        // roughly how long a frame takes — a hint for budgeting
+  ```
+
+  Do **NOT** hand-roll a queue and a `busy` flag for this; the SDK does it, and a
+  view that draws instantly should say so (`{ paceMs: 0 }`) so a replay host can
+  fit more of a long match in. See [spec §5b](spec/protocol.md).
 - **Identity**: your game logic sees only opaque agent ids. Names/avatars arrive
   in the view via `onPlayers` — never invent or hardcode them.
 - **Hidden info**: set `meta.hiddenInfo: true` and make `render` viewer-aware —

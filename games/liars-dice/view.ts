@@ -16,7 +16,7 @@
  * viewer's own cup mid-game. Identity (name/avatar) arrives via `onPlayers`;
  * author logic never sees it.
  */
-import { onFrame, onPlayers } from '@arena/game-sdk/view'
+import { hold, onFrame, onPlayers } from '@arena/game-sdk/view'
 import type { PlayerInfo } from '@arena/game-sdk'
 import { ARENA_THEME as T } from '@arena/game-sdk/theme'
 
@@ -467,28 +467,18 @@ function draw(): void {
 // empties and restarts on the next arrival.
 const HOLD_MS = 2400 // minimum time a bid / turn frame stays on screen
 const REVEAL_MS = 6500 // the open-cup "LIAR?" reveal lingers so the result really lands
-const frameQueue: DiceFrame[] = []
-let draining = false
-
-function drainNext(): void {
-  const frame = frameQueue.shift()
-  if (!frame) {
-    draining = false // queue empty → go idle; the next arrival restarts the drain
-    return
-  }
-  lastFrame = frame
-  draw()
-  setTimeout(drainNext, frame.reveal ? REVEAL_MS : HOLD_MS)
-}
 
 onFrame((frame, h) => {
   ensureRoot(h)
-  frameQueue.push(frame as DiceFrame)
-  if (!draining) {
-    draining = true
-    drainNext() // draws this frame now, then paces the rest
-  }
-})
+  const f = frame as DiceFrame
+  lastFrame = f
+  draw()
+  // A reveal is the moment the whole game turns on, and it needs far longer than
+  // an ordinary bid. The SDK reports each frame as finished only when this
+  // resolves, so a host that waits gives the cups time to open instead of
+  // pushing the next bid over the top of them.
+  return hold(f.reveal ? REVEAL_MS : HOLD_MS)
+}, { paceMs: HOLD_MS })
 onPlayers((p) => {
   players = p
   draw() // identity applies immediately to the current frame

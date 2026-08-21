@@ -19,7 +19,7 @@
  * it in, so rendering `info.avatar` directly is safe. When a seat has no avatar
  * (or inlining failed) we fall back to a generated `data:` SVG monogram.
  */
-import { onFrame, onPlayers } from '@arena/game-sdk/view'
+import { hold, onFrame, playbackSpeed, onPlayers } from '@arena/game-sdk/view'
 import type { PlayerInfo } from '@arena/game-sdk'
 
 // —— pacing knobs (ms) — tune these if replays still feel too fast/slow ——
@@ -264,20 +264,18 @@ function lastMoveRing(ctx: CanvasRenderingContext2D, size: number, b: Board): vo
   ctx.stroke()
 }
 
-// —— frame queue + animator ——
-const queue: Frame[] = []
+// —— animator ——
+//
+// The queue and `busy` flag this used to keep are the SDK's job now: it draws one
+// frame at a time and waits for the promise below, so a move can never be
+// overdrawn by the next frame arriving, and the host is told when we are ready
+// for another instead of having to guess an interval.
 let shown: Frame | null = null // last fully-rendered frame
-let busy = false
 
-function draw(frame: unknown, root: HTMLElement): void {
+function draw(frame: unknown, root: HTMLElement): void | Promise<void> {
   ensureDom(root)
-  queue.push(frame as Frame)
-  pump()
-}
-
-function pump(): void {
-  if (busy || queue.length === 0 || !canvas) return
-  const next = queue.shift()!
+  if (!canvas) return
+  const next = frame as Frame
   const to = next.board
   const from = shown?.board
   const ctx = canvas.getContext('2d')
@@ -294,16 +292,20 @@ function pump(): void {
     paint(ctx, canvas.width, to, to.palette ?? { 1: BLACK, 2: WHITE }, undefined)
     lastMoveRing(ctx, canvas.width, to)
     shown = next
-    pump()
     return
   }
 
-  animate(ctx, canvas.width, from, to, next)
+  return animate(ctx, canvas.width, from, to, next)
 }
 
 /** Animate the diff between two boards: new disc pops in, flipped discs turn over. */
-function animate(ctx: CanvasRenderingContext2D, size: number, from: Board, to: Board, toFrame: Frame): void {
-  busy = true
+function animate(
+  ctx: CanvasRenderingContext2D,
+  size: number,
+  from: Board,
+  to: Board,
+  toFrame: Frame
+): Promise<void> {
   const N = to.cols
   const palette = to.palette ?? { 1: BLACK, 2: WHITE }
   const step = size / N
@@ -331,40 +333,42 @@ function animate(ctx: CanvasRenderingContext2D, size: number, from: Board, to: B
   turnOverride = placed[0] ? placed[0].c - 1 : null
   renderHud()
 
-  const start = performance.now()
-  const frame = (now: number) => {
-    const t = Math.min(1, (now - start) / FLIP_MS)
-    // Static layer: everything that isn't animating.
-    paint(ctx, size, to, palette, skip)
-    // Placed discs grow in (ease-out).
-    const grow = 1 - Math.pow(1 - t, 3)
-    for (const p of placed) disc(ctx, at(p.x), at(p.y), r * grow, r * grow, palette[p.c] ?? '#888')
-    // Flipped discs turn over: width collapses to a line at the halfway point,
-    // colour swaps as it passes edge-on.
-    const w = Math.abs(Math.cos(Math.PI * t))
-    for (const f of flipped) {
-      const col = t < 0.5 ? f.a : f.b
-      disc(ctx, at(f.x), at(f.y), r * w, r, palette[col] ?? '#888')
-    }
-    lastMoveRing(ctx, size, to)
+  return new Promise<void>((resolve) => {
+    const start = performance.now()
+    const frame = (now: number) => {
+      const t = Math.min(1, (now - start) / (FLIP_MS / playbackSpeed()))
+      // Static layer: everything that isn't animating.
+      paint(ctx, size, to, palette, skip)
+      // Placed discs grow in (ease-out).
+      const grow = 1 - Math.pow(1 - t, 3)
+      for (const p of placed) disc(ctx, at(p.x), at(p.y), r * grow, r * grow, palette[p.c] ?? '#888')
+      // Flipped discs turn over: width collapses to a line at the halfway point,
+      // colour swaps as it passes edge-on.
+      const w = Math.abs(Math.cos(Math.PI * t))
+      for (const f of flipped) {
+        const col = t < 0.5 ? f.a : f.b
+        disc(ctx, at(f.x), at(f.y), r * w, r, palette[col] ?? '#888')
+      }
+      lastMoveRing(ctx, size, to)
 
-    if (t < 1) {
-      requestAnimationFrame(frame)
-    } else {
-      // Move is fully on the board now — hand the highlight to whoever is next.
-      shown = toFrame
-      turnOverride = null
-      renderHud()
-      setTimeout(() => {
-        busy = false
-        pump()
-      }, HOLD_MS)
+      if (t < 1) {
+        requestAnimationFrame(frame)
+      } else {
+        // Move is fully on the board now — hand the highlight to whoever is next.
+        shown = toFrame
+        turnOverride = null
+        renderHud()
+        // The dwell is part of the frame, not something after it: resolving
+        // before it elapsed would tell the host we are ready while the move it
+        // just drew is still the thing being looked at.
+        void hold(HOLD_MS).then(resolve)
+      }
     }
-  }
-  requestAnimationFrame(frame)
+    requestAnimationFrame(frame)
+  })
 }
 
-onFrame(draw)
+onFrame(draw, { paceMs: FLIP_MS + HOLD_MS })
 // Identity can arrive before or after frames; refresh the HUD whenever it lands.
 onPlayers((p) => {
   players = p

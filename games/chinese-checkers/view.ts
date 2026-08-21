@@ -15,7 +15,7 @@
  *   4. identity — names and avatars arrive separately via `onPlayers`, and may
  *      land before or after the first frame.
  */
-import { onFrame, onPlayers } from '@arena/game-sdk/view'
+import { hold, onFrame, playbackSpeed, onPlayers } from '@arena/game-sdk/view'
 import { ARENA_THEME as T } from '@arena/game-sdk/theme'
 import type { PlayerInfo } from '@arena/game-sdk'
 
@@ -438,107 +438,104 @@ function paint(frame: Frame, skip: Set<number>, trail: number[]): void {
   }
 }
 
-// —— frame queue ——————————————————————————————————————————————————————
+// —— frame handling ————————————————————————————————————————————————————
+//
+// The SDK owns the queue and the one-at-a-time discipline; a frame that takes
+// time says so by returning a promise, which also tells the host when to send
+// the next one. What is left here is what is specific to this board.
 
-const queue: Frame[] = []
 let shown: Frame | null = null
-let busy = false
 let lastKey: string | null = null
 
 /** Identifies a position; consecutive frames sharing one are the same move. */
 const frameKey = (f: Frame): string =>
   `${f.ply ?? -1}|${f.status ?? ''}|${(f.lastPath ?? []).join(',')}`
 
-function draw(raw: unknown, root: HTMLElement): void {
+function draw(raw: unknown, root: HTMLElement): void | Promise<void> {
   ensureDom(root)
+  if (!canvas) return
   const frame = raw as Frame
   // The host's replay timer clamps at the last index and then re-posts that
   // frame forever (see replayFrames in the SDK). Taking it at face value would
-  // replay the winning move on a loop, so identical repeats are dropped.
+  // replay the winning move on a loop, so identical repeats are dropped. They
+  // are still acked (by returning), so a host waiting on us is not left hanging.
   const key = frameKey(frame)
   if (key === lastKey) return
   lastKey = key
 
-  queue.push(frame)
-  pump()
-}
-
-function pump(): void {
-  if (busy || queue.length === 0 || !canvas) return
-  const next = queue.shift()!
-  const path = next.lastPath ?? []
+  const path = frame.lastPath ?? []
 
   // First frame, a pass, or a rewind — snap rather than animate.
   if (!shown || path.length < 2) {
-    shown = next
-    renderHud(next, -1)
-    setStatus(statusText(next))
-    paint(next, new Set(), [])
-    pump()
+    shown = frame
+    renderHud(frame, -1)
+    setStatus(statusText(frame))
+    paint(frame, new Set(), [])
     return
   }
 
-  busy = true
   // A frame carries `lastPath` (the move just made) but `side` (whoever is due
   // next). While the peg is in flight the HUD must follow the seat that owns
   // it, or the highlight reads as the wrong player for the whole animation.
-  const mover = next.pegs?.[path[path.length - 1]!] ?? 0
-  renderHud(next, mover)
-  setStatus(moveText(next, mover, path))
-  animate(next, path)
+  const mover = frame.pegs?.[path[path.length - 1]!] ?? 0
+  renderHud(frame, mover)
+  setStatus(moveText(frame, mover, path))
+  return animate(frame, path)
 }
 
-function animate(frame: Frame, path: number[]): void {
+function animate(frame: Frame, path: number[]): Promise<void> {
   const g = canvas?.getContext('2d')
-  if (!g) return
+  if (!g) return Promise.resolve()
   const dest = path[path.length - 1]!
   const seat = frame.pegs?.[dest] ?? 0
   const skip = new Set<number>([dest])
   const legs = path.length - 1
-  const total = legs * HOP_MS
+  const total = (legs * HOP_MS) / playbackSpeed()
   const jumping = legs > 1 || path.length > 2
   let started = -1
 
-  const tick = (now: number): void => {
-    if (started < 0) started = now
-    const t = Math.min(1, (now - started) / total)
+  return new Promise<void>((resolve) => {
+    const tick = (now: number): void => {
+      if (started < 0) started = now
+      const t = Math.min(1, (now - started) / total)
 
-    // Which leg we are on, and how far along it.
-    const walked = t * legs
-    const leg = Math.min(legs - 1, Math.floor(walked))
-    const u = walked - leg
-    const [ax, ay] = holeXY(frame, path[leg]!)
-    const [bx, by] = holeXY(frame, path[leg + 1]!)
-    const ease = u * u * (3 - 2 * u) // smoothstep within the leg
-    const x = ax + (bx - ax) * ease
-    const y = ay + (by - ay) * ease
-    // A jump arcs over the peg it clears; a single step slides flat.
-    const lift = jumping ? Math.sin(Math.PI * ease) * SCALE * 0.55 : 0
+      // Which leg we are on, and how far along it.
+      const walked = t * legs
+      const leg = Math.min(legs - 1, Math.floor(walked))
+      const u = walked - leg
+      const [ax, ay] = holeXY(frame, path[leg]!)
+      const [bx, by] = holeXY(frame, path[leg + 1]!)
+      const ease = u * u * (3 - 2 * u) // smoothstep within the leg
+      const x = ax + (bx - ax) * ease
+      const y = ay + (by - ay) * ease
+      // A jump arcs over the peg it clears; a single step slides flat.
+      const lift = jumping ? Math.sin(Math.PI * ease) * SCALE * 0.55 : 0
 
-    paint(frame, skip, path.slice(0, leg + 2))
-    peg(g, x, y - lift, seat, lift)
+      paint(frame, skip, path.slice(0, leg + 2))
+      peg(g, x, y - lift, seat, lift)
 
-    if (t < 1) {
-      requestAnimationFrame(tick)
-      return
+      if (t < 1) {
+        requestAnimationFrame(tick)
+        return
+      }
+      // The peg has landed: hand the highlight over to whoever is due next.
+      shown = frame
+      paint(frame, new Set(), path)
+      renderHud(frame, -1)
+      setStatus(statusText(frame))
+      void hold(HOLD_MS).then(resolve)
     }
-    // The peg has landed: hand the highlight over to whoever is due next.
-    shown = frame
-    paint(frame, new Set(), path)
-    renderHud(frame, -1)
-    setStatus(statusText(frame))
-    setTimeout(() => {
-      busy = false
-      pump()
-    }, HOLD_MS)
-  }
 
-  requestAnimationFrame(tick)
+    requestAnimationFrame(tick)
+  })
 }
 
 // —— wiring ——————————————————————————————————————————————————————————
 
-onFrame(draw)
+// A hop chain's length varies per move, so this pace is the common case (a
+// single hop plus the dwell) rather than a bound — the promise above is what
+// actually tells the host when each move has landed.
+onFrame(draw, { paceMs: HOP_MS + HOLD_MS })
 
 // Identity can arrive before or after the frames; refresh whatever is on screen.
 onPlayers((p) => {

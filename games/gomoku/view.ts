@@ -191,10 +191,15 @@ function render(root: HTMLElement): void {
   drawBoard()
 }
 
+// Nothing here animates — a stone is either on the board or it is not — so a
+// frame is finished the moment it is drawn. Saying so (`paceMs: 0`) rather than
+// staying silent is what lets a replay host fit a long game in: a host with no
+// information has to assume the slow end, and assuming ~2s a move for a
+// 226-move match meant showing about one move in eight.
 onFrame((frame, root) => {
   lastFrame = frame
   render(root)
-})
+}, { paceMs: 0 })
 
 onPlayers((p) => {
   players = p

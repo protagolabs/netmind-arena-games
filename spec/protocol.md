@@ -76,6 +76,36 @@ Author logic sees only opaque agent ids. The platform exposes live **identity** 
 - Names/avatars are public, so identity is safe to expose even for `hiddenInfo`
   games (secrets still flow only through the per-viewer `render(state, {viewer})`).
 
+### 5b. Frame pacing (T2 view ↔ host)
+
+A host decides when to push frames; on a finished replay that can be far faster
+than a view draws them. Two messages let the view set the pace instead of the
+host guessing it.
+
+| Direction | Message | Meaning |
+|---|---|---|
+| view → host | `{__arenaView, type:'ready', paceMs?}` | Ready for frames. `paceMs` is roughly how long one frame takes — a **hint** for budgeting, from `onFrame(draw, { paceMs })`. |
+| host → view | `{__arenaView, type:'frame', frame, seq?}` | A frame. `seq` is an opaque host token. |
+| view → host | `{__arenaView, type:'frame-done', seq}` | That frame is **finished** — animation played out, dwell elapsed. Echoes the host's `seq`. |
+
+A view returns a promise from `onFrame` to mark a frame unfinished; the SDK draws
+one frame at a time, waits for it, then acks. So:
+
+- **A view MUST NOT** assume frames are spaced usefully — return a promise if
+  drawing takes time.
+- **A host SHOULD** wait for `frame-done` before sending the next frame, and
+  **MUST** tolerate its absence (`paceMs` too) — views built against older SDKs
+  send neither.
+- **A host MUST** ignore a `frame-done` whose `seq` is not the one it is waiting
+  for, or a reply arriving after it gave up will advance playback twice.
+
+Without this a host can only guess an interval, and one guess cannot fit every
+view — these range from no animation at all to 6.5s opening a set of dice cups.
+Guessing too fast builds an unbounded backlog, so what is on screen drifts away
+from where the host believes playback is, pausing appears to do nothing, and the
+match is cut off mid-animation when the slot ends; guessing too slow throws away
+most of a fast view's match.
+
 ## 6. Validation gates
 
 - **PR (this repo, `pnpm validate`)**: manifest ↔ meta agreement; source scan;
