@@ -24,8 +24,27 @@ interface ViewMessage {
   frame?: unknown
   /** Host-assigned frame token, echoed back on `frame-done`. See `onFrame`. */
   seq?: number
+  /** Playback rate the host is asking for. See `hold`. */
+  speed?: number
   players?: PlayerInfo[]
 }
+
+/**
+ * How fast the host wants playback to run: 1 = as authored, 2 = twice as fast.
+ *
+ * A host with a speed control has no way to make a view draw faster on its own —
+ * the timings live in here. Arena's feed learned that the hard way: unable to
+ * speed a view up, its 5x setting instead showed every fifth frame, so a card
+ * game skipped four plays out of five and the replay stopped making sense.
+ *
+ * A host that never sends a speed leaves this at 1, which is why the timings
+ * below read as the authored ones everywhere else.
+ */
+let speed = 1
+
+/** Slowest and fastest a host may drive a view, so one bad value cannot freeze or strobe it. */
+const MIN_SPEED = 0.1
+const MAX_SPEED = 20
 
 /**
  * What a draw callback may return.
@@ -100,12 +119,16 @@ export interface FrameOptions {
  * promise and the SDK will hold everything until it settles:
  *
  * ```ts
+ * import { onFrame, hold } from '@arena/game-sdk/view'
  * onFrame(async (frame, root) => {
  *   drawBoard(frame, root)
  *   await animateMove(frame)
- *   await wait(HOLD_MS)      // let the finished move sit there
+ *   await hold(HOLD_MS)      // let the finished move sit there
  * }, { paceMs: HOLD_MS })
  * ```
+ *
+ * Use `hold` rather than your own timer: it is what makes a host's speed control
+ * work, and a view that ignores it can only be sped up by dropping frames.
  *
  * The SDK then guarantees two things a view used to have to build for itself:
  *
@@ -146,6 +169,7 @@ export function onFrame(
     try {
       for (;;) {
         const next = queue.shift()
+        pending = queue.length
         if (!next) return
         try {
           const result = draw(next.frame, document.body)
@@ -163,13 +187,64 @@ export function onFrame(
   window.addEventListener('message', (e: MessageEvent) => {
     if (!fromHost(e)) return
     const d = e.data as ViewMessage | null
-    if (d && d.__arenaView === true && d.type === 'frame') {
+    if (!d || d.__arenaView !== true) return
+    if (d.type === 'frame') {
       queue.push({ frame: d.frame, seq: d.seq })
+      pending = queue.length
       void pump()
+    } else if (d.type === 'speed' && typeof d.speed === 'number' && Number.isFinite(d.speed)) {
+      speed = Math.min(MAX_SPEED, Math.max(MIN_SPEED, d.speed))
     }
   })
   // Only the parent talks to us; announce readiness, and how fast we draw.
   window.parent.postMessage({ __arenaView: true, type: 'ready', paceMs: opts.paceMs }, '*')
+}
+
+/**
+ * Wait `ms` of authored time, scaled by the speed the host asked for.
+ *
+ * This is the whole mechanism behind a host's speed control. `setTimeout` in a
+ * view is a fixed cost the host cannot influence; `hold` is the same pause
+ * expressed as something it can. At 2x a 1500ms dwell becomes 750ms, and the
+ * match plays twice as fast with every frame still shown.
+ *
+ * A speed change applies from the next `hold`, not retroactively to one already
+ * running — the wait in progress is at most one frame long, and cancelling it
+ * mid-animation would jump the board.
+ */
+export function hold(ms: number): Promise<void> {
+  return new Promise<void>((resolve) => setTimeout(resolve, Math.max(0, ms) / speed))
+}
+
+/**
+ * A pause that only applies when another frame is already waiting.
+ *
+ * `hold` is for time the frame NEEDS — an animation running, a beat the viewer has
+ * to register. `dwell` is for the padding that only exists to stop a burst of
+ * frames flashing past: when nothing is queued behind this frame, there is no
+ * burst to slow down, and waiting anyway just makes a live match lag behind
+ * reality and delays telling the host we are ready.
+ *
+ * Every view in this repo documented that intent ("a live match never fills the
+ * queue, so it stays responsive") and doudizhu was the one that implemented it,
+ * by only arming its timer when its queue was non-empty. Folding the queue into
+ * the SDK lost that, and the detail page — which pushes a frame every 1500ms —
+ * went from 1500ms a play to 1700ms, ending a measured 20 seconds one play
+ * behind where it used to be. This is that behaviour, named.
+ */
+export function dwell(ms: number): Promise<void> {
+  return pending > 0 ? hold(ms) : Promise.resolve()
+}
+
+/** Frames received but not yet drawn. Maintained by `onFrame`; read by `dwell`. */
+let pending = 0
+
+/**
+ * The speed the host is asking for, for durations `hold` cannot express — a
+ * requestAnimationFrame tween needs to divide its own duration by this.
+ */
+export function playbackSpeed(): number {
+  return speed
 }
 
 /** Resolve when `p` settles, or after `FRAME_TIMEOUT_MS` — whichever comes first. */

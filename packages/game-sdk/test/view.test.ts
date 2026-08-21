@@ -168,6 +168,89 @@ describe('onFrame', () => {
     expect(drawn).toEqual([1, 2])
   })
 
+  it('scales a hold by the speed the host asks for', async () => {
+    vi.useFakeTimers()
+    const mod = await import('../src/view.js')
+    let done = false
+    mod.onFrame(async () => {
+      await mod.hold(2_000)
+      done = true
+    })
+
+    fromHost({ __arenaView: true, type: 'speed', speed: 4 })
+    sendFrame('a', 1)
+    await vi.advanceTimersByTimeAsync(400)
+    expect(done).toBe(false)
+
+    // 2000ms of authored time at 4x is 500ms of real time. Without this the only
+    // way a host could go faster would be to skip frames.
+    await vi.advanceTimersByTimeAsync(150)
+    expect(done).toBe(true)
+    expect(acks()).toEqual([1])
+    expect(mod.playbackSpeed()).toBe(4)
+  })
+
+  it('clamps a speed a host should not be able to ask for', async () => {
+    const mod = await import('../src/view.js')
+    mod.onFrame(() => {})
+
+    fromHost({ __arenaView: true, type: 'speed', speed: 0 })
+    expect(mod.playbackSpeed()).toBeGreaterThan(0) // 0 would stall every hold forever
+    fromHost({ __arenaView: true, type: 'speed', speed: 10_000 })
+    expect(mod.playbackSpeed()).toBeLessThanOrEqual(20) // and this would strobe
+    fromHost({ __arenaView: true, type: 'speed', speed: Number.NaN })
+    expect(Number.isFinite(mod.playbackSpeed())).toBe(true)
+
+    fromHost({ __arenaView: true, type: 'speed', speed: 1 })
+    expect(mod.playbackSpeed()).toBe(1)
+  })
+
+  it('leaves timings as authored for a host that never mentions speed', async () => {
+    vi.useFakeTimers()
+    const mod = await import('../src/view.js')
+    fromHost({ __arenaView: true, type: 'speed', speed: 1 })
+    let done = false
+    mod.onFrame(async () => {
+      await mod.hold(1_500)
+      done = true
+    })
+    sendFrame('a', 1)
+    await vi.advanceTimersByTimeAsync(1_400)
+    expect(done).toBe(false)
+    await vi.advanceTimersByTimeAsync(200)
+    expect(done).toBe(true)
+  })
+
+  it('dwells only when a frame is already waiting behind this one', async () => {
+    vi.useFakeTimers()
+    const mod = await import('../src/view.js')
+    fromHost({ __arenaView: true, type: 'speed', speed: 1 })
+    // A 1000ms animation the frame genuinely needs, then 1700ms of padding that
+    // only matters when frames are stacking up.
+    mod.onFrame(async () => {
+      await mod.hold(1_000)
+      await mod.dwell(1_700)
+    })
+
+    // Nothing behind it: acked as soon as the animation is done. Waiting the
+    // extra 1700 anyway made a host that pushes on its own timer fall
+    // progressively behind — measured as a play lost every 20 seconds.
+    sendFrame('lone', 1)
+    await vi.advanceTimersByTimeAsync(1_100)
+    expect(acks()).toEqual([1])
+
+    // A frame landing mid-draw IS a backlog, so the padding applies and the
+    // burst is slowed to something watchable.
+    sendFrame('x', 2)
+    await vi.advanceTimersByTimeAsync(500)
+    sendFrame('y', 3)
+    await vi.advanceTimersByTimeAsync(600) // 'x' animation done, now dwelling
+    expect(acks()).toEqual([1])
+
+    await vi.advanceTimersByTimeAsync(1_800)
+    expect(acks()).toEqual([1, 2])
+  })
+
   it('ignores frames that did not come from the host', async () => {
     const onFrame = await load()
     const drawn: unknown[] = []

@@ -15,7 +15,7 @@
  *   4. identity — names and avatars arrive separately via `onPlayers`, and may
  *      land before or after the first frame.
  */
-import { onFrame, onPlayers } from '@arena/game-sdk/view'
+import { hold, onFrame, playbackSpeed, onPlayers } from '@arena/game-sdk/view'
 import { ARENA_THEME as T } from '@arena/game-sdk/theme'
 import type { PlayerInfo } from '@arena/game-sdk'
 
@@ -490,7 +490,7 @@ function animate(frame: Frame, path: number[]): Promise<void> {
   const seat = frame.pegs?.[dest] ?? 0
   const skip = new Set<number>([dest])
   const legs = path.length - 1
-  const total = legs * HOP_MS
+  const total = (legs * HOP_MS) / playbackSpeed()
   const jumping = legs > 1 || path.length > 2
   let started = -1
 
@@ -523,7 +523,7 @@ function animate(frame: Frame, path: number[]): Promise<void> {
       paint(frame, new Set(), path)
       renderHud(frame, -1)
       setStatus(statusText(frame))
-      setTimeout(resolve, HOLD_MS)
+      void hold(HOLD_MS).then(resolve)
     }
 
     requestAnimationFrame(tick)

@@ -19,7 +19,7 @@
  * it in, so rendering `info.avatar` directly is safe. When a seat has no avatar
  * (or inlining failed) we fall back to a generated `data:` SVG monogram.
  */
-import { onFrame, onPlayers } from '@arena/game-sdk/view'
+import { hold, onFrame, playbackSpeed, onPlayers } from '@arena/game-sdk/view'
 import type { PlayerInfo } from '@arena/game-sdk'
 
 // —— pacing knobs (ms) — tune these if replays still feel too fast/slow ——
@@ -336,7 +336,7 @@ function animate(
   return new Promise<void>((resolve) => {
     const start = performance.now()
     const frame = (now: number) => {
-      const t = Math.min(1, (now - start) / FLIP_MS)
+      const t = Math.min(1, (now - start) / (FLIP_MS / playbackSpeed()))
       // Static layer: everything that isn't animating.
       paint(ctx, size, to, palette, skip)
       // Placed discs grow in (ease-out).
@@ -361,7 +361,7 @@ function animate(
         // The dwell is part of the frame, not something after it: resolving
         // before it elapsed would tell the host we are ready while the move it
         // just drew is still the thing being looked at.
-        setTimeout(resolve, HOLD_MS)
+        void hold(HOLD_MS).then(resolve)
       }
     }
     requestAnimationFrame(frame)

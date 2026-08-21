@@ -16,7 +16,7 @@
  * viewer's own cup mid-game. Identity (name/avatar) arrives via `onPlayers`;
  * author logic never sees it.
  */
-import { onFrame, onPlayers } from '@arena/game-sdk/view'
+import { hold, onFrame, onPlayers } from '@arena/game-sdk/view'
 import type { PlayerInfo } from '@arena/game-sdk'
 import { ARENA_THEME as T } from '@arena/game-sdk/theme'
 
@@ -477,7 +477,7 @@ onFrame((frame, h) => {
   // an ordinary bid. The SDK reports each frame as finished only when this
   // resolves, so a host that waits gives the cups time to open instead of
   // pushing the next bid over the top of them.
-  return new Promise<void>((resolve) => setTimeout(resolve, f.reveal ? REVEAL_MS : HOLD_MS))
+  return hold(f.reveal ? REVEAL_MS : HOLD_MS)
 }, { paceMs: HOLD_MS })
 onPlayers((p) => {
   players = p

@@ -13,7 +13,7 @@
  * the viewer's own hand, which we still render as a single stack for a tidy table).
  * Identity (name/avatar) arrives via `onPlayers`; author logic never sees it.
  */
-import { onFrame, onPlayers } from '@arena/game-sdk/view'
+import { dwell, onFrame, onPlayers } from '@arena/game-sdk/view'
 import type { PlayerInfo } from '@arena/game-sdk'
 
 interface SeatView {
@@ -308,7 +308,7 @@ onFrame((frame, h) => {
   ensureRoot(h)
   lastFrame = frame as DouFrame
   draw()
-  return new Promise<void>((resolve) => setTimeout(resolve, HOLD_MS))
+  return dwell(HOLD_MS)
 }, { paceMs: HOLD_MS })
 onPlayers((p) => {
   players = p
