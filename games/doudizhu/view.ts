@@ -293,32 +293,23 @@ function draw(): void {
 }
 
 // —— playback pacing ——
-// The platform controls when it pushes frames; on replay it bursts the whole
-// match in at once, which flashes by. We buffer frames and play them out no
-// faster than HOLD_MS apart. A live match (frames minutes apart) never fills the
-// queue, so it stays responsive.
+// The platform controls when it pushes frames; on replay it may push the whole
+// match in at once, which flashes by. Each play stays up for HOLD_MS, and the
+// SDK holds the next frame until then — which is also what tells the host we are
+// ready for it, so a host that waits never builds a backlog.
+//
+// This used to buffer and drain on its own timer, and only held a frame when
+// something was already queued behind it. Under a host that sends one frame at a
+// time there is never anything queued, so that version would have stopped
+// pausing on each play altogether.
 const HOLD_MS = 1700 // minimum time each step (a play / pass / bid) is shown
-const frameQueue: DouFrame[] = []
-let busy = false
-
-function pump(): void {
-  if (busy || frameQueue.length === 0) return
-  lastFrame = frameQueue.shift()!
-  draw()
-  if (frameQueue.length > 0) {
-    busy = true
-    setTimeout(() => {
-      busy = false
-      pump()
-    }, HOLD_MS)
-  }
-}
 
 onFrame((frame, h) => {
   ensureRoot(h)
-  frameQueue.push(frame as DouFrame)
-  pump()
-})
+  lastFrame = frame as DouFrame
+  draw()
+  return new Promise<void>((resolve) => setTimeout(resolve, HOLD_MS))
+}, { paceMs: HOLD_MS })
 onPlayers((p) => {
   players = p
   draw() // identity applies immediately to the current frame

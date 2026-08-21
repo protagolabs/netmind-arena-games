@@ -65,6 +65,20 @@ interface State {
   side: number // mirror of `turn` for SDK convention
   round: number // increments each time cups are re-rolled
   reveal: Reveal | null // most recent open-cup result (public)
+  /**
+   * A challenge has resolved and the next round has NOT been opened yet.
+   *
+   * The challenge used to do both at once, and the single state it returned
+   * carried the opened cups AND the next round already under way — re-rolled,
+   * `round` incremented, a new seat to act. Since the platform records one frame
+   * per step, that made one frame mean three things, and a replay showed a seat
+   * bid and then jumped to a different seat opening a later round, with the
+   * "LIAR?" moment labelled as the round after the one it settled.
+   *
+   * So the challenge stops at its own outcome, and `openRound` starts the next
+   * round on the next action. One step, one thing that happened.
+   */
+  pendingRoll: boolean
   eliminationOrder: number[] // seats in the order they were knocked out
   finisher: number // winning seat once done, -1 while unfinished
 }
@@ -297,6 +311,27 @@ function decide(v: View, p: Params): Action {
 }
 
 /**
+ * Open the round a resolved challenge left pending: re-roll every living cup,
+ * count the round, and clear the challenge that ended the last one.
+ *
+ * The ONLY caller is `step`, and only after the incoming action has been found
+ * legal. That order matters: `roll` draws from `ctx.random`, and drawing before a
+ * `ctx.reject` would advance the random stream on an action that never happened,
+ * so a replay of the same match would deal different dice.
+ */
+function openRound(s: State, ctx: Ctx): State {
+  if (!s.pendingRoll) return s
+  return {
+    ...s,
+    dice: s.dice.map((d, i) => (s.alive[i] ? roll(d.length, ctx) : d)),
+    pendingRoll: false,
+    reveal: null,
+    round: s.round + 1,
+    lastBid: [null, null, null], // fresh round → clear each seat's shown bid
+  }
+}
+
+/**
  * The rule kernel both paces run on. `seat` is the mover — resolved from
  * `ctx.actor` in turn-based pace, from `state.turn` in strategy pace — and is
  * already known to be the seat whose turn it is.
@@ -312,13 +347,18 @@ function step(s: State, seat: number, action: Action, ctx: Ctx): State {
     const c = count as number
     const f = face as number
     if (f < 1 || f > 6 || c < 1) ctx.reject('bad-bid')
+    // Every check here reads dice COUNTS and the standing bid, never a face, so
+    // it gives the same answer before and after a pending re-roll — which is what
+    // lets the whole action be validated before any randomness is drawn.
     if (c > livingDice(s)) ctx.reject('impossible-bid') // can't claim more dice than exist
     const next: Bid = { count: c, face: f }
     if (!raises(s.bid, next)) ctx.reject('bad-bid') // must strictly out-bid the standing bid
-    const turn = nextAlive(seat, s.alive)
-    const lastBid = [...s.lastBid]
+
+    const open = openRound(s, ctx)
+    const turn = nextAlive(seat, open.alive)
+    const lastBid = [...open.lastBid]
     lastBid[seat] = next
-    return { ...s, bid: next, bidder: seat, lastBid, turn, side: turn, reveal: null }
+    return { ...open, bid: next, bidder: seat, lastBid, turn, side: turn, reveal: null }
   }
 
   // —— challenge the standing bid ——
@@ -349,22 +389,27 @@ function step(s: State, seat: number, action: Action, ctx: Ctx): State {
       return { ...s, phase: 'done', dice, alive, eliminationOrder, reveal, finisher, bid: null, bidder: -1 }
     }
 
-    // Next round: re-roll every living cup; the loser leads (or the next living
-    // seat if the loser was just knocked out).
-    const rolled = dice.map((d, i) => (alive[i] ? roll(d.length, ctx) : d))
+    /**
+     * Stop at the outcome. The cups are open, a die is gone, and this round is
+     * over — but the next one has not started: no re-roll, `round` unchanged, and
+     * `lastBid` still holding what each seat claimed, so the frame this produces
+     * can show what was bid alongside what was actually on the table.
+     *
+     * `openRound` does the rest on the leader's next action. The loser leads, or
+     * the next living seat if the loser was just knocked out.
+     */
     const turn = alive[loser] ? loser : nextAlive(loser, alive)
     return {
       ...s,
-      dice: rolled,
+      dice,
       alive,
       eliminationOrder,
       reveal,
+      pendingRoll: true,
       bid: null,
       bidder: -1,
-      lastBid: [null, null, null], // fresh round → clear each seat's shown bid
       turn,
       side: turn,
-      round: s.round + 1,
     }
   }
 
@@ -408,6 +453,7 @@ export default defineGame<State, Params>({
     side: 0,
     round: 1,
     reveal: null,
+    pendingRoll: false,
     eliminationOrder: [],
     finisher: -1,
   }),
@@ -481,6 +527,16 @@ export default defineGame<State, Params>({
     let status: string
     if (s.phase === 'done') {
       status = `Seat ${s.finisher} wins`
+    } else if (s.pendingRoll && s.reveal) {
+      // The round that just ENDED — this frame is the challenge being settled,
+      // not the next round. It used to read "Round <next> · Seat N to open",
+      // which named the wrong round and said nothing about the challenge that
+      // was on screen.
+      const r = s.reveal
+      const fate = r.eliminated !== null ? `Seat ${r.loser} loses last die — out` : `Seat ${r.loser} loses a die`
+      status =
+        `Round ${s.round} · Seat ${r.challenger} challenges ${r.bid.count}×${r.bid.face} · ` +
+        `${r.actual} on the table · ${fate}`
     } else if (s.bid) {
       status = `Round ${s.round} · Seat ${s.bidder} bids ${s.bid.count}×${s.bid.face} · Seat ${s.turn} to act`
     } else {
@@ -498,6 +554,9 @@ export default defineGame<State, Params>({
       turn: s.turn,
       bidder: s.bidder,
       bid: s.bid,
+      // Lets the view hold the open-cup beat on its own, rather than inferring
+      // it from `reveal` being present on a frame that had already moved on.
+      pendingRoll: s.pendingRoll,
       lastBid: s.lastBid,
       reveal: s.reveal,
       seats,
