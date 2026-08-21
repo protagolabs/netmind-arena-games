@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Raw Guestbook</title>
+    <style>
+      :root { color-scheme: dark; }
+      body {
+        margin: 0; padding: 1.5rem; min-height: 100vh; box-sizing: border-box;
+        font: 14px/1.5 system-ui, sans-serif; background: #0b1020; color: #e6ebff;
+      }
+      h1 { font-size: 1rem; margin: 0 0 1rem; font-weight: 600; }
+      ul { list-style: none; margin: 0 0 1rem; padding: 0; }
+      li { padding: .5rem .75rem; border: 1px solid #1e2745; border-radius: .375rem; margin-bottom: .375rem; }
+      li b { color: #8fa6ff; font-weight: 500; }
+      form { display: flex; gap: .5rem; }
+      input { flex: 1; padding: .5rem .75rem; border: 1px solid #1e2745; border-radius: .375rem;
+              background: #0f152b; color: inherit; font: inherit; }
+      button { padding: .5rem 1rem; border: 0; border-radius: .375rem; background: #3d5afe;
+               color: #fff; font: inherit; cursor: pointer; }
+      button:disabled { opacity: .5; cursor: default; }
+      #status { margin-top: .75rem; min-height: 1.25rem; color: #8b96b8; font-size: 12px; }
+    </style>
+  </head>
+  <body>
+    <h1>Raw Guestbook</h1>
+    <ul id="notes"></ul>
+    <form id="composer">
+      <input id="text" maxlength="120" placeholder="Leave one note…" required />
+      <button id="post">Post</button>
+    </form>
+    <p id="status"></p>
+
+    <script>
+      /**
+       * A world that speaks the Arena world protocol directly.
+       *
+       * The sandbox has `connect-src 'none'`, so there is no fetch here and no
+       * URL anywhere: every read and write is a postMessage to the parent, which
+       * holds the visitor's credential. See docs/world-protocol.md.
+       */
+      ;(function () {
+        var CH = '__arenaWorld'
+
+        /* ── request/response correlation ───────────────────────────────── */
+
+        var nextId = 1
+        var pending = new Map()
+
+        /**
+         * The host answers out of order, so every request carries an `id` and
+         * resolves the promise registered under it. Assuming replies come back in
+         * send order works right up until two requests are in flight at once.
+         */
+        function call(op, args, collection) {
+          var id = nextId++
+          return new Promise(function (resolve, reject) {
+            pending.set(id, { resolve: resolve, reject: reject })
+            parent.postMessage(
+              { __arenaWorld: true, type: 'request', id: id, op: op, collection: collection, args: args },
+              '*'
+            )
+          })
+        }
+
+        /* ── state ──────────────────────────────────────────────────────── */
+
+        var me = null
+        var listEl = document.getElementById('notes')
+        var inputEl = document.getElementById('text')
+        var buttonEl = document.getElementById('post')
+        var statusEl = document.getElementById('status')
+
+        function setStatus(text) {
+          statusEl.textContent = text || ''
+        }
+
+        /**
+         * Reflect who is signed in.
+         *
+         * Called from `init` AND from `env` — someone can sign in without
+         * reloading, and a world that read `me` once at mount goes on treating
+         * them as a stranger until they refresh.
+         */
+        function applyVisitor(visitor) {
+          me = visitor
+          buttonEl.disabled = !me
+          inputEl.placeholder = me ? 'Leave one note…' : 'Sign in to leave a note'
+        }
+
+        function render(page) {
+          listEl.textContent = ''
+          if (!page || !page.items.length) {
+            setStatus('Nobody has signed it yet.')
+            return
+          }
+          setStatus('')
+          page.items.forEach(function (record) {
+            var li = document.createElement('li')
+            var who = document.createElement('b')
+            // textContent, never innerHTML. This string was written by another
+            // visitor, and this document runs with `script-src 'unsafe-inline'`;
+            // interpolating a stranger's text as HTML hands them the world.
+            who.textContent = record.author.name
+            li.appendChild(who)
+            li.appendChild(document.createTextNode(': ' + record.payload.text))
+            if (record.mine) li.style.borderColor = '#3d5afe'
+            listEl.appendChild(li)
+          })
+        }
+
+        function refresh() {
+          return call('list', { sort: ['-createdAt'], limit: 50 }, 'notes').then(render, function (err) {
+            setStatus('Could not load notes: ' + err.message)
+          })
+        }
+
+        /* ── inbound ────────────────────────────────────────────────────── */
+
+        addEventListener('message', function (event) {
+          var m = event.data
+          // Anything without the discriminator is not ours. The origin is NOT
+          // checked: this iframe is sandboxed without `allow-same-origin`, so it
+          // cannot name the parent's origin — verify shape instead.
+          if (!m || m[CH] !== true) return
+
+          if (m.type === 'init') {
+            applyVisitor(m.me)
+            // `seed` already holds the first page of every collection, so the
+            // world draws on the first frame rather than mounting empty.
+            render(m.seed && m.seed.notes)
+            return
+          }
+
+          if (m.type === 'result') {
+            var p = pending.get(m.id)
+            if (!p) return
+            pending.delete(m.id)
+            if (m.ok) p.resolve(m.result)
+            else p.reject(m.error || { code: 'unavailable', message: 'request failed' })
+            return
+          }
+
+          if (m.type === 'change') {
+            // Best-effort and possibly coalesced, so it is a hint to re-read
+            // rather than a patch to apply. `list` stays the source of truth.
+            if (m.collection === 'notes') refresh()
+            return
+          }
+
+          if (m.type === 'env') {
+            if ('me' in m) applyVisitor(m.me)
+            return
+          }
+        })
+
+        /* ── outbound ───────────────────────────────────────────────────── */
+
+        document.getElementById('composer').addEventListener('submit', function (ev) {
+          ev.preventDefault()
+          var text = inputEl.value.trim()
+          if (!text) return
+          buttonEl.disabled = true
+          setStatus('')
+
+          call('add', { payload: { text: text } }, 'notes')
+            .then(function () {
+              inputEl.value = ''
+              return refresh()
+            })
+            .catch(function (err) {
+              // Every one of these is an ordinary outcome rather than a bug, and
+              // `unauthenticated` is by far the most common: on a public page most
+              // visitors are signed out.
+              if (err.code === 'unauthenticated') setStatus('Sign in to leave a note.')
+              else if (err.code === 'unique' || err.code === 'quota') setStatus('You have already signed it.')
+              else if (err.code === 'rate-limited') setStatus('Too fast — try again shortly.')
+              else setStatus(err.message || 'That did not go through.')
+            })
+            .then(function () {
+              buttonEl.disabled = !me
+            })
+        })
+
+        /**
+         * Last line on purpose.
+         *
+         * The host sends nothing until `ready` arrives, which is what removes the
+         * "has the iframe loaded yet" race — but it also means anything sent
+         * before the listener above is installed would be missed. Install first,
+         * announce second.
+         */
+        parent.postMessage({ __arenaWorld: true, type: 'ready', sdk: 'raw' }, '*')
+      })()
+    </script>
+  </body>
+</html>

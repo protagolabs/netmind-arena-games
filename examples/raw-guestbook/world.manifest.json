@@ -1,0 +1,30 @@
+{
+  "type": "raw-guestbook",
+  "kind": "world",
+  "displayName": "Raw Guestbook",
+  "schemaVersion": 1,
+  "supportedSchemaVersions": [1],
+
+  "storage": {
+    "collections": {
+      "notes": {
+        "schema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["text"],
+          "properties": {
+            "text": { "type": "string", "minLength": 1, "maxLength": 120 }
+          }
+        },
+        "write": "owner",
+        "maxRecordBytes": 512,
+        "maxRecordsPerAuthor": 1,
+        "indexes": []
+      }
+    },
+    "quota": { "totalRecords": 10000, "writesPerHourPerAuthor": 30 }
+  },
+
+  "presentation": { "surface": "embed", "cover": "", "aspect": "16/9" }
+}

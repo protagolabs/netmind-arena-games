@@ -412,8 +412,11 @@ the rest.
 
 ## Publishing
 
-Same pipeline as games: PR → `validate` → AI review → CODEOWNERS review → merge →
-`build:bundles` → GitHub Release. Worlds ride in the same `index.json` under
+There are two paths, and they differ only in who reads the code.
+
+**By pull request**, if the world can be open. Same pipeline as games: PR →
+`validate` → AI review → CODEOWNERS review → merge → `build:bundles` → GitHub
+Release. Worlds ride in the same `index.json` under
 `worlds[]`, pinned by content hash, and the Arena backend picks them up on its next
 refresh without a restart. A published world appears on the Arena home page
 automatically — no frontend change is needed to ship one.
@@ -433,3 +436,25 @@ in [release-flow.md](release-flow.md).
 Submission PRs may only touch `games/` or `worlds/`. A world's document runs in a
 visitor's browser, so an author who could also edit the CSP or the op allowlist
 in the same PR would be editing their own sandbox.
+
+**By self-serve API**, if it cannot — a platform whose world is proprietary, or
+whose release cycle is its own. The world is authored exactly the same way; only
+delivery changes:
+
+```bash
+export ARENA_PARTNER_KEY=arena_pk_...
+arena world check  .
+arena world submit .
+```
+
+It lands `unlisted` — served, so you can open the artifact that will ship, but out
+of the public catalogue until an Arena reviewer publishes it. Two things differ
+from the PR path: the sandbox is tighter (`img-src data:` only, so inline your
+media — the looser policy exists because a reviewer read the code), and the world
+belongs to you rather than to this repository.
+
+That path also carries scoring tiers, seasons and payout-grade sealed standings,
+which the PR path does not need. See [partners.md](partners.md). If you cannot use
+`@arena/world-sdk` at all — a private repo, or not TypeScript — the message layer
+it wraps is specified in [world-protocol.md](world-protocol.md), with a working
+no-SDK world in [`examples/raw-guestbook`](../examples/raw-guestbook).
