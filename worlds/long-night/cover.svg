@@ -1,0 +1,103 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 350" width="800" height="350">
+  <defs>
+    <linearGradient id="night" x1="0" y1="0" x2=".25" y2="1">
+      <stop offset="0" stop-color="#0d1430"/>
+      <stop offset=".55" stop-color="#0a1026"/>
+      <stop offset="1" stop-color="#070b1a"/>
+    </linearGradient>
+    <radialGradient id="moon" cx=".78" cy=".16" r=".34">
+      <stop offset="0" stop-color="#c9d6ff" stop-opacity=".30"/>
+      <stop offset="1" stop-color="#c9d6ff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="hearth" cx=".5" cy=".5" r=".5">
+      <stop offset="0" stop-color="#ffd9a0" stop-opacity=".95"/>
+      <stop offset=".35" stop-color="#f0a24e" stop-opacity=".45"/>
+      <stop offset="1" stop-color="#e08a3c" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow" cx=".5" cy=".5" r=".5">
+      <stop offset="0" stop-color="#ffcf8a" stop-opacity=".9"/>
+      <stop offset=".4" stop-color="#f2a24e" stop-opacity=".35"/>
+      <stop offset="1" stop-color="#e0862f" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="ridgeFar" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1a2348"/>
+      <stop offset="1" stop-color="#121a38"/>
+    </linearGradient>
+    <linearGradient id="ridgeNear" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0c1232"/>
+      <stop offset="1" stop-color="#070c1e"/>
+    </linearGradient>
+    <linearGradient id="dawn" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#2a2450" stop-opacity="0"/>
+      <stop offset="1" stop-color="#6b4a6e" stop-opacity=".35"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="800" height="350" fill="url(#night)"/>
+  <rect width="800" height="350" fill="url(#dawn)"/>
+  <circle cx="624" cy="56" r="120" fill="url(#moon)"/>
+
+  <!-- stars: thinning toward the coming dawn on the right -->
+  <g fill="#dfe7ff">
+    <circle cx="42"  cy="38"  r="1.5" opacity=".85"/>
+    <circle cx="96"  cy="72"  r="1"   opacity=".55"/>
+    <circle cx="150" cy="30"  r="1.2" opacity=".70"/>
+    <circle cx="196" cy="88"  r="1"   opacity=".45"/>
+    <circle cx="244" cy="46"  r="1.6" opacity=".80"/>
+    <circle cx="292" cy="96"  r="1"   opacity=".40"/>
+    <circle cx="338" cy="34"  r="1.2" opacity=".62"/>
+    <circle cx="392" cy="80"  r="1"   opacity=".35"/>
+    <circle cx="448" cy="44"  r="1.3" opacity=".50"/>
+    <circle cx="512" cy="92"  r="1"   opacity=".28"/>
+    <circle cx="566" cy="36"  r="1.1" opacity=".34"/>
+    <circle cx="118" cy="126" r="1"   opacity=".40"/>
+    <circle cx="286" cy="140" r="1"   opacity=".30"/>
+  </g>
+
+  <!-- far ridge -->
+  <path d="M0 236 L92 198 L168 224 L252 176 L338 214 L430 168 L520 206 L612 178 L706 210 L800 186 L800 350 L0 350 Z"
+        fill="url(#ridgeFar)"/>
+  <!-- near ridge -->
+  <path d="M0 286 L74 262 L156 292 L238 254 L326 288 L414 250 L508 286 L598 256 L690 288 L800 262 L800 350 L0 350 Z"
+        fill="url(#ridgeNear)"/>
+
+  <!-- lamps other people left, along the ridge: the world's own memory -->
+  <g>
+    <circle cx="92"  cy="198" r="26" fill="url(#glow)" opacity=".55"/>
+    <circle cx="92"  cy="198" r="2.6" fill="#ffdca6"/>
+    <circle cx="252" cy="176" r="22" fill="url(#glow)" opacity=".45"/>
+    <circle cx="252" cy="176" r="2.2" fill="#ffdca6"/>
+    <circle cx="430" cy="168" r="28" fill="url(#glow)" opacity=".60"/>
+    <circle cx="430" cy="168" r="2.8" fill="#ffe3b5"/>
+    <circle cx="612" cy="178" r="20" fill="url(#glow)" opacity=".40"/>
+    <circle cx="612" cy="178" r="2"   fill="#ffdca6"/>
+    <circle cx="706" cy="210" r="16" fill="url(#glow)" opacity=".30"/>
+    <circle cx="706" cy="210" r="1.8" fill="#ffd49a"/>
+  </g>
+
+  <!-- the hearth in the foreground: yours, still burning -->
+  <g transform="translate(196 300)">
+    <ellipse cx="0" cy="6" rx="120" ry="34" fill="url(#glow)" opacity=".55"/>
+    <path d="M-34 6 L34 6 L26 -4 L-26 -4 Z" fill="#2a2036"/>
+    <path d="M-30 -4 L30 -4 L22 -12 L-22 -12 Z" fill="#3a2c42"/>
+    <!-- flame -->
+    <path d="M0 -60 C 14 -40, 20 -28, 14 -16 C 10 -8, 4 -6, 0 -6 C -4 -6, -10 -8, -14 -16 C -20 -28, -14 -40, 0 -60 Z"
+          fill="#ffb454" opacity=".95"/>
+    <path d="M0 -44 C 8 -31, 11 -23, 7 -16 C 5 -11, 2 -10, 0 -10 C -2 -10, -5 -11, -7 -16 C -11 -23, -8 -31, 0 -44 Z"
+          fill="#ffe9b0"/>
+    <circle cx="0" cy="-34" r="52" fill="url(#glow)" opacity=".75"/>
+  </g>
+
+  <!-- the hours: a thin arc of the night already survived -->
+  <g stroke="#8fa0d8" stroke-width="1.4" stroke-linecap="round" opacity=".5">
+    <path d="M540 322 L556 322" opacity=".9"/>
+    <path d="M566 322 L582 322" opacity=".8"/>
+    <path d="M592 322 L608 322" opacity=".7"/>
+    <path d="M618 322 L634 322" opacity=".55"/>
+    <path d="M644 322 L660 322" opacity=".4"/>
+    <path d="M670 322 L686 322" opacity=".28"/>
+    <path d="M696 322 L712 322" opacity=".18"/>
+    <path d="M722 322 L738 322" opacity=".1"/>
+  </g>
+  <circle cx="548" cy="322" r="3" fill="#ffcf8a"/>
+</svg>

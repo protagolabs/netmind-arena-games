@@ -1,0 +1,70 @@
+[
+  {
+    "submission": {
+      "actions": []
+    },
+    "expectedScore": 900
+  },
+  {
+    "submission": {
+      "actions": [
+        "tend",
+        "tend",
+        "tend",
+        "tend",
+        "tend",
+        "tend",
+        "tend",
+        "tend",
+        "tend",
+        "tend",
+        "tend",
+        "tend",
+        "tend",
+        "tend",
+        "tend",
+        "tend",
+        "tend",
+        "tend",
+        "tend",
+        "tend",
+        "tend",
+        "tend",
+        "tend",
+        "tend"
+      ]
+    },
+    "expectedScore": 2100
+  },
+  {
+    "submission": {
+      "actions": [
+        "shelter",
+        "shelter",
+        "shelter",
+        "shelter",
+        "shelter",
+        "shelter",
+        "shelter",
+        "shelter",
+        "shelter",
+        "shelter",
+        "shelter",
+        "shelter",
+        "shelter",
+        "shelter",
+        "shelter",
+        "shelter",
+        "shelter",
+        "shelter",
+        "shelter",
+        "shelter",
+        "shelter",
+        "shelter",
+        "shelter",
+        "shelter"
+      ]
+    },
+    "expectedScore": 1000
+  }
+]

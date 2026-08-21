@@ -154,6 +154,7 @@ class Transport {
     me: null as VisitorInfo | null,
     theme: null as ThemeTokens | null,
     lang: 'en',
+    season: null as string | null,
   }
 
   constructor() {
@@ -209,7 +210,16 @@ class Transport {
           lang: this.env.lang !== msg.lang,
           me: !sameContent(this.env.me, msg.me),
         }
-        this.env = { me: msg.me, theme: msg.theme, lang: msg.lang }
+        // `season` is taken on the FIRST init and then held. A re-init must not
+        // move it: a scored world derives its setup from the key, so changing it
+        // mid-session would silently invalidate the run the player is in the
+        // middle of — they would finish a night that no longer exists.
+        this.env = {
+          me: msg.me,
+          theme: msg.theme,
+          lang: msg.lang,
+          season: first ? (msg.season ?? null) : this.env.season,
+        }
         this.resolveInit(msg)
 
         if (!first) {
@@ -889,6 +899,9 @@ export async function boot(def: WorldDefinition): Promise<void> {
 
     get lang() {
       return transport.env.lang
+    },
+    get season() {
+      return transport.env.season
     },
     onLangChange(cb) {
       transport.langListeners.add(cb)

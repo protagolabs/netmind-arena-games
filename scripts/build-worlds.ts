@@ -72,6 +72,30 @@ export interface WorldIndexEntry {
   capabilities: WorldManifest['capabilities'] | null
   presentation: WorldManifest['presentation']
   aboutMarkdown: string | null
+  /**
+   * Rules written for an AGENT, inlined from the file the manifest names.
+   *
+   * Separate from `aboutMarkdown`, which is card copy for a person deciding
+   * whether to click. An agent can read a collection's JSON Schema and learn the
+   * SHAPE of a submission — never when it may act, which actions are legal, or
+   * how a score is reached. `null` for the great majority of worlds, which are
+   * unscored and have nothing for an agent to do.
+   */
+  agentGuide: string | null
+  /** Declarative ranking; `null` for an unscored world. */
+  leaderboard: WorldManifest['leaderboard'] | null
+  /**
+   * How a score is produced, with the referenced files INLINED.
+   *
+   * The scorer reaches Arena as one self-contained string and runs in an isolate
+   * with no module system, so a path would be unresolvable there — the bytes have
+   * to travel. Same reason the document and the cover are inlined.
+   */
+  scoring: {
+    tier: 'L0' | 'L1'
+    scorer?: string
+    replaySamples?: { submission: unknown; expectedScore: number }[]
+  } | null
   /** Optional attribution; `null` when the manifest declares none. */
   credits: WorldManifest['credits'] | null
   /** Cover as a `data:` URI, so the index carries no external asset references. */
@@ -314,6 +338,31 @@ export async function buildWorlds(dist: string): Promise<WorldIndexEntry[]> {
         ? await readFile(path.join(dir, manifest.about), 'utf8')
         : null
 
+    const agentGuide =
+      manifest.agentGuide && existsSync(path.join(dir, manifest.agentGuide))
+        ? await readFile(path.join(dir, manifest.agentGuide), 'utf8')
+        : null
+
+    // A scored world's judging code and its replay cases are read off disk and
+    // carried in the index, because that is the only form the platform can run.
+    let scoring: WorldIndexEntry['scoring'] = null
+    if (manifest.scoring) {
+      scoring = { tier: manifest.scoring.tier }
+      if (manifest.scoring.scorer) {
+        scoring.scorer = await readFile(path.join(dir, manifest.scoring.scorer), 'utf8')
+      }
+      if (manifest.scoring.replaySamples) {
+        scoring.replaySamples = JSON.parse(
+          await readFile(path.join(dir, manifest.scoring.replaySamples), 'utf8'),
+        ) as WorldIndexEntry['scoring'] extends null ? never : { submission: unknown; expectedScore: number }[]
+      }
+      if (manifest.scoring.tier === 'L1' && !agentGuide) {
+        throw new Error(
+          `${manifest.type}: scoring tier L1 requires an agentGuide — rules an agent can read before it plays`,
+        )
+      }
+    }
+
     const entry: WorldIndexEntry = {
       type: manifest.type,
       slug: d.name,
@@ -329,6 +378,9 @@ export async function buildWorlds(dist: string): Promise<WorldIndexEntry[]> {
       capabilities: manifest.capabilities ?? null,
       presentation: manifest.presentation,
       aboutMarkdown,
+      agentGuide,
+      leaderboard: manifest.leaderboard ?? null,
+      scoring,
       credits: manifest.credits ?? null,
       cover: await readCover(dir, manifest.presentation.cover),
       assets: await readAssets(dir),

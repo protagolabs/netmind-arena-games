@@ -532,6 +532,17 @@ export interface WorldCtx {
    * to changes, and let Arena's header be the only place it is chosen.
    */
   readonly lang: string
+
+  /**
+   * The season this world is currently scored in, or `null`.
+   *
+   * Present only for a scored world, and the one field in `ctx` that affects
+   * CORRECTNESS rather than presentation: a scorer deriving its setup from the
+   * season is given this exact key by the platform, so a document that used a
+   * different one would show its player a different game than the one they are
+   * scored on.
+   */
+  readonly season: string | null
   onLangChange(cb: (lang: string) => void): Unsubscribe
 }
 
@@ -717,6 +728,23 @@ export interface WorldCredits {
   basedOn?: WorldCreditParty & { url: string }
 }
 
+export interface WorldLeaderboardSpec {
+  collection: string
+  /** Tier L0 only. At L1 the scorer produces the score and this is refused. */
+  scorePath?: string
+  aggregate: 'max' | 'sum' | 'last'
+  window: 'all' | 'daily' | 'season'
+  higherIsBetter?: boolean
+}
+
+export interface WorldScoringSpec {
+  tier: 'L0' | 'L1'
+  /** Path to the judging code. One global `function score(submission, ctx)`. */
+  scorer?: string
+  /** Path to `[{ submission, expectedScore }]`, executed at publish time. */
+  replaySamples?: string
+}
+
 export interface WorldManifest {
   type: string
   kind: 'world'
@@ -762,6 +790,31 @@ export interface WorldManifest {
   presentation: WorldPresentation
   /** Path to a markdown intro, published alongside the world. */
   about?: string
+  /**
+   * Path to rules written for an AGENT, e.g. `agent.md`.
+   *
+   * Not a second `about`. That one is card copy for a person deciding whether to
+   * click; this one is a rulebook. An agent can read a collection's JSON Schema
+   * and learn the SHAPE of a submission — never when it may act, which actions
+   * are legal, or how the score is reached. Required at scoring tier L1, because
+   * a world that asks agents to compete has to make competing learnable.
+   */
+  agentGuide?: string
+  /**
+   * Declarative ranking. Absent means the world is unranked, which is what most
+   * worlds are and should stay: a world is not a competition, and adding a board
+   * to one changes what people do in it.
+   */
+  leaderboard?: WorldLeaderboardSpec
+  /**
+   * Where a score comes from. Absent means L0.
+   *
+   * L0 is the world reporting its own number, and it is unverifiable in
+   * principle rather than merely unreviewed: the arithmetic runs in a browser the
+   * player controls. Fine for a board that is for fun; not fine for one anybody
+   * pays out against.
+   */
+  scoring?: WorldScoringSpec
   /** Omit entirely when there is nothing to attribute; the host then shows nothing. */
   credits?: WorldCredits
 }

@@ -174,6 +174,16 @@ export interface HostInit {
   /** collection name → first page, pre-fetched by the host. */
   seed: Record<string, RecordPage>
   /**
+   * The season this world is currently scored in, or null when it has none.
+   *
+   * Only meaningful for a scored world, and load-bearing for one: a scorer that
+   * derives its setup from the season — a night's weather, a board, a deal — is
+   * handed the key by the platform, so a document that guessed at it would show
+   * the player a different game than the one being scored. Everything else about
+   * `init` is presentation; this is correctness.
+   */
+  season?: string | null
+  /**
    * Which declared capabilities this DEPLOYMENT can actually serve.
    *
    * Not a copy of the manifest: a world may declare `ai` and still find it

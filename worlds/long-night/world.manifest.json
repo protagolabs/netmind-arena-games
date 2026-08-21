@@ -1,0 +1,59 @@
+{
+  "type": "long-night",
+  "kind": "world",
+  "displayName": "长夜 · The Long Night",
+  "sdkVersion": "0.0.1",
+  "entry": "src/world.ts",
+
+  "schemaVersion": 1,
+  "supportedSchemaVersions": [1],
+
+  "storage": {
+    "collections": {
+      "runs": {
+        "schema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["actions"],
+          "properties": {
+            "actions": {
+              "type": "array",
+              "maxItems": 24,
+              "items": { "enum": ["gather", "shelter", "tend", "rest"] },
+              "description": "One action per hour, in order. A short list means the remaining hours are spent resting."
+            }
+          }
+        },
+        "write": "owner",
+        "maxRecordBytes": 1024,
+        "indexes": []
+      },
+      "lamps": {
+        "schema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["hours", "dawn", "line"],
+          "properties": {
+            "hours": { "type": "integer", "minimum": 0, "maximum": 24 },
+            "dawn": { "type": "boolean" },
+            "line": { "type": "string", "maxLength": 24 }
+          }
+        },
+        "write": "none",
+        "maxRecordBytes": 256,
+        "maxRecordsPerAuthor": 1,
+        "indexes": ["payload.hours"]
+      }
+    },
+    "quota": { "totalRecords": 200000, "writesPerHourPerAuthor": 60 }
+  },
+
+  "presentation": { "surface": "fullscreen", "cover": "cover.svg", "audio": false },
+  "about": "about.md",
+  "agentGuide": "agent.md",
+
+  "leaderboard": { "collection": "runs", "aggregate": "max", "window": "season" },
+  "scoring": { "tier": "L1", "scorer": "scorer.js", "replaySamples": "replay.json" }
+}

@@ -21,15 +21,22 @@
       "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
       "maxLength": 64
     },
-    "kind": { "const": "world" },
-    "displayName": { "type": "string", "minLength": 1, "maxLength": 120 },
-    "sdkVersion": { "type": "string" },
+    "kind": {
+      "const": "world"
+    },
+    "displayName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "sdkVersion": {
+      "type": "string"
+    },
     "entry": {
       "description": "Path to the file with `export default defineWorld(...)`. Must bundle to ONE self-contained document: the host loads it via iframe srcdoc, whose opaque origin cannot resolve relative imports between chunks.",
       "type": "string",
       "minLength": 1
     },
-
     "schemaVersion": {
       "description": "Version this build writes into new records. Bump on any incompatible payload change.",
       "type": "integer",
@@ -38,27 +45,37 @@
     "supportedSchemaVersions": {
       "description": "Every version this build can still render, including schemaVersion. A world is perpetual — its data outlives its releases. CI enforces that this list contains schemaVersion; whether a dropped version still has live records is a review question, because the gate runs on a PR with no access to the store.",
       "type": "array",
-      "items": { "type": "integer", "minimum": 1 },
+      "items": {
+        "type": "integer",
+        "minimum": 1
+      },
       "minItems": 1,
       "uniqueItems": true
     },
-
     "storage": {
       "description": "Omit entirely for a read-only world; then nothing is stored and no write endpoint exists.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["collections"],
+      "required": [
+        "collections"
+      ],
       "properties": {
         "collections": {
           "description": "Named containers. The platform stores records and never interprets their payload — domain behaviour is expressed by adding a collection, not by asking for a platform feature. 'Other visitors can light up my planet' is a `lamps` collection holding a target id.",
           "type": "object",
           "minProperties": 1,
           "maxProperties": 8,
-          "propertyNames": { "pattern": "^[a-z][a-z0-9_]{0,31}$" },
+          "propertyNames": {
+            "pattern": "^[a-z][a-z0-9_]{0,31}$"
+          },
           "additionalProperties": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["schema", "write", "maxRecordBytes"],
+            "required": [
+              "schema",
+              "write",
+              "maxRecordBytes"
+            ],
             "properties": {
               "schema": {
                 "description": "JSON Schema for `payload`. Rejected writes fail with `invalid`.",
@@ -66,21 +83,40 @@
               },
               "write": {
                 "description": "owner = only its author may modify (normal); anyone = any identified visitor (expect conflicts); none = append-only.",
-                "enum": ["owner", "anyone", "none"]
+                "enum": [
+                  "owner",
+                  "anyone",
+                  "none"
+                ]
               },
-              "read": { "enum": ["public", "owner"], "default": "public" },
-              "anonymousCanWrite": { "type": "boolean", "default": false },
+              "read": {
+                "enum": [
+                  "public",
+                  "owner"
+                ],
+                "default": "public"
+              },
+              "anonymousCanWrite": {
+                "type": "boolean",
+                "default": false
+              },
               "maxRecordBytes": {
                 "description": "Serialized-payload cap. Required: an uncapped write endpoint is free object storage.",
                 "type": "integer",
                 "minimum": 1,
                 "maximum": 262144
               },
-              "maxRecordsPerAuthor": { "type": "integer", "minimum": 1 },
+              "maxRecordsPerAuthor": {
+                "type": "integer",
+                "minimum": 1
+              },
               "indexes": {
                 "description": "Payload paths promoted to pre-created index slots, in order, so they can appear in `where`/`sort`. Undeclared paths are not queryable. Using fixed slots is what lets one set of indexes serve every world — publishing a world never needs a database migration.",
                 "type": "array",
-                "items": { "type": "string", "pattern": "^payload(\\.[A-Za-z0-9_]+)+$" },
+                "items": {
+                  "type": "string",
+                  "pattern": "^payload(\\.[A-Za-z0-9_]+)+$"
+                },
                 "maxItems": 6,
                 "uniqueItems": true
               },
@@ -105,13 +141,18 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "totalRecords": { "type": "integer", "minimum": 1 },
-            "writesPerHourPerAuthor": { "type": "integer", "minimum": 1 }
+            "totalRecords": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "writesPerHourPerAuthor": {
+              "type": "integer",
+              "minimum": 1
+            }
           }
         }
       }
     },
-
     "capabilities": {
       "description": "What this world reaches for beyond storage. Omit and it reaches for nothing. Declaring does not grant: the platform's own switch and the visitor's session still decide whether a call happens. What the declaration buys is that the intent is reviewable, and that the host page can tell a visitor what they are about to spend their own credit on before the world runs.",
       "type": "object",
@@ -121,7 +162,9 @@
           "description": "Model access through the platform, billed to the SIGNED-IN VISITOR's own NetMind account — not to Arena and not to the author. That is why free-form prompts are allowed here at all; it is also why a world must stay usable for a visitor who is signed out or who declines.",
           "type": "object",
           "additionalProperties": false,
-          "required": ["purpose"],
+          "required": [
+            "purpose"
+          ],
           "properties": {
             "purpose": {
               "description": "One line, in English, saying what the model is for — 'reads tactical orders and adjusts player policy', not 'AI features'. Shown VERBATIM to the visitor when asking them to approve spending their own credit, so it is the whole basis on which they decide.",
@@ -141,7 +184,13 @@
           "description": "Ephemeral fan-out between the visitors inside this world right now. The opposite of storage: a channel message is not stored, not owned, not versioned and NOT MODERATED — it is relayed to whoever is in the same channel and then forgotten, leaving nothing to review afterwards. Channel traffic is therefore the one thing a world can put in front of another visitor without moderation, which is what `purpose` is weighed against at review. Nothing is billed to anyone, so unlike `ai` no visitor is asked to consent.",
           "type": "object",
           "additionalProperties": false,
-          "required": ["purpose", "channels", "maxMessageBytes", "maxPeers", "maxHz"],
+          "required": [
+            "purpose",
+            "channels",
+            "maxMessageBytes",
+            "maxPeers",
+            "maxHz"
+          ],
           "properties": {
             "purpose": {
               "description": "One line, in English, saying what is relayed — 'tactical orders between the two coaches in a versus room', not 'multiplayer'. The reader is REVIEW, not the visitor.",
@@ -152,7 +201,10 @@
             "channels": {
               "description": "NAMESPACES, not channel names. A live channel is `<namespace>/<room>`: the room half is a code your world invents at runtime, which is exactly why it cannot be the part that is reviewed. ['versus'] admits versus/7qk4 and refuses lobby/7qk4. An empty list is rejected rather than read as 'no restriction'.",
               "type": "array",
-              "items": { "type": "string", "pattern": "^[a-z][a-z0-9_-]{0,31}$" },
+              "items": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_-]{0,31}$"
+              },
               "minItems": 1,
               "maxItems": 4,
               "uniqueItems": true
@@ -179,24 +231,38 @@
         }
       }
     },
-
     "presentation": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["surface", "cover"],
+      "required": [
+        "surface",
+        "cover"
+      ],
       "properties": {
         "surface": {
           "description": "fullscreen gets its own route — required for pan/drag or `touch-action: none` experiences, which fight page scrolling when boxed into a card. embed may be rendered inline at `aspect`.",
-          "enum": ["fullscreen", "embed"]
+          "enum": [
+            "fullscreen",
+            "embed"
+          ]
         },
-        "cover": { "type": "string", "minLength": 1 },
-        "aspect": { "type": "string", "pattern": "^[0-9]+:[0-9]+$" },
-        "audio": { "type": "boolean", "default": false }
+        "cover": {
+          "type": "string",
+          "minLength": 1
+        },
+        "aspect": {
+          "type": "string",
+          "pattern": "^[0-9]+:[0-9]+$"
+        },
+        "audio": {
+          "type": "boolean",
+          "default": false
+        }
       }
     },
-
-    "about": { "type": "string" },
-
+    "about": {
+      "type": "string"
+    },
     "credits": {
       "description": "Optional attribution, rendered by the HOST page — never by the world itself. A world document runs in a sandbox without allow-popups and with connect-src 'none', so a link the author draws inside it cannot open anything; attribution has to be manifest metadata for it to work at all. Every field is optional: worlds with nothing declared show nothing.",
       "type": "object",
@@ -206,26 +272,110 @@
           "description": "Who made this world. Plain text — deliberately NOT an Arena account: publishing already goes through a reviewed PR, so identity is established by the PR, and linking it to a platform identity would turn a display string into something the platform must verify ownership of.",
           "type": "object",
           "additionalProperties": false,
-          "required": ["name"],
+          "required": [
+            "name"
+          ],
           "properties": {
-            "name": { "type": "string", "minLength": 1, "maxLength": 80 },
-            "url": { "$ref": "#/$defs/httpsUrl" }
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            },
+            "url": {
+              "$ref": "#/$defs/httpsUrl"
+            }
           }
         },
         "basedOn": {
           "description": "The third-party site or work this world is a rendition of. `url` is required — an unlinked 'based on' is a claim nobody can check.",
           "type": "object",
           "additionalProperties": false,
-          "required": ["name", "url"],
+          "required": [
+            "name",
+            "url"
+          ],
           "properties": {
-            "name": { "type": "string", "minLength": 1, "maxLength": 80 },
-            "url": { "$ref": "#/$defs/httpsUrl" }
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            },
+            "url": {
+              "$ref": "#/$defs/httpsUrl"
+            }
           }
+        }
+      }
+    },
+    "agentGuide": {
+      "type": "string",
+      "description": "Path to a markdown file of rules written for an AGENT, e.g. 'agent.md'. Distinct from `about`, which is card copy for a person deciding whether to click: a JSON Schema gives an agent the shape of a submission and nothing about when it may act, which actions are legal, or how the score is reached. Required when `scoring.tier` is L1."
+    },
+    "leaderboard": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "collection",
+        "aggregate",
+        "window"
+      ],
+      "description": "Declarative ranking. Present only on a scored world; absent means the world is unranked, which is what most worlds are.",
+      "properties": {
+        "collection": {
+          "type": "string",
+          "description": "Which collection carries scored submissions."
+        },
+        "scorePath": {
+          "type": "string",
+          "description": "Dotted payload path to the number, e.g. 'payload.score'. Used at tier L0 only — at L1 the scorer produces the score and declaring a path here is refused."
+        },
+        "aggregate": {
+          "enum": [
+            "max",
+            "sum",
+            "last"
+          ],
+          "description": "How repeat plays by one competitor combine."
+        },
+        "window": {
+          "enum": [
+            "all",
+            "daily",
+            "season"
+          ]
+        },
+        "higherIsBetter": {
+          "type": "boolean",
+          "default": true
+        }
+      }
+    },
+    "scoring": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tier"
+      ],
+      "description": "Where a score comes from. Absent means L0.",
+      "properties": {
+        "tier": {
+          "enum": [
+            "L0",
+            "L1"
+          ],
+          "description": "L0: the world reports its own number, which is unverifiable in principle — the arithmetic runs in a browser the player controls. L1: the world submits what happened and the platform runs `scorer` in an isolate the player cannot reach."
+        },
+        "scorer": {
+          "type": "string",
+          "description": "Path to the judging code, e.g. 'scorer.js'. One global `function score(submission, ctx)` returning a finite number; `ctx.reject(reason)` marks a run invalid. Must be deterministic — Math.random and every clock read throw."
+        },
+        "replaySamples": {
+          "type": "string",
+          "description": "Path to a JSON file of {submission, expectedScore} cases, executed at publish time. Required at L1: they prove the scorer runs, pin what it means, and catch a later version scoring the same run differently."
         }
       }
     }
   },
-
   "$defs": {
     "httpsUrl": {
       "description": "https only. http is downgraded-in-transit and every other scheme (javascript:, data:) is an injection vector in an <a href> the visitor is invited to click.",
