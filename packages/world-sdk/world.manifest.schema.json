@@ -370,6 +370,10 @@
           "type": "string",
           "description": "Path to the judging code, e.g. 'scorer.js'. One global `function score(submission, ctx)` returning a finite number; `ctx.reject(reason)` marks a run invalid. Must be deterministic — Math.random and every clock read throw."
         },
+        "controlCollection": {
+          "type": "string",
+          "description": "A write: 'partner' collection whose newest record reaches the scorer as ctx.control. How a world's setup changes — different weather, a new target — without redeploying it. Must name a partner collection: a control input players can write is the players choosing what they are judged under."
+        },
         "replaySamples": {
           "type": "string",
           "description": "Path to a JSON file of {submission, expectedScore} cases, executed at publish time. Required at L1: they prove the scorer runs, pin what it means, and catch a later version scoring the same run differently."

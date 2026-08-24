@@ -765,8 +765,23 @@ export interface WorldScoringSpec {
   tier: 'L0' | 'L1'
   /** Path to the judging code. One global `function score(submission, ctx)`. */
   scorer?: string
-  /** Path to `[{ submission, expectedScore }]`, executed at publish time. */
+  /**
+   * Path to `[{ submission, expectedScore, control? }]`, executed at publish time.
+   *
+   * A sample may state the `control` it assumes. Once a world's setup can change,
+   * a sample without one is only a claim about whatever the setup happened to be.
+   */
   replaySamples?: string
+  /**
+   * A `write: 'partner'` collection whose newest record reaches the scorer as
+   * `ctx.control`.
+   *
+   * This is how a world's setup changes without a redeploy: the platform writes a
+   * new record and every run after it is judged against that. It must be a
+   * `partner` collection — a control input players can write is the players
+   * choosing what they are judged under.
+   */
+  controlCollection?: string
 }
 
 export interface WorldManifest {

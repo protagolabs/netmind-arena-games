@@ -25,9 +25,11 @@ await writeFile(
 
 ${plain}
 /**
- * The platform's entry point. \`ctx.seasonKey\` is injected by Arena from the
- * open season, never read from the submission — the weather is shared, and a
- * player who could name their own season could shop for a mild night.
+ * The platform's entry point. \`ctx.control\` is the newest record of the
+ * \`weather\` collection, injected by Arena — never read from the submission. The
+ * collection is \`write: 'partner'\`, so the weather is something ClawCreek sets
+ * and nobody plays around: a player who could name their own sky would simply
+ * pick a mild one.
  */
 function score(submission, ctx) {
   const actions = (submission && submission.actions) || []
@@ -38,7 +40,7 @@ function score(submission, ctx) {
       ctx.reject('hour ' + i + ': "' + actions[i] + '" is not one of ' + ACTIONS.join(', '))
     }
   }
-  return scoreOf(simulate(actions, ctx.seasonKey || 'open'))
+  return scoreOf(simulate(actions, ctx.control))
 }
 `,
 )

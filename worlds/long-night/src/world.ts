@@ -19,7 +19,16 @@
  * the visitor's credential — that credential never enters this document.
  */
 import { defineWorld, type Collection, type Rec, type Visitor, type WorldCtx, type WorldTheme } from '@arena/world-sdk'
-import { ACTIONS, HOURS, scoreOf, simulate, type Action, type NightResult } from './rules.js'
+import {
+  ACTIONS,
+  HOURS,
+  scoreOf,
+  simulate,
+  skyOf,
+  type Action,
+  type NightResult,
+  type WeatherControl,
+} from './rules.js'
 
 /** A finished night, kept so the ridge can remember who made it through. */
 interface Lamp {
@@ -42,22 +51,26 @@ export default defineWorld({
   async mount(root, ctx) {
     const runs = ctx.collection<Run>('runs')
     const lamps = ctx.collection<Lamp>('lamps')
-    await new Night(root, ctx, runs, lamps).start()
+    const weather = ctx.collection<WeatherControl>('weather')
+
+    /**
+     * The sky, read before anything is drawn.
+     *
+     * Newest first is the default sort, so this is the record the platform will
+     * also hand the scorer. A failure resolves to null rather than throwing: the
+     * world has a fixed default night and is playable without this record, and a
+     * blank screen would be a worse answer than the opening weather.
+     */
+    const current = await weather
+      .list({ limit: 1 })
+      .then((page) => page.items[0]?.payload ?? null)
+      .catch(() => null)
+
+    await new Night(root, ctx, runs, lamps, current).start()
   },
 })
 
 /* ─────────────────────────── the night ─────────────────────────── */
-
-/**
- * The season key used when the platform reports none.
- *
- * Deliberately not a plausible-looking key. A world whose setup comes from the
- * season MUST NOT quietly substitute one: the player would walk a night nobody
- * else is walking and be scored — if a season later opened — against a different
- * one. Naming it `practice` makes the state visible in the UI and keeps the run
- * out of the standings.
- */
-const PRACTICE = 'practice'
 
 /** How many past hours the scene keeps on screen. */
 const BEATS_SHOWN = 6
@@ -122,7 +135,9 @@ class Night {
     private readonly ctx: WorldCtx,
     private readonly runs: Collection<Run>,
     private readonly lamps: Collection<Lamp>,
+    sky: WeatherControl | null,
   ) {
+    this.sky = sky
     this.root.innerHTML = TEMPLATE
     this.logEl = root.querySelector('#ln-log')!
     this.leftEl = root.querySelector('#ln-left')!
@@ -131,25 +146,21 @@ class Night {
     this.gaugesEl = root.querySelector('#ln-gauges')!
     this.boardEl = root.querySelector('#ln-board-inner')!
     this.actionsEl = root.querySelector('#ln-actions')!
-    this.result = simulate([], this.season())
+    this.result = simulate([], this.sky)
   }
 
   /**
-   * The season the weather is drawn from.
+   * Tonight's weather setting.
    *
-   * `ctx.season` is the key the PLATFORM will hand the scorer, so simulating with
-   * it is what makes the night on screen the night that gets scored. Falling back
-   * to `'open'` keeps the page playable before any season exists — and the scorer
-   * falls back to the same string, so the two still agree.
+   * The newest record ClawCreek has written, or null before it has written any —
+   * in which case `simulate` uses DEFAULT_SKY, exactly as the scorer does. The
+   * two must agree or the page shows a night nobody is being judged on, so both
+   * take the same input and neither has a fallback the other lacks.
+   *
+   * Read once at boot and held. Re-reading mid-night would change the weather
+   * under a player's feet halfway through a run they had already planned.
    */
-  private season(): string {
-    return this.ctx.season ?? PRACTICE
-  }
-
-  /** True when there is no open season, so this night counts for nothing. */
-  private isPractice(): boolean {
-    return !this.ctx.season
-  }
+  private readonly sky: WeatherControl | null
 
   async start(): Promise<void> {
     this.applyTheme(this.ctx.theme)
@@ -265,7 +276,7 @@ class Night {
     if (this.chosen.length >= HOURS || !this.alive()) return
     const before = this.snapshot()
     this.chosen.push(action)
-    this.result = simulate(this.chosen, this.season())
+    this.result = simulate(this.chosen, this.sky)
     this.narrate(before, action)
     this.paint()
 
@@ -415,13 +426,12 @@ class Night {
   private paintStatus(): void {
     const lived = Math.min(this.chosen.length, this.result.trace.length)
     const left = HOURS - lived
-    // The season key alone is a bare identifier — "第 7 夜" reads as the seventh
-    // night of something, which it is not. What a player needs from it is that
-    // this particular night is SHARED, so the label says that and the key rides
-    // along as its name.
-    const practice = this.isPractice()
-    this.nightEl.textContent = practice ? '练习夜' : `今夜 #${this.season()}`
-    const what = practice ? '没有开放的赛季,这一夜不计分' : '所有人走的都是这一夜'
+    // Named, not numbered. There is no "seventh night of" anything here — this
+    // world stays open, and what a player needs to know is that the night is
+    // SHARED and which one it currently is, so a change of weather is visible as
+    // a change of name.
+    this.nightEl.textContent = this.sky?.label ?? skyOf(this.sky).seed
+    const what = '所有人走的都是这一夜'
     this.leftEl.textContent = this.alive()
       ? left > 0
         ? `${what} · 天亮还有 ${left} 小时`
@@ -442,18 +452,8 @@ class Night {
    * had in fact just been submitted and scored.
    */
   private async finish(): Promise<void> {
-    const played = simulate(this.chosen, this.season())
+    const played = simulate(this.chosen, this.sky)
     const points = scoreOf(played)
-
-    if (this.isPractice()) {
-      this.showEnding(
-        played,
-        points,
-        '这是练习夜——现在没有开放的赛季,所以没有记录。',
-        'Practice night: no season is open, so nothing was recorded.',
-      )
-      return
-    }
 
     if (!this.me) {
       this.showEnding(played, points, '这一夜没有被记录。登录后再走一次就能上榜。', 'Not recorded — sign in to be scored.')
@@ -537,7 +537,7 @@ class Night {
   /** Another go at the same night. */
   private restart(): void {
     this.chosen = []
-    this.result = simulate([], this.season())
+    this.result = simulate([], this.sky)
     this.beats = []
     this.logEl.textContent = ''
     this.paint()

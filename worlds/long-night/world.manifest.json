@@ -29,6 +29,26 @@
         "maxRecordBytes": 1024,
         "indexes": []
       },
+      "weather": {
+        "schema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["seed"],
+          "properties": {
+            "seed": { "type": "string", "maxLength": 64, "description": "Which night everyone is walking. Change it and everyone walks a different one." },
+            "label": { "type": "string", "maxLength": 40, "description": "What to call this weather on screen. Optional." },
+            "frostBase": { "type": "number", "minimum": 0, "maximum": 1 },
+            "frostDeep": { "type": "number", "minimum": 0, "maximum": 1 },
+            "rainBase": { "type": "number", "minimum": 0, "maximum": 1 },
+            "rainDeep": { "type": "number", "minimum": 0, "maximum": 1 },
+            "windUpTo": { "type": "number", "minimum": 0, "maximum": 1 }
+          }
+        },
+        "write": "partner",
+        "maxRecordBytes": 512,
+        "indexes": []
+      },
       "lamps": {
         "schema": {
           "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -54,6 +74,6 @@
   "about": "about.md",
   "agentGuide": "agent.md",
 
-  "leaderboard": { "collection": "runs", "aggregate": "max", "window": "season" },
-  "scoring": { "tier": "L1", "scorer": "scorer.js", "replaySamples": "replay.json" }
+  "leaderboard": { "collection": "runs", "aggregate": "max", "window": "all" },
+  "scoring": { "tier": "L1", "scorer": "scorer.js", "replaySamples": "replay.json", "controlCollection": "weather" }
 }

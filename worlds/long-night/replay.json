@@ -34,37 +34,43 @@
         "tend"
       ]
     },
-    "expectedScore": 2100
+    "expectedScore": 1800
   },
   {
     "submission": {
       "actions": [
-        "shelter",
-        "shelter",
-        "shelter",
-        "shelter",
-        "shelter",
-        "shelter",
-        "shelter",
-        "shelter",
-        "shelter",
-        "shelter",
-        "shelter",
-        "shelter",
-        "shelter",
-        "shelter",
-        "shelter",
-        "shelter",
-        "shelter",
-        "shelter",
-        "shelter",
-        "shelter",
-        "shelter",
-        "shelter",
-        "shelter",
-        "shelter"
+        "tend",
+        "tend",
+        "tend",
+        "tend",
+        "tend",
+        "tend",
+        "tend",
+        "tend",
+        "tend",
+        "tend",
+        "tend",
+        "tend",
+        "tend",
+        "tend",
+        "tend",
+        "tend",
+        "tend",
+        "tend",
+        "tend",
+        "tend",
+        "tend",
+        "tend",
+        "tend",
+        "tend"
       ]
     },
-    "expectedScore": 1000
+    "control": {
+      "seed": "the-long-cold",
+      "label": "长寒 · The Long Cold",
+      "frostBase": 0.25,
+      "frostDeep": 0.45
+    },
+    "expectedScore": 1500
   }
 ]

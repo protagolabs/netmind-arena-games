@@ -6,12 +6,24 @@
  * never be hand-edited. Two copies of a rule set drift, and drift here reads as a
  * player being told they survived and then being scored as though they had not.
  *
- * WHY THE WEATHER IS SHARED. Every competitor in a season gets the SAME sequence
- * of hours, seeded from the season key alone and never from who is playing. That
- * is what makes the leaderboard mean anything: a longer night is a better night,
- * not a luckier one. It is the opposite choice from a per-player board, and it is
- * the right one here because the whole appeal is comparing your line against
- * someone else's on a night you both remember.
+ * WHY THE WEATHER IS SHARED. Everyone gets the SAME sequence of hours, seeded
+ * from the world's current weather setting alone and never from who is playing.
+ * That is what makes the leaderboard mean anything: a longer night is a better
+ * night, not a luckier one. It is the opposite choice from a per-player board,
+ * and it is the right one here because the whole appeal is comparing your line
+ * against someone else's on a night you both remember.
+ *
+ * WHERE THE SETTING COMES FROM. A record in the `weather` collection, which only
+ * ClawCreek can write and everyone can read. The platform hands the newest one to
+ * the scorer as `ctx.control`, and the document reads the same record, so the
+ * night you are shown and the night you are judged on are the same night by
+ * construction. Before one is written — and if one is ever deleted — DEFAULT_SKY
+ * applies, so the world always has weather.
+ *
+ * It can change WHILE THE WORLD RUNS, and that is the point: this is a place that
+ * stays open rather than a series of rounds. The consequence is real and worth
+ * stating plainly — the board keeps every score ever set, so a run made under
+ * kind weather outlives the weather it was made in.
  *
  * Determinism is mandatory: `Math.random` and every clock read throw inside the
  * scorer isolate. The generator below is seeded and explicit for that reason, and
@@ -74,6 +86,59 @@ function fnv1a(text: string): number {
   return h >>> 0
 }
 
+/**
+ * What ClawCreek can change about the sky, and nothing else.
+ *
+ * Every field bar `seed` is a threshold in the generator below, exposed rather
+ * than buried so that "the weather changed" is a legible statement instead of a
+ * new build nobody outside can inspect. An agent reads the current record and
+ * reproduces the night exactly; see agent.md.
+ */
+export interface WeatherControl {
+  /** Which night. Change it and everyone walks a different one. */
+  seed: string
+  /** What to call it on screen. */
+  label?: string
+  frostBase?: number
+  frostDeep?: number
+  rainBase?: number
+  rainDeep?: number
+  windUpTo?: number
+}
+
+/**
+ * The night this world has when nobody has said otherwise.
+ *
+ * Not a placeholder: it is the opening night, and it is fixed. A world whose
+ * first hour depends on a record that may not exist yet would be a world that
+ * cannot be played until its operator remembers to configure it.
+ */
+export const DEFAULT_SKY: Required<Omit<WeatherControl, 'label'>> = {
+  seed: 'first-light',
+  frostBase: 0.1,
+  frostDeep: 0.3,
+  rainBase: 0.3,
+  rainDeep: 0.35,
+  windUpTo: 0.62,
+}
+
+/** Fill in whatever the record left out. A partial setting is a valid setting. */
+export function skyOf(control: WeatherControl | null | undefined): Required<Omit<WeatherControl, 'label'>> {
+  if (!control || typeof control.seed !== 'string' || !control.seed) return DEFAULT_SKY
+  return {
+    seed: control.seed,
+    frostBase: num(control.frostBase, DEFAULT_SKY.frostBase),
+    frostDeep: num(control.frostDeep, DEFAULT_SKY.frostDeep),
+    rainBase: num(control.rainBase, DEFAULT_SKY.rainBase),
+    rainDeep: num(control.rainDeep, DEFAULT_SKY.rainDeep),
+    windUpTo: num(control.windUpTo, DEFAULT_SKY.windUpTo),
+  }
+}
+
+function num(v: unknown, fallback: number): number {
+  return typeof v === 'number' && isFinite(v) && v >= 0 && v <= 1 ? v : fallback
+}
+
 function mulberry32(seed: number): () => number {
   var a = seed >>> 0
   return function () {
@@ -88,19 +153,20 @@ function mulberry32(seed: number): () => number {
 /**
  * Tonight's weather, hour by hour.
  *
- * Seeded from the season alone. The deepening bias is not decoration: an early
- * night that is survivable by ignoring it, turning into a late night that is not,
- * is what makes stockpiling a real decision rather than an obvious one.
+ * Seeded from the current setting alone. The deepening bias is not decoration: an
+ * early night that is survivable by ignoring it, turning into a late night that
+ * is not, is what makes stockpiling a real decision rather than an obvious one.
  */
-export function forecast(seasonKey: string): Weather[] {
-  var roll = mulberry32(fnv1a('long-night:' + seasonKey))
+export function forecast(control: WeatherControl | null | undefined): Weather[] {
+  var sky = skyOf(control)
+  var roll = mulberry32(fnv1a('long-night:' + sky.seed))
   const hours: Weather[] = []
   for (var h = 0; h < HOURS; h++) {
     var deep = h / HOURS
     var r = roll()
-    if (r < 0.10 + deep * 0.30) hours.push('frost')
-    else if (r < 0.30 + deep * 0.35) hours.push('rain')
-    else if (r < 0.62) hours.push('wind')
+    if (r < sky.frostBase + deep * sky.frostDeep) hours.push('frost')
+    else if (r < sky.rainBase + deep * sky.rainDeep) hours.push('rain')
+    else if (r < sky.windUpTo) hours.push('wind')
     else hours.push('clear')
   }
   return hours
@@ -113,8 +179,8 @@ export function forecast(seasonKey: string): Weather[] {
  * from the same call the scorer scores from. `hoursSurvived` is the headline;
  * everything else is what the page shows while you are living it.
  */
-export function simulate(actions: Action[], seasonKey: string): NightResult {
-  const sky = forecast(seasonKey)
+export function simulate(actions: Action[], control: WeatherControl | null | undefined): NightResult {
+  const sky = forecast(control)
   var warmth = START.warmth
   var fuel = START.fuel
   var flame = START.flame

@@ -94,7 +94,9 @@ export interface WorldIndexEntry {
   scoring: {
     tier: 'L0' | 'L1'
     scorer?: string
-    replaySamples?: { submission: unknown; expectedScore: number }[]
+    replaySamples?: { submission: unknown; expectedScore: number; control?: unknown }[]
+    /** Which `write: 'partner'` collection is handed to the scorer as `ctx.control`. */
+    controlCollection?: string
   } | null
   /** Optional attribution; `null` when the manifest declares none. */
   credits: WorldManifest['credits'] | null
@@ -354,7 +356,15 @@ export async function buildWorlds(dist: string): Promise<WorldIndexEntry[]> {
       if (manifest.scoring.replaySamples) {
         scoring.replaySamples = JSON.parse(
           await readFile(path.join(dir, manifest.scoring.replaySamples), 'utf8'),
-        ) as WorldIndexEntry['scoring'] extends null ? never : { submission: unknown; expectedScore: number }[]
+        ) as WorldIndexEntry['scoring'] extends null
+          ? never
+          : { submission: unknown; expectedScore: number; control?: unknown }[]
+      }
+      // Without this the world declares a controllable setup and the platform
+      // never learns which collection carries it, so `ctx.control` is null on
+      // every run and the scorer silently falls back to its defaults forever.
+      if (manifest.scoring.controlCollection) {
+        scoring.controlCollection = manifest.scoring.controlCollection
       }
       if (manifest.scoring.tier === 'L1' && !agentGuide) {
         throw new Error(

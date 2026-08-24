@@ -20,6 +20,28 @@ function fnv1a(text) {
   }
   return h >>> 0;
 }
+const DEFAULT_SKY = {
+  seed: "first-light",
+  frostBase: 0.1,
+  frostDeep: 0.3,
+  rainBase: 0.3,
+  rainDeep: 0.35,
+  windUpTo: 0.62
+};
+function skyOf(control) {
+  if (!control || typeof control.seed !== "string" || !control.seed) return DEFAULT_SKY;
+  return {
+    seed: control.seed,
+    frostBase: num(control.frostBase, DEFAULT_SKY.frostBase),
+    frostDeep: num(control.frostDeep, DEFAULT_SKY.frostDeep),
+    rainBase: num(control.rainBase, DEFAULT_SKY.rainBase),
+    rainDeep: num(control.rainDeep, DEFAULT_SKY.rainDeep),
+    windUpTo: num(control.windUpTo, DEFAULT_SKY.windUpTo)
+  };
+}
+function num(v, fallback) {
+  return typeof v === "number" && isFinite(v) && v >= 0 && v <= 1 ? v : fallback;
+}
 function mulberry32(seed) {
   var a = seed >>> 0;
   return function() {
@@ -30,21 +52,22 @@ function mulberry32(seed) {
     return ((t ^ t >>> 14) >>> 0) / 4294967296;
   };
 }
-function forecast(seasonKey) {
-  var roll = mulberry32(fnv1a("long-night:" + seasonKey));
+function forecast(control) {
+  var sky = skyOf(control);
+  var roll = mulberry32(fnv1a("long-night:" + sky.seed));
   const hours = [];
   for (var h = 0; h < HOURS; h++) {
     var deep = h / HOURS;
     var r = roll();
-    if (r < 0.1 + deep * 0.3) hours.push("frost");
-    else if (r < 0.3 + deep * 0.35) hours.push("rain");
-    else if (r < 0.62) hours.push("wind");
+    if (r < sky.frostBase + deep * sky.frostDeep) hours.push("frost");
+    else if (r < sky.rainBase + deep * sky.rainDeep) hours.push("rain");
+    else if (r < sky.windUpTo) hours.push("wind");
     else hours.push("clear");
   }
   return hours;
 }
-function simulate(actions, seasonKey) {
-  const sky = forecast(seasonKey);
+function simulate(actions, control) {
+  const sky = forecast(control);
   var warmth = START.warmth;
   var fuel = START.fuel;
   var flame = START.flame;
@@ -109,16 +132,20 @@ function scoreOf(result) {
 }
 {
   ACTIONS,
+  DEFAULT_SKY,
   HOURS,
   forecast,
   scoreOf,
-  simulate
+  simulate,
+  skyOf
 };
 
 /**
- * The platform's entry point. `ctx.seasonKey` is injected by Arena from the
- * open season, never read from the submission — the weather is shared, and a
- * player who could name their own season could shop for a mild night.
+ * The platform's entry point. `ctx.control` is the newest record of the
+ * `weather` collection, injected by Arena — never read from the submission. The
+ * collection is `write: 'partner'`, so the weather is something ClawCreek sets
+ * and nobody plays around: a player who could name their own sky would simply
+ * pick a mild one.
  */
 function score(submission, ctx) {
   const actions = (submission && submission.actions) || []
@@ -129,5 +156,5 @@ function score(submission, ctx) {
       ctx.reject('hour ' + i + ': "' + actions[i] + '" is not one of ' + ACTIONS.join(', '))
     }
   }
-  return scoreOf(simulate(actions, ctx.seasonKey || 'open'))
+  return scoreOf(simulate(actions, ctx.control))
 }
