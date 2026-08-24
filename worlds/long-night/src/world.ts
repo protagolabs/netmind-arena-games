@@ -554,8 +554,15 @@ class Night {
    * frame, which is what made one page read as two unrelated screens.
    */
   private async paintBoard(): Promise<void> {
+    // Kept apart from `lamps`, and the reason is recorded rather than dropped:
+    // "no one has finished" and "the board would not load" look identical on
+    // screen unless the world is told which happened, and the difference is
+    // whether the player's own run counted.
     const [board, lamps] = await Promise.all([
-      this.ctx.standings({ limit: 12 }),
+      this.ctx
+        .standings({ limit: 12 })
+        .then((page) => ({ page, error: null as string | null }))
+        .catch((e: unknown) => ({ page: null, error: e instanceof Error ? e.message : '读取失败' })),
       this.lamps.list({ sort: ['-payload.hours'], limit: 12 }).catch(() => ({ items: [] as Rec<Lamp>[] })),
     ])
 
@@ -565,9 +572,9 @@ class Night {
     head.className = 'ln-board-head'
     const title = document.createElement('span')
     title.className = 'ln-board-title'
-    title.textContent = board ? `第 ${board.season.key} 夜` : '排行榜'
+    title.textContent = board.page ? `第 ${board.page.season.key} 夜` : '排行榜'
     head.appendChild(title)
-    if (board?.season.status === 'sealed') {
+    if (board.page?.season.status === 'sealed') {
       const final = document.createElement('span')
       final.className = 'ln-board-final'
       final.textContent = '已封存 final'
@@ -575,7 +582,12 @@ class Night {
     }
     this.boardEl.appendChild(head)
 
-    if (!board || board.rows.length === 0) {
+    if (board.error) {
+      const failed = document.createElement('p')
+      failed.className = 'ln-board-empty is-error'
+      failed.textContent = `榜没读出来 · ${board.error}\nThe board could not be read — this says nothing about your run.`
+      this.boardEl.appendChild(failed)
+    } else if (!board.page || board.page.rows.length === 0) {
       const empty = document.createElement('p')
       empty.className = 'ln-board-empty'
       empty.textContent = '还没有人走完这一夜。第一个就是你。\nNobody has finished tonight yet.'
@@ -583,7 +595,7 @@ class Night {
     } else {
       const rows = document.createElement('div')
       rows.className = 'ln-rows'
-      for (const r of board.rows) {
+      for (const r of board.page.rows) {
         const row = document.createElement('div')
         row.className = 'ln-row' + (r.mine ? ' is-mine' : '')
         const rank = document.createElement('span')
@@ -792,6 +804,7 @@ const TEMPLATE = `
   .ln-row-rank { color:var(--ink-dim); font-variant-numeric:tabular-nums; text-align:right; font-size:10px; }
   .ln-row-who { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .ln-row-score { font-variant-numeric:tabular-nums; font-weight:600; color:var(--ember-hot); }
+  .ln-board-empty.is-error { color:#e59595; }
   .ln-board-empty { font-size:10.5px; color:var(--ink-dim); line-height:1.6; }
   .ln-lamps { display:flex; flex-wrap:wrap; gap:8px; padding-top:10px; margin-top:2px;
               border-top:1px solid rgba(255,255,255,.07); }

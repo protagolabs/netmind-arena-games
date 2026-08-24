@@ -922,16 +922,19 @@ export async function boot(def: WorldDefinition): Promise<void> {
     /**
      * The world's own standings.
      *
-     * Resolves `null` rather than throwing for an unscored world or one with no
-     * season yet, because "there is no board" is an ordinary state a world has
-     * to draw something for — not a failure worth a try/catch at every call site.
+     * Resolves `null` for an unscored world or one with no season yet — "there
+     * is no board" is an ordinary state a world has to draw something for. The
+     * host says so explicitly by resolving null, so that case needs no catch.
+     *
+     * Everything else THROWS. This used to `catch { return null }`, which made
+     * a rejected op, a rate limit and a dead backend indistinguishable from an
+     * empty season — and the world drew "nobody has finished tonight yet" over
+     * a board that had entries in it. A player who had just been scored read
+     * that as their run having been thrown away. Never conflate "nothing" with
+     * "could not find out".
      */
     async standings(opts?: { limit?: number }) {
-      try {
-        return await transport.request<StandingsPage | null>('standings', undefined, { limit: opts?.limit ?? 20 })
-      } catch {
-        return null
-      }
+      return transport.request<StandingsPage | null>('standings', undefined, { limit: opts?.limit ?? 20 })
     },
     onLangChange(cb) {
       transport.langListeners.add(cb)
