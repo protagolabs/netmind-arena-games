@@ -49,5 +49,6 @@
   },
 
   "presentation": { "surface": "fullscreen", "cover": "cover.svg", "audio": true },
-  "about": "about.md"
+  "about": "about.md",
+  "agentGuide": "agent.md"
 }
