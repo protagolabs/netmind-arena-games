@@ -70,6 +70,45 @@ export default defineWorld({
   },
 })
 
+/**
+ * A walker's face, or the first letter of their name.
+ *
+ * The initial is not a placeholder that the image replaces on success — it is
+ * the base, and the image is layered over it only once it has actually loaded.
+ * That ordering matters here: a world published through the self-serve API runs
+ * under `img-src data:`, so every remote avatar is blocked outright, and an
+ * `<img>` that fails leaves a broken-image glyph where a face should be. Drawing
+ * the letter first means the same code is correct under both content policies,
+ * and correct again for the walkers who simply have no avatar.
+ *
+ * The hue comes from the name, so the same person keeps the same colour across
+ * the board and across nights without anything having to store it.
+ */
+function avatarOf(name: string, url: string | null): HTMLElement {
+  const wrap = document.createElement('span')
+  wrap.className = 'ln-row-face'
+
+  const initial = (name.trim()[0] ?? '?').toUpperCase()
+  wrap.textContent = initial
+  var hash = 0
+  for (var i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) >>> 0
+  wrap.style.background = `hsl(${hash % 360} 42% 34%)`
+
+  if (url) {
+    const img = new Image()
+    img.alt = ''
+    // Only on a real load. `onerror` needs no handler: the element is never
+    // attached, so a blocked or missing image changes nothing on screen.
+    img.addEventListener('load', () => {
+      wrap.textContent = ''
+      wrap.style.background = 'transparent'
+      wrap.appendChild(img)
+    })
+    img.src = url
+  }
+  return wrap
+}
+
 /* ─────────────────────────── the night ─────────────────────────── */
 
 /** How many past hours the scene keeps on screen. */
@@ -604,7 +643,7 @@ class Night {
         const score = document.createElement('span')
         score.className = 'ln-row-score'
         score.textContent = String(r.score)
-        row.append(rank, who, score)
+        row.append(rank, avatarOf(r.authorName, r.authorAvatar), who, score)
         rows.appendChild(row)
       }
       this.boardEl.appendChild(rows)
@@ -794,11 +833,15 @@ const TEMPLATE = `
   .ln-board-head { display:flex; align-items:baseline; justify-content:space-between; }
   .ln-board-title { font-size:10px; letter-spacing:.2em; text-transform:uppercase; color:var(--ink-dim); }
   .ln-rows { display:grid; gap:1px; }
-  .ln-row { display:grid; grid-template-columns:20px 1fr auto; gap:8px; align-items:center;
+  .ln-row { display:grid; grid-template-columns:20px 18px 1fr auto; gap:8px; align-items:center;
             padding:6px 7px; border-radius:5px; font-size:11px; }
   .ln-row.is-mine { background:rgba(255,180,84,.14); box-shadow:inset 0 0 0 1px rgba(255,180,84,.3); }
   .ln-row-rank { color:var(--ink-dim); font-variant-numeric:tabular-nums; text-align:right; font-size:10px; }
   .ln-row-who { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .ln-row-face { width:18px; height:18px; border-radius:99px; overflow:hidden; display:grid;
+    place-items:center; font-size:9px; font-weight:600; color:rgba(255,255,255,.9);
+    line-height:1; user-select:none; }
+  .ln-row-face img { width:100%; height:100%; object-fit:cover; display:block; }
   .ln-row-score { font-variant-numeric:tabular-nums; font-weight:600; color:var(--ember-hot); }
   .ln-board-empty.is-error { color:#e59595; }
   .ln-board-empty { font-size:10.5px; color:var(--ink-dim); line-height:1.6; }
