@@ -238,7 +238,7 @@ class Night {
       '<ul class="ln-rules">' +
       '<li><b>体温归零就结束。</b>每小时天气都在夺走体温,火焰挡回来一部分。<span>Warmth hits zero and the night is over.</span></li>' +
       '<li><b>火要烧柴,柴要出去拾。</b>出去就要挨冻——整晚唯一的两难。<span>The fire eats wood; fetching it costs warmth.</span></li>' +
-      '<li><b>上面那条是今夜的天气,已经定了。</b>每一夜有编号,同一夜里所有人遇到的天气完全一样——拼的是安排,不是运气。<span>Each night has a number. Everyone on that night gets the same weather.</span></li>' +
+      '<li><b>上面那条是今夜的天气,已经定了。</b>所有人走的都是这一夜,天气完全一样——拼的是安排,不是运气。<span>Everyone walks the same night, under the same sky.</span></li>' +
       '</ul>' +
       '<div class="ln-legend" id="ln-card-legend"></div>' +
       '<button class="ln-go" type="button">走进夜里 · Begin</button>' +
@@ -572,14 +572,11 @@ class Night {
     head.className = 'ln-board-head'
     const title = document.createElement('span')
     title.className = 'ln-board-title'
-    title.textContent = board.page ? `第 ${board.page.season.key} 夜` : '排行榜'
+    // The board never ends and never seals — there is one, it is permanent, and
+    // it keeps each walker's best night. So the header names the sky rather than
+    // a round: `第 N 夜` was a season number, and there are no seasons.
+    title.textContent = this.sky?.label ?? skyOf(this.sky).seed
     head.appendChild(title)
-    if (board.page?.season.status === 'sealed') {
-      const final = document.createElement('span')
-      final.className = 'ln-board-final'
-      final.textContent = '已封存 final'
-      head.appendChild(final)
-    }
     this.boardEl.appendChild(head)
 
     if (board.error) {
@@ -796,7 +793,6 @@ const TEMPLATE = `
   .ln-board-inner { padding:16px 16px 20px; display:grid; gap:10px; align-content:start; height:100%; box-sizing:border-box; }
   .ln-board-head { display:flex; align-items:baseline; justify-content:space-between; }
   .ln-board-title { font-size:10px; letter-spacing:.2em; text-transform:uppercase; color:var(--ink-dim); }
-  .ln-board-final { font-size:8.5px; letter-spacing:.14em; color:var(--ember); text-transform:uppercase; }
   .ln-rows { display:grid; gap:1px; }
   .ln-row { display:grid; grid-template-columns:20px 1fr auto; gap:8px; align-items:center;
             padding:6px 7px; border-radius:5px; font-size:11px; }
