@@ -186,15 +186,15 @@ export interface HostInit {
   /** collection name → first page, pre-fetched by the host. */
   seed: Record<string, RecordPage>
   /**
-   * The season this world is currently scored in, or null when it has none.
+   * Which board bucket this world is currently scored in, or null when it has none.
    *
    * Only meaningful for a scored world, and load-bearing for one: a scorer that
-   * derives its setup from the season — a night's weather, a board, a deal — is
+   * derives its setup from that bucket — a daily puzzle keyed by date — is
    * handed the key by the platform, so a document that guessed at it would show
    * the player a different game than the one being scored. Everything else about
    * `init` is presentation; this is correctness.
    */
-  season?: string | null
+  period?: string | null
   /**
    * Which declared capabilities this DEPLOYMENT can actually serve.
    *
@@ -324,15 +324,15 @@ export interface StandingRow {
   authorAvatar: string | null
   score: number
   plays: number
-  /** Rank among everyone in the season. */
+  /** Rank among everyone on the board. */
   rank: number
   /** True for the caller's own row, so a world can highlight it. */
   mine: boolean
 }
 
 export interface StandingsPage {
-  /** The season these standings belong to, and whether it is final. */
-  season: { key: string; status: 'open' | 'sealed' }
+  /** The board bucket these standings belong to. */
+  period: { key: string }
   rows: StandingRow[]
   total: number
 }

@@ -158,7 +158,7 @@ class Transport {
    * messages, and its init effect awaits the visitor lookup before posting while
    * the theme push is synchronous — so `env` routinely arrived FIRST. That made
    * the real init look like a re-init, and a re-init deliberately keeps the
-   * season it already has: `null`. The world then drew a season it was not being
+   * period it already has: `null`. The world then drew a setup it was not being
    * scored in. Nothing else observed the flag, so the bug was silent and
    * load-order dependent, which is the worst combination.
    */
@@ -169,7 +169,7 @@ class Transport {
     me: null as VisitorInfo | null,
     theme: null as ThemeTokens | null,
     lang: 'en',
-    season: null as string | null,
+    period: null as string | null,
   }
 
   constructor() {
@@ -226,7 +226,7 @@ class Transport {
           lang: this.env.lang !== msg.lang,
           me: !sameContent(this.env.me, msg.me),
         }
-        // `season` is taken on the FIRST init and then held. A re-init must not
+        // `period` is taken on the FIRST init and then held. A re-init must not
         // move it: a scored world derives its setup from the key, so changing it
         // mid-session would silently invalidate the run the player is in the
         // middle of — they would finish a night that no longer exists.
@@ -234,7 +234,7 @@ class Transport {
           me: msg.me,
           theme: msg.theme,
           lang: msg.lang,
-          season: first ? (msg.season ?? null) : this.env.season,
+          period: first ? (msg.period ?? null) : this.env.period,
         }
         this.resolveInit(msg)
 
@@ -916,19 +916,19 @@ export async function boot(def: WorldDefinition): Promise<void> {
     get lang() {
       return transport.env.lang
     },
-    get season() {
-      return transport.env.season
+    get period() {
+      return transport.env.period
     },
     /**
      * The world's own standings.
      *
-     * Resolves `null` for an unscored world or one with no season yet — "there
+     * Resolves `null` for an unscored world or one with no board yet — "there
      * is no board" is an ordinary state a world has to draw something for. The
      * host says so explicitly by resolving null, so that case needs no catch.
      *
      * Everything else THROWS. This used to `catch { return null }`, which made
      * a rejected op, a rate limit and a dead backend indistinguishable from an
-     * empty season — and the world drew "nobody has finished tonight yet" over
+     * empty board — and the world drew "nobody has finished tonight yet" over
      * a board that had entries in it. A player who had just been scored read
      * that as their run having been thrown away. Never conflate "nothing" with
      * "could not find out".

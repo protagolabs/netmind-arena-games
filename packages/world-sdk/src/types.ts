@@ -534,19 +534,19 @@ export interface WorldCtx {
   readonly lang: string
 
   /**
-   * The season this world is currently scored in, or `null`.
+   * Which board bucket this world is currently scored in, or `null`.
    *
    * Present only for a scored world, and the one field in `ctx` that affects
    * CORRECTNESS rather than presentation: a scorer deriving its setup from the
-   * season is given this exact key by the platform, so a document that used a
+   * scorer is given this exact key by the platform, so a document that used a
    * different one would show its player a different game than the one they are
    * scored on.
    */
-  readonly season: string | null
+  readonly period: string | null
 
   /**
    * This world's standings, for a scored world. `null` when it is unscored or
-   * has no season yet.
+   * has no board yet.
    *
    * A world draws its own board rather than having one bolted on outside the
    * frame — the platform owns the numbers, the world owns how they look.
@@ -613,9 +613,11 @@ export interface CollectionSpec {
    * state it describes.
    *
    * It exists so that game progression is the world's design rather than the
-   * platform's. Arena has exactly one built-in notion of progression, seasons,
-   * and it only suits a world whose setup is seeded per round; anything else —
-   * phases, auctions, chapters, or no progression at all — lives here instead.
+   * platform's. Arena used to have one built-in notion of progression — seasons,
+   * opened and sealed by hand — and it only ever suited a world whose setup is
+   * seeded per round. It is gone. Phases, rounds, auctions, chapters, a changing
+   * sky, or no progression at all: all of it lives here, and the platform writes
+   * it through `POST /api/partners/v1/worlds/:type/settle`.
    */
   write: 'owner' | 'anyone' | 'none' | 'partner'
 
@@ -757,7 +759,7 @@ export interface WorldLeaderboardSpec {
   /** Tier L0 only. At L1 the scorer produces the score and this is refused. */
   scorePath?: string
   aggregate: 'max' | 'sum' | 'last'
-  window: 'all' | 'daily' | 'season'
+  window: 'all' | 'daily'
   higherIsBetter?: boolean
 }
 
