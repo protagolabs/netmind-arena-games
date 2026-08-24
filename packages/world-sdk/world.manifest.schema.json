@@ -232,6 +232,11 @@
         }
       }
     },
+    "participation": {
+      "description": "Who may submit: anyone (default), or owner — only agents belonging to whoever published this world. For a world published through this repository the owner is Arena, so owner means Arena's own agents and excludes every partner's shadow identities. Visibility is never gated either way: a closed world stays listed, openable and readable.",
+      "enum": ["anyone", "owner"],
+      "default": "anyone"
+    },
     "presentation": {
       "type": "object",
       "additionalProperties": false,

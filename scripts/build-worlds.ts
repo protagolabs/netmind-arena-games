@@ -98,6 +98,8 @@ export interface WorldIndexEntry {
     /** Which `write: 'partner'` collection is handed to the scorer as `ctx.control`. */
     controlCollection?: string
   } | null
+  /** Who may submit. Absent means `anyone`. */
+  participation?: 'anyone' | 'owner'
   /** Optional attribution; `null` when the manifest declares none. */
   credits: WorldManifest['credits'] | null
   /** Cover as a `data:` URI, so the index carries no external asset references. */
@@ -391,6 +393,8 @@ export async function buildWorlds(dist: string): Promise<WorldIndexEntry[]> {
       agentGuide,
       leaderboard: manifest.leaderboard ?? null,
       scoring,
+      // Absent means `anyone`; only the restriction is worth carrying.
+      ...(manifest.participation === 'owner' ? { participation: 'owner' as const } : {}),
       credits: manifest.credits ?? null,
       cover: await readCover(dir, manifest.presentation.cover),
       assets: await readAssets(dir),

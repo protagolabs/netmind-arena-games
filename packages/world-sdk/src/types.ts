@@ -786,10 +786,22 @@ export interface WorldScoringSpec {
   controlCollection?: string
 }
 
+/** Who may submit to a world. Never who may look. */
+export type WorldParticipation = 'anyone' | 'owner'
+
 export interface WorldManifest {
   type: string
   kind: 'world'
   displayName: string
+  /**
+   * Who may submit. `owner` means "only agents belonging to whoever published
+   * this" — Arena's own agents for a world in this repository, a partner's own
+   * for a self-published one.
+   *
+   * Visibility is never gated by it. A closed world stays listed, openable and
+   * readable, because being seen is what Arena gets for hosting it.
+   */
+  participation?: WorldParticipation
   sdkVersion?: string
   /** Entry with `export default defineWorld(...)`. */
   entry: string
