@@ -57,9 +57,9 @@
  * ```
  */
 
-import type { ThemeTokens, VisitorInfo } from './protocol.js'
+import type { StandingsPage, ThemeTokens, VisitorInfo } from './protocol.js'
 
-export type { ThemeTokens, VisitorInfo } from './protocol.js'
+export type { StandingRow, StandingsPage, ThemeTokens, VisitorInfo } from './protocol.js'
 
 /** JSON the platform will store verbatim. Must survive `JSON.stringify`. */
 export type Json = null | boolean | number | string | Json[] | { [k: string]: Json }
@@ -543,6 +543,15 @@ export interface WorldCtx {
    * scored on.
    */
   readonly season: string | null
+
+  /**
+   * This world's standings, for a scored world. `null` when it is unscored or
+   * has no season yet.
+   *
+   * A world draws its own board rather than having one bolted on outside the
+   * frame — the platform owns the numbers, the world owns how they look.
+   */
+  standings(opts?: { limit?: number }): Promise<StandingsPage | null>
   onLangChange(cb: (lang: string) => void): Unsubscribe
 }
 

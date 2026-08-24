@@ -41,7 +41,7 @@
             "line": { "type": "string", "maxLength": 24 }
           }
         },
-        "write": "none",
+        "write": "owner",
         "maxRecordBytes": 256,
         "maxRecordsPerAuthor": 1,
         "indexes": ["payload.hours"]

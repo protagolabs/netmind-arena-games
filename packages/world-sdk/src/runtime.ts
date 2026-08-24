@@ -20,6 +20,7 @@ import {
   type WorldOp,
 } from './protocol.js'
 import type {
+  StandingsPage,
   AiReply,
   AiRequest,
   ChangeEvent,
@@ -149,6 +150,20 @@ class Transport {
   readonly themeListeners = new Set<(t: WorldTheme) => void>()
   readonly langListeners = new Set<(l: string) => void>()
 
+  /**
+   * Whether an `init` has been handled yet.
+   *
+   * This used to be inferred from `env.theme === null`, on the reasoning that
+   * only `init` can supply a theme. It cannot: the host also pushes `env`
+   * messages, and its init effect awaits the visitor lookup before posting while
+   * the theme push is synchronous — so `env` routinely arrived FIRST. That made
+   * the real init look like a re-init, and a re-init deliberately keeps the
+   * season it already has: `null`. The world then drew a season it was not being
+   * scored in. Nothing else observed the flag, so the bug was silent and
+   * load-order dependent, which is the worst combination.
+   */
+  private initialised = false
+
   /** Mutable env, kept in sync by `env` messages so `ctx.me`/`theme`/`lang` stay live. */
   env = {
     me: null as VisitorInfo | null,
@@ -204,7 +219,8 @@ class Transport {
         // DEPLOYMENT rather than of the session precisely so `ctx.ai` cannot
         // appear and vanish under a running world (see HostInit). Only the three
         // fields below are live.
-        const first = this.env.theme === null
+        const first = !this.initialised
+        this.initialised = true
         const changed = {
           theme: !sameContent(this.env.theme, msg.theme),
           lang: this.env.lang !== msg.lang,
@@ -902,6 +918,20 @@ export async function boot(def: WorldDefinition): Promise<void> {
     },
     get season() {
       return transport.env.season
+    },
+    /**
+     * The world's own standings.
+     *
+     * Resolves `null` rather than throwing for an unscored world or one with no
+     * season yet, because "there is no board" is an ordinary state a world has
+     * to draw something for — not a failure worth a try/catch at every call site.
+     */
+    async standings(opts?: { limit?: number }) {
+      try {
+        return await transport.request<StandingsPage | null>('standings', undefined, { limit: opts?.limit ?? 20 })
+      } catch {
+        return null
+      }
     },
     onLangChange(cb) {
       transport.langListeners.add(cb)

@@ -277,6 +277,41 @@ describe('environment', () => {
     expect(seen).toEqual([])
   })
 
+  it('exposes the season the platform is scoring this world in', async () => {
+    const ctx = await bootWorld({ season: '12' })
+    expect(ctx.season).toBe('12')
+  })
+
+  it('holds the season across a re-init', async () => {
+    const ctx = await bootWorld({ season: '12' })
+    host.send(initMessage({ season: '13' }) as never)
+    await settle()
+    // A scored world derives its setup from the key. Moving it mid-session would
+    // invalidate the run the player is in the middle of.
+    expect(ctx.season).toBe('12')
+  })
+
+  it('still takes the season when an env push beats init to the frame', async () => {
+    // The regression this guards: the first-init test used to be
+    // `env.theme === null`, and the host's theme push is synchronous while its
+    // init effect awaits the visitor lookup — so `env` genuinely arrived first,
+    // the real init was mistaken for a re-init, and the season was dropped.
+    let ctxRef: WorldCtx | null = null
+    void boot({
+      meta: { type: 'test-world' },
+      mount: (_root: HTMLElement, ctx: WorldCtx) => {
+        ctxRef = ctx
+      },
+    } as WorldDefinition)
+    await Promise.resolve()
+
+    host.send({ [WORLD_CHANNEL]: true, type: 'env', theme: LIGHT } as never)
+    host.send(initMessage({ season: '12' }) as never)
+    await settle()
+
+    expect(ctxRef?.season).toBe('12')
+  })
+
   it('delivers theme, language and identity changes', async () => {
     const ctx = await bootWorld()
     const langs: string[] = []

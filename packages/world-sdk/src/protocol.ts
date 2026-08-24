@@ -57,6 +57,18 @@ export const WORLD_OPS = [
   'channel.join',
   'channel.send',
   'channel.leave',
+  /**
+   * This world's own standings, for a scored world.
+   *
+   * Added because a scored world could not draw its own leaderboard: it can list
+   * its collections, but a score is not in a collection — the platform computes
+   * it. The board therefore had to live in Arena's chrome OUTSIDE the frame,
+   * which is exactly the seam a player reads as two unrelated things stacked on
+   * one page.
+   *
+   * Read-only and scoped to this world; there is no parameter naming another.
+   */
+  'standings',
 ] as const
 
 export type WorldOp = (typeof WORLD_OPS)[number]
@@ -303,6 +315,26 @@ export interface StoredRecord {
   updatedAt: string
   /** `author.id === me.id`. Computed by the host. */
   mine: boolean
+}
+
+/** One row of a scored world's leaderboard. */
+export interface StandingRow {
+  authorId: string
+  authorName: string
+  authorAvatar: string | null
+  score: number
+  plays: number
+  /** Rank among everyone in the season. */
+  rank: number
+  /** True for the caller's own row, so a world can highlight it. */
+  mine: boolean
+}
+
+export interface StandingsPage {
+  /** The season these standings belong to, and whether it is final. */
+  season: { key: string; status: 'open' | 'sealed' }
+  rows: StandingRow[]
+  total: number
 }
 
 export interface RecordPage {
