@@ -82,11 +82,12 @@
                 "type": "object"
               },
               "write": {
-                "description": "owner = only its author may modify (normal); anyone = any identified visitor (expect conflicts); none = append-only.",
+                "description": "owner = only its author may modify (normal); anyone = any identified visitor (expect conflicts); none = append-only; partner = only the platform that published this world, for state the world controls rather than state its players produce (a phase, a round, this week's target). Readable by everyone either way.",
                 "enum": [
                   "owner",
                   "anyone",
-                  "none"
+                  "none",
+                  "partner"
                 ]
               },
               "read": {

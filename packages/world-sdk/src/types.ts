@@ -602,7 +602,22 @@ export interface CollectionSpec {
    *              expect `conflict` to be routine
    *   `none`   — append-only; `put` / `patch` always fail
    */
-  write: 'owner' | 'anyone' | 'none'
+  /**
+   * owner = only its author may modify · anyone = any identified visitor ·
+   * none = append-only · partner = only the platform that published this world.
+   *
+   * `partner` is for state the world CONTROLS rather than state its players
+   * produce: which phase is running, which round is open, what this week's target
+   * is. Nobody else can write it — including that platform's own players — and
+   * everyone can read it, because the players and this document are inside the
+   * state it describes.
+   *
+   * It exists so that game progression is the world's design rather than the
+   * platform's. Arena has exactly one built-in notion of progression, seasons,
+   * and it only suits a world whose setup is seeded per round; anything else —
+   * phases, auctions, chapters, or no progression at all — lives here instead.
+   */
+  write: 'owner' | 'anyone' | 'none' | 'partner'
 
   /** `public` (default) or `owner`-only reads, for private drafts. */
   read?: 'public' | 'owner'
