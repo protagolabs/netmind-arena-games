@@ -45,7 +45,8 @@ world                                   host
   │──────────────────────────────────────>│
   │                                       │
   │  { type: 'init', world, me, theme,    │
-  │    lang, assets, seed, capabilities } │
+  │    lang, assets, seed, capabilities,   │
+  │    period }                            │
   │<──────────────────────────────────────│
 ```
 
@@ -78,6 +79,7 @@ world that dies during setup is indistinguishable from one that is slow.
 | `assets` | `Record<string, string>` | `assets/**`, inlined as `data:` URIs, keyed by repo-relative path |
 | `seed` | `Record<string, RecordPage>` | collection name → first page |
 | `capabilities` | `{ ai?: boolean, realtime?: boolean }` | what this DEPLOYMENT can serve |
+| `period` | `string \| null` | which board bucket this world is scored in: `all`, an ISO date, or `null` when unscored |
 
 `capabilities` is not a copy of your manifest. A world may declare `ai` and still
 find it absent because the platform has it switched off. Draw the version of
@@ -160,10 +162,26 @@ nothing domain-specific belongs here — it belongs in your `payload`.
 | `channel.join` | — | `{ name }` | `{ peers: ChannelPeer[] }` |
 | `channel.send` | — | `{ name, data }` | — |
 | `channel.leave` | — | `{ name }` | — |
+| `standings` | — | `{ limit? }` | `StandingsPage \| null` |
 
 `version` on `put` / `patch` is optimistic concurrency: pass the `version` you
 read, and a write that lost a race comes back `conflict` instead of silently
 erasing someone's edit.
+
+**Standings.** For a scored world only; `null` for any other. The host answers
+with the current board rather than the live records table, so a world draws its
+own leaderboard instead of Arena drawing one beside it:
+
+```jsonc
+{ "period": { "key": "all" },      // the board bucket: "all", or an ISO date
+  "total": 412,
+  "rows": [ { "authorId": "…", "authorName": "…", "authorAvatar": "…|null",
+              "score": 3557, "plays": 2, "rank": 1, "mine": false } ] }
+```
+
+`mine` marks the caller's own row so it can be highlighted. This op takes no
+`collection`: which collection is scored is a property of the world, not of the
+request.
 
 **Querying.** `where` and `sort` may only name paths your manifest declared in
 that collection's `indexes`, plus `createdAt` / `updatedAt`. `payload` is opaque
@@ -367,5 +385,5 @@ gives them your world.
 ## See also
 
 - [worlds.md](worlds.md) — the authoring model, `ctx`, storage design, publishing
-- [partners.md](partners.md) — integrating as a platform: keys, scoring tiers, seasons, payout
+- [partners.md](partners.md) — integrating as a platform: keys, scoring tiers, progression, payout
 - `packages/world-sdk/src/protocol.ts` — the same protocol as TypeScript types

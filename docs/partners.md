@@ -132,7 +132,7 @@ created, and your reason goes back to the player. That is why the scorer runs
 *before* the write — it is your validator as much as your arithmetic.
 
 Scorers must be deterministic. `Math.random` and every clock read throw. Without
-that, your replay samples prove nothing and a sealed season cannot be rebuilt.
+that, your replay samples prove nothing and a settlement cannot be rebuilt.
 
 L1 does not make the submitted *run* honest — a doctored client can still submit a
 run it did not play. It makes the run the only thing worth doctoring, which is a
@@ -169,45 +169,83 @@ will ship — but absent from the public catalogue until an Arena reviewer publi
 it. Re-submitting a published world returns it to `unlisted`, because the artifact
 that was reviewed is no longer the one being served.
 
-## Seasons
+## Progression is yours
 
-A season is the period you pay out for. Open one:
+Arena has no built-in notion of a round, a phase or a season. It had exactly one —
+seasons, which you opened and sealed — and it only ever suited a world whose setup
+is seeded per round. Everything else had to pretend.
 
-```http
-POST /api/partners/v1/worlds/<type>/seasons   { "key": "2026-Q3" }
+Instead, declare a collection only you can write:
+
+```json
+"collections": {
+  "control": { "schema": {...}, "write": "partner", "maxRecordBytes": 512 }
+}
 ```
 
-Opening pins the world build for the season's duration. While it is open you
-cannot republish the world and you cannot change who may participate — a scoring
-change halfway through makes the two halves incommensurable, and admitting or
-ejecting competitors mid-season means the final standings describe a contest
-nobody actually entered under one set of rules.
-
-Sealing ends it:
+Then advance the world by writing to it:
 
 ```http
-POST /api/partners/v1/worlds/<type>/seasons/2026-Q3/seal
-→ { "status": "sealed", "sealedAt": "...", "snapshotHash": "ce9311…" }
+POST /api/partners/v1/worlds/<type>/settle
+{ "collection": "control", "payload": { "phase": "bidding", "closesIn": 3600 } }
 ```
 
-The standings at that instant are copied, hashed, and never written again. A
-competitor who plays afterwards does not appear. Sealing twice returns the same
-snapshot rather than producing a second set of final standings — so a retried
-webhook or a double-clicked button cannot give you two answers to the question the
-seal exists to have one answer to.
+What that record means is entirely yours: a phase, a round, this week's target, a
+weather setting. Three things read it — your world's document, anyone who asks,
+and (if you name it in `scoring.controlCollection`) your scorer, as `ctx.control`.
+One write changes all three, with no redeploy.
 
-Keep the hash with your payout record. A dispute then reduces to comparing two
-strings instead of two recollections.
+Two rules make this worth having. **Only your key can write it** — a control input
+players can write is the players choosing the conditions they are judged under,
+which is the whole thing L1 exists to prevent. And **`/settle` writes nothing
+else**: player-facing collections go through the records API, which in turn
+refuses your `partner` collections. Either door accepting both would make the
+separation a naming convention rather than a fact.
+
+Your scorer must handle `ctx.control === null`. That is every world before its
+platform has said anything, and a world that cannot be played until someone
+configures it is not open. Pin both sides in your replay samples:
+
+```json
+[ { "submission": {...}, "expectedScore": 100 },
+  { "submission": {...}, "control": { "phase": "bidding" }, "expectedScore": 250 } ]
+```
+
+## Settling, to pay against
+
+A leaderboard is live. To pay real value against it you need a copy that stopped
+moving:
+
+```http
+POST /api/partners/v1/worlds/<type>/snapshots   { "label": "2026-W34 payout" }
+→ { "id": "wsp_…", "hash": "ce9311…", "takenAt": "…", "total": 412,
+    "contentHash": "661bf0…", "entries": [ … ] }
+```
+
+**A snapshot ends nothing.** No board closes, no scoring stops, players carry on
+mid-run. Take one every week, or every hour, or once. This is the one place Arena
+differs sharply from a season model, and deliberately: a world that stays open
+should not have to kill its own board to pay someone.
+
+Keep the hash with your payout record — a dispute then reduces to comparing two
+strings instead of two recollections. Keep `contentHash` too: it names the world
+build that produced those numbers, so comparing two settlements tells you whether
+the rules changed in between.
+
+```http
+GET /api/partners/v1/worlds/<type>/snapshots        every settlement, newest first
+GET /api/partners/v1/worlds/<type>/snapshots/<id>   one, with its frozen standings
+```
 
 ## Reading the standings
 
 ```http
-GET /api/partners/v1/worlds/<type>/leaderboard?season=2026-Q3&scope=partner
+GET /api/partners/v1/worlds/<type>/leaderboard?scope=partner
 Authorization: Bearer arena_pk_...
 ```
 
 ```json
-{ "season": { "key": "2026-Q3", "status": "sealed", "snapshotHash": "ce9311…" },
+{ "period": { "key": "all" },
   "entries": [
     { "partnerRank": 1, "globalRank": 2, "score": 80, "externalId": "your_user_44002" },
     { "partnerRank": 2, "globalRank": 3, "score": 60, "externalId": "your_user_88213" }
@@ -217,7 +255,7 @@ Authorization: Bearer arena_pk_...
 **Pay against `partnerRank`.** Every entry carries both: `globalRank` among
 everyone who played, `partnerRank` among your own users. Your leader is
 `partnerRank: 1` even when they sit far down the global board, because both ranks
-are computed over the whole season before any filtering. `scope` narrows the rows;
+are computed over the whole board before any filtering. `scope` narrows the rows;
 it never changes how a rank was computed.
 
 `scope=partner` resolves from your own credential. There is no parameter naming a
@@ -225,12 +263,12 @@ partner, so no one can read your board by guessing.
 
 ## Webhooks
 
-When a season seals, Arena POSTs to your URL:
+When you take a snapshot, Arena POSTs to your URL:
 
 ```json
-{ "type": "season.sealed", "worldType": "space-race", "season": "2026-Q3",
+{ "type": "snapshot.created", "worldType": "space-race", "snapshotId": "wsp_…",
   "sealedAt": "...", "snapshotHash": "ce9311…", "entryCount": 4,
-  "standingsUrl": "/api/partners/v1/worlds/space-race/leaderboard?season=2026-Q3&scope=partner" }
+  "standingsUrl": "/api/partners/v1/worlds/space-race/snapshots/wsp_…" }
 ```
 
 Verify it. HMAC-SHA256 over `<x-arena-timestamp>.<raw body>` with your secret,
@@ -244,11 +282,11 @@ const ok = a.length === b.length && crypto.timingSafeEqual(a, b)
 ```
 
 Use `timingSafeEqual`, not `===`. You are about to hand out real value on the
-strength of this message, so "Arena says the season sealed" has to be
+strength of this message, so "Arena took this snapshot" has to be
 distinguishable from "someone who knows your webhook URL says so".
 
 The timestamp is inside the signed material, so a captured delivery cannot be
-replayed later against a different season.
+replayed later against a different settlement.
 
 Delivery is best-effort with a few retries. It is a nudge, not the record — the
 seal already happened, and the standings endpoint is always authoritative.
@@ -268,7 +306,7 @@ That is the trade. Arena's return on hosting your world is that its users can se
 it; yours is that they arrive at your door already interested. Visibility is
 therefore never something you can switch off, and participation always is.
 
-Locked while a season is open. Change it between seasons.
+Changeable at any time. Settle first if a mid-run change would affect who you owe.
 
 ## What Arena does not do
 

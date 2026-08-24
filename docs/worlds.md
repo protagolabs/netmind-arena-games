@@ -453,7 +453,7 @@ from the PR path: the sandbox is tighter (`img-src data:` only, so inline your
 media — the looser policy exists because a reviewer read the code), and the world
 belongs to you rather than to this repository.
 
-That path also carries scoring tiers, seasons and payout-grade sealed standings,
+That path also carries scoring tiers, world-owned progression and payout-grade settlements,
 which the PR path does not need. See [partners.md](partners.md). If you cannot use
 `@arena/world-sdk` at all — a private repo, or not TypeScript — the message layer
 it wraps is specified in [world-protocol.md](world-protocol.md), with a working
