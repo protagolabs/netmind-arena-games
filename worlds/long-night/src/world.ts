@@ -705,8 +705,14 @@ const TEMPLATE = `
   /* The fire is one of the three readouts, not a separate ornament. Having both a
      flame gauge and a big flame in the scene meant the same number was drawn
      twice, in two sizes, in two places. */
-  .ln-gauges { flex:none; display:grid; grid-template-columns:1fr 1.3fr 1fr;
-               align-items:end; gap:clamp(10px,3vw,40px); padding:0 26px 14px; z-index:3; }
+  /* Laid ON the night, not in a strip beneath it. As its own row the readouts
+     were a separate panel that happened to sit under a picture — the seam ran
+     right across the middle of the screen. Inside the scene the numbers belong
+     to the place they describe, and the sky gets the height back.
+     The right third is left clear for the log. */
+  .ln-gauges { position:absolute; left:0; right:34%; bottom:18px; display:grid;
+               grid-template-columns:1fr 1.3fr 1fr; align-items:end;
+               gap:clamp(10px,2.5vw,40px); padding:0 26px; z-index:3; }
   .ln-gauge { display:grid; justify-items:center; gap:6px; }
   .ln-gauge-num { font-size:26px; font-weight:600; font-variant-numeric:tabular-nums; line-height:1; }
   .ln-gauge-art { display:grid; place-items:end center; min-height:52px; }
@@ -732,8 +738,9 @@ const TEMPLATE = `
   .ln-ridgeline::after { height:70%; background:linear-gradient(180deg, var(--ridge-mid), var(--ridge) 60%);
     clip-path:polygon(0% 66%,8% 52%,18% 64%,29% 44%,40% 60%,52% 40%,63% 58%,75% 42%,87% 60%,100% 48%,100% 100%,0% 100%); }
 
-  .ln-log { position:absolute; left:0; right:0; bottom:5%; text-align:center; font-size:11.5px;
-    display:flex; flex-direction:column; gap:5px;
+  .ln-log { position:absolute; left:auto; right:24px; bottom:18px; width:min(32%,420px);
+    text-align:right; font-size:11.5px;
+    display:flex; flex-direction:column; align-items:flex-end; gap:5px;
             color:var(--ink-dim); display:flex; justify-content:center; gap:10px; z-index:3; min-height:1.3em; }
   .ln-log .h { color:var(--ink); font-variant-numeric:tabular-nums; }
   .ln-log .s { color:var(--frost); }
@@ -742,7 +749,7 @@ const TEMPLATE = `
   .ln-log .up { color:#84dba6; } .ln-log .down { color:#e59595; }
   /* The night fading behind you: the current hour is legible, the ones before
      it recede rather than competing with it. */
-  .ln-beat { display:flex; justify-content:center; gap:9px; }
+  .ln-beat { display:flex; justify-content:flex-end; gap:9px; white-space:nowrap; }
   .ln-beat:nth-last-child(2) { opacity:.62; }
   .ln-beat:nth-last-child(3) { opacity:.44; }
   .ln-beat:nth-last-child(4) { opacity:.30; }
@@ -843,10 +850,10 @@ const TEMPLATE = `
 
   <div class="ln-scene" id="ln-scene">
     <div class="ln-ridgeline"></div>
+    <div class="ln-gauges" id="ln-gauges"></div>
     <div class="ln-log" id="ln-log"></div>
   </div>
 
-  <div class="ln-gauges" id="ln-gauges"></div>
   <div class="ln-actions" id="ln-actions"></div>
   </div>
 
