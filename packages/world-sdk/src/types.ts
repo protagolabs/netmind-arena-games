@@ -612,6 +612,11 @@ export interface CollectionSpec {
    * everyone can read it, because the players and this document are inside the
    * state it describes.
    *
+   * Requires a publishing PLATFORM, which a world submitted to arena-games does
+   * not have — there the publisher is Arena itself, nothing satisfies "the
+   * platform that published this world", and the collection is unwritable by
+   * anyone. Use `partner` only in a world delivered through the self-serve API.
+   *
    * It exists so that game progression is the world's design rather than the
    * platform's. Arena used to have one built-in notion of progression — seasons,
    * opened and sealed by hand — and it only ever suited a world whose setup is

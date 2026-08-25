@@ -82,7 +82,7 @@
                 "type": "object"
               },
               "write": {
-                "description": "owner = only its author may modify (normal); anyone = any identified visitor (expect conflicts); none = append-only; partner = only the platform that published this world, for state the world controls rather than state its players produce (a phase, a round, this week's target). Readable by everyone either way.",
+                "description": "owner = only its author may modify (normal); anyone = any identified visitor (expect conflicts); none = append-only; partner = only the platform that published this world, for state the world controls rather than state its players produce (a phase, a round, this week's target). Readable by everyone either way. NOTE: partner requires a publishing platform, which a world submitted through this repository does not have (the publisher is Arena) — such a collection is unwritable by anyone, and the write fails with forbidden. Use it only in a world delivered through the self-serve partner API.",
                 "enum": [
                   "owner",
                   "anyone",
