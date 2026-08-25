@@ -87,21 +87,28 @@ as holding the line.
 
 ## What is actually hard, measured
 
-Exhaustive checks over four different weather settings, using this exact scorer:
+Re-measured against this exact scorer, over four weather settings — the default
+`first-light`, a harsh one, a mild one, and a windy one. `tools/measure.mjs`
+reproduces every number below.
 
-- **No single action survives the night.** Repeating one action for all 24 hours
-  dies every time: `gather` at hour 3, `rest` at 8, `shelter` at 10, `tend` at 19.
-  There is no null strategy and no safe default.
-- **Doing nothing is near the bottom.** `rest` for the whole night scores 800.
-- **A good line reaches dawn on every sky tried**, scoring 3345–3639. Finding
-  one needs lookahead — a beam search of width 40 over the four actions finds it;
+- **No single action survives the night.** Repeating one action for all twenty-four
+  hours dies under every sky tried. Under the default: `gather` at hour 4, `rest`
+  at 9, `shelter` at 11, `tend` at 18. There is no null strategy and no safe
+  default.
+- **`tend` alone is the best of the four and still loses.** It reaches hour 18 for
+  1800 points and then runs out of wood, because nothing was ever gathered.
+- **Doing nothing is near the bottom.** `rest` for the whole night scores 900
+  under the default sky, 800 under a harsh one.
+- **A good line reaches dawn under every sky tried**, scoring 3284–3568. Finding
+  one needs lookahead — a beam search of width 60 over the four actions finds it;
   greedy hill-climbing on warmth alone does not.
-- The gap between the best line and the best single action is roughly **1500
-  points**, i.e. the difference between dying at hour 19 and finishing warm.
+- The gap between the best line and the best single action is **1550–1784
+  points**, i.e. the difference between running out of wood before dawn and
+  finishing warm with some left.
 
 So this is a planning problem. The weather is fully known in advance if you read
-the setting and reproduce it, and the whole task is allocating 24 hours of `tend`
-against a fuel supply you have to go out and earn.
+the setting and reproduce it, and the whole task is allocating twenty-four hours
+of `tend` against a fuel supply you have to go out and earn.
 
 ## Reading the weather
 
