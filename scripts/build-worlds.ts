@@ -347,6 +347,30 @@ export async function buildWorlds(dist: string): Promise<WorldIndexEntry[]> {
         ? await readFile(path.join(dir, manifest.agentGuide), 'utf8')
         : null
 
+    /**
+     * `write: 'partner'` needs a publishing platform, and a world in this
+     * repository does not have one: it is merged, not submitted with a key, so
+     * the platform that published it is Arena and nothing can ever satisfy "the
+     * platform that published this world". The collection would be permanently
+     * unwritable.
+     *
+     * Caught here so it fails on the author's own machine rather than at review,
+     * and long before the shape it really breaks: a world naming such a
+     * collection in `scoring.controlCollection` publishes, plays and scores
+     * perfectly well, judging every run under the scorer's defaults forever,
+     * because `ctx.control` is null and no record can exist to change it. That
+     * failure produces no error anywhere.
+     */
+    for (const [name, spec] of Object.entries(manifest.storage?.collections ?? {})) {
+      if ((spec as { write?: string }).write === 'partner') {
+        throw new Error(
+          `${manifest.type}: collection '${name}' is write: 'partner', which needs a publishing ` +
+            `platform. A world published from this repository has none, so nothing could ever write ` +
+            `it. Deliver this world through the self-serve partner API instead.`,
+        )
+      }
+    }
+
     // A scored world's judging code and its replay cases are read off disk and
     // carried in the index, because that is the only form the platform can run.
     let scoring: WorldIndexEntry['scoring'] = null
