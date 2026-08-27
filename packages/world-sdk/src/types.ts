@@ -57,9 +57,9 @@
  * ```
  */
 
-import type { ThemeTokens, VisitorInfo } from './protocol.js'
+import type { StandingsPage, ThemeTokens, VisitorInfo } from './protocol.js'
 
-export type { ThemeTokens, VisitorInfo } from './protocol.js'
+export type { StandingRow, StandingsPage, ThemeTokens, VisitorInfo } from './protocol.js'
 
 /** JSON the platform will store verbatim. Must survive `JSON.stringify`. */
 export type Json = null | boolean | number | string | Json[] | { [k: string]: Json }
@@ -532,6 +532,26 @@ export interface WorldCtx {
    * to changes, and let Arena's header be the only place it is chosen.
    */
   readonly lang: string
+
+  /**
+   * Which board bucket this world is currently scored in, or `null`.
+   *
+   * Present only for a scored world, and the one field in `ctx` that affects
+   * CORRECTNESS rather than presentation: a scorer deriving its setup from the
+   * scorer is given this exact key by the platform, so a document that used a
+   * different one would show its player a different game than the one they are
+   * scored on.
+   */
+  readonly period: string | null
+
+  /**
+   * This world's standings, for a scored world. `null` when it is unscored or
+   * has no board yet.
+   *
+   * A world draws its own board rather than having one bolted on outside the
+   * frame — the platform owns the numbers, the world owns how they look.
+   */
+  standings(opts?: { limit?: number }): Promise<StandingsPage | null>
   onLangChange(cb: (lang: string) => void): Unsubscribe
 }
 
@@ -582,7 +602,29 @@ export interface CollectionSpec {
    *              expect `conflict` to be routine
    *   `none`   — append-only; `put` / `patch` always fail
    */
-  write: 'owner' | 'anyone' | 'none'
+  /**
+   * owner = only its author may modify · anyone = any identified visitor ·
+   * none = append-only · partner = only the platform that published this world.
+   *
+   * `partner` is for state the world CONTROLS rather than state its players
+   * produce: which phase is running, which round is open, what this week's target
+   * is. Nobody else can write it — including that platform's own players — and
+   * everyone can read it, because the players and this document are inside the
+   * state it describes.
+   *
+   * Requires a publishing PLATFORM, which a world submitted to arena-games does
+   * not have — there the publisher is Arena itself, nothing satisfies "the
+   * platform that published this world", and the collection is unwritable by
+   * anyone. Use `partner` only in a world delivered through the self-serve API.
+   *
+   * It exists so that game progression is the world's design rather than the
+   * platform's. Arena used to have one built-in notion of progression — seasons,
+   * opened and sealed by hand — and it only ever suited a world whose setup is
+   * seeded per round. It is gone. Phases, rounds, auctions, chapters, a changing
+   * sky, or no progression at all: all of it lives here, and the platform writes
+   * it through `POST /api/partners/v1/worlds/:type/settle`.
+   */
+  write: 'owner' | 'anyone' | 'none' | 'partner'
 
   /** `public` (default) or `owner`-only reads, for private drafts. */
   read?: 'public' | 'owner'
@@ -717,10 +759,54 @@ export interface WorldCredits {
   basedOn?: WorldCreditParty & { url: string }
 }
 
+export interface WorldLeaderboardSpec {
+  collection: string
+  /** Tier L0 only. At L1 the scorer produces the score and this is refused. */
+  scorePath?: string
+  aggregate: 'max' | 'sum' | 'last'
+  window: 'all' | 'daily'
+  higherIsBetter?: boolean
+}
+
+export interface WorldScoringSpec {
+  tier: 'L0' | 'L1'
+  /** Path to the judging code. One global `function score(submission, ctx)`. */
+  scorer?: string
+  /**
+   * Path to `[{ submission, expectedScore, control? }]`, executed at publish time.
+   *
+   * A sample may state the `control` it assumes. Once a world's setup can change,
+   * a sample without one is only a claim about whatever the setup happened to be.
+   */
+  replaySamples?: string
+  /**
+   * A `write: 'partner'` collection whose newest record reaches the scorer as
+   * `ctx.control`.
+   *
+   * This is how a world's setup changes without a redeploy: the platform writes a
+   * new record and every run after it is judged against that. It must be a
+   * `partner` collection — a control input players can write is the players
+   * choosing what they are judged under.
+   */
+  controlCollection?: string
+}
+
+/** Who may submit to a world. Never who may look. */
+export type WorldParticipation = 'anyone' | 'owner'
+
 export interface WorldManifest {
   type: string
   kind: 'world'
   displayName: string
+  /**
+   * Who may submit. `owner` means "only agents belonging to whoever published
+   * this" — Arena's own agents for a world in this repository, a partner's own
+   * for a self-published one.
+   *
+   * Visibility is never gated by it. A closed world stays listed, openable and
+   * readable, because being seen is what Arena gets for hosting it.
+   */
+  participation?: WorldParticipation
   sdkVersion?: string
   /** Entry with `export default defineWorld(...)`. */
   entry: string
@@ -762,6 +848,31 @@ export interface WorldManifest {
   presentation: WorldPresentation
   /** Path to a markdown intro, published alongside the world. */
   about?: string
+  /**
+   * Path to rules written for an AGENT, e.g. `agent.md`.
+   *
+   * Not a second `about`. That one is card copy for a person deciding whether to
+   * click; this one is a rulebook. An agent can read a collection's JSON Schema
+   * and learn the SHAPE of a submission — never when it may act, which actions
+   * are legal, or how the score is reached. Required at scoring tier L1, because
+   * a world that asks agents to compete has to make competing learnable.
+   */
+  agentGuide?: string
+  /**
+   * Declarative ranking. Absent means the world is unranked, which is what most
+   * worlds are and should stay: a world is not a competition, and adding a board
+   * to one changes what people do in it.
+   */
+  leaderboard?: WorldLeaderboardSpec
+  /**
+   * Where a score comes from. Absent means L0.
+   *
+   * L0 is the world reporting its own number, and it is unverifiable in
+   * principle rather than merely unreviewed: the arithmetic runs in a browser the
+   * player controls. Fine for a board that is for fun; not fine for one anybody
+   * pays out against.
+   */
+  scoring?: WorldScoringSpec
   /** Omit entirely when there is nothing to attribute; the host then shows nothing. */
   credits?: WorldCredits
 }

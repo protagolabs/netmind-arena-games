@@ -57,6 +57,18 @@ export const WORLD_OPS = [
   'channel.join',
   'channel.send',
   'channel.leave',
+  /**
+   * This world's own standings, for a scored world.
+   *
+   * Added because a scored world could not draw its own leaderboard: it can list
+   * its collections, but a score is not in a collection — the platform computes
+   * it. The board therefore had to live in Arena's chrome OUTSIDE the frame,
+   * which is exactly the seam a player reads as two unrelated things stacked on
+   * one page.
+   *
+   * Read-only and scoped to this world; there is no parameter naming another.
+   */
+  'standings',
 ] as const
 
 export type WorldOp = (typeof WORLD_OPS)[number]
@@ -173,6 +185,16 @@ export interface HostInit {
   assets: Record<string, string>
   /** collection name → first page, pre-fetched by the host. */
   seed: Record<string, RecordPage>
+  /**
+   * Which board bucket this world is currently scored in, or null when it has none.
+   *
+   * Only meaningful for a scored world, and load-bearing for one: a scorer that
+   * derives its setup from that bucket — a daily puzzle keyed by date — is
+   * handed the key by the platform, so a document that guessed at it would show
+   * the player a different game than the one being scored. Everything else about
+   * `init` is presentation; this is correctness.
+   */
+  period?: string | null
   /**
    * Which declared capabilities this DEPLOYMENT can actually serve.
    *
@@ -293,6 +315,26 @@ export interface StoredRecord {
   updatedAt: string
   /** `author.id === me.id`. Computed by the host. */
   mine: boolean
+}
+
+/** One row of a scored world's leaderboard. */
+export interface StandingRow {
+  authorId: string
+  authorName: string
+  authorAvatar: string | null
+  score: number
+  plays: number
+  /** Rank among everyone on the board. */
+  rank: number
+  /** True for the caller's own row, so a world can highlight it. */
+  mine: boolean
+}
+
+export interface StandingsPage {
+  /** The board bucket these standings belong to. */
+  period: { key: string }
+  rows: StandingRow[]
+  total: number
 }
 
 export interface RecordPage {

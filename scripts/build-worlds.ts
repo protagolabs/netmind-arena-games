@@ -72,6 +72,34 @@ export interface WorldIndexEntry {
   capabilities: WorldManifest['capabilities'] | null
   presentation: WorldManifest['presentation']
   aboutMarkdown: string | null
+  /**
+   * Rules written for an AGENT, inlined from the file the manifest names.
+   *
+   * Separate from `aboutMarkdown`, which is card copy for a person deciding
+   * whether to click. An agent can read a collection's JSON Schema and learn the
+   * SHAPE of a submission — never when it may act, which actions are legal, or
+   * how a score is reached. `null` for the great majority of worlds, which are
+   * unscored and have nothing for an agent to do.
+   */
+  agentGuide: string | null
+  /** Declarative ranking; `null` for an unscored world. */
+  leaderboard: WorldManifest['leaderboard'] | null
+  /**
+   * How a score is produced, with the referenced files INLINED.
+   *
+   * The scorer reaches Arena as one self-contained string and runs in an isolate
+   * with no module system, so a path would be unresolvable there — the bytes have
+   * to travel. Same reason the document and the cover are inlined.
+   */
+  scoring: {
+    tier: 'L0' | 'L1'
+    scorer?: string
+    replaySamples?: { submission: unknown; expectedScore: number; control?: unknown }[]
+    /** Which `write: 'partner'` collection is handed to the scorer as `ctx.control`. */
+    controlCollection?: string
+  } | null
+  /** Who may submit. Absent means `anyone`. */
+  participation?: 'anyone' | 'owner'
   /** Optional attribution; `null` when the manifest declares none. */
   credits: WorldManifest['credits'] | null
   /** Cover as a `data:` URI, so the index carries no external asset references. */
@@ -314,6 +342,63 @@ export async function buildWorlds(dist: string): Promise<WorldIndexEntry[]> {
         ? await readFile(path.join(dir, manifest.about), 'utf8')
         : null
 
+    const agentGuide =
+      manifest.agentGuide && existsSync(path.join(dir, manifest.agentGuide))
+        ? await readFile(path.join(dir, manifest.agentGuide), 'utf8')
+        : null
+
+    /**
+     * `write: 'partner'` needs a publishing platform, and a world in this
+     * repository does not have one: it is merged, not submitted with a key, so
+     * the platform that published it is Arena and nothing can ever satisfy "the
+     * platform that published this world". The collection would be permanently
+     * unwritable.
+     *
+     * Caught here so it fails on the author's own machine rather than at review,
+     * and long before the shape it really breaks: a world naming such a
+     * collection in `scoring.controlCollection` publishes, plays and scores
+     * perfectly well, judging every run under the scorer's defaults forever,
+     * because `ctx.control` is null and no record can exist to change it. That
+     * failure produces no error anywhere.
+     */
+    for (const [name, spec] of Object.entries(manifest.storage?.collections ?? {})) {
+      if ((spec as { write?: string }).write === 'partner') {
+        throw new Error(
+          `${manifest.type}: collection '${name}' is write: 'partner', which needs a publishing ` +
+            `platform. A world published from this repository has none, so nothing could ever write ` +
+            `it. Deliver this world through the self-serve partner API instead.`,
+        )
+      }
+    }
+
+    // A scored world's judging code and its replay cases are read off disk and
+    // carried in the index, because that is the only form the platform can run.
+    let scoring: WorldIndexEntry['scoring'] = null
+    if (manifest.scoring) {
+      scoring = { tier: manifest.scoring.tier }
+      if (manifest.scoring.scorer) {
+        scoring.scorer = await readFile(path.join(dir, manifest.scoring.scorer), 'utf8')
+      }
+      if (manifest.scoring.replaySamples) {
+        scoring.replaySamples = JSON.parse(
+          await readFile(path.join(dir, manifest.scoring.replaySamples), 'utf8'),
+        ) as WorldIndexEntry['scoring'] extends null
+          ? never
+          : { submission: unknown; expectedScore: number; control?: unknown }[]
+      }
+      // Without this the world declares a controllable setup and the platform
+      // never learns which collection carries it, so `ctx.control` is null on
+      // every run and the scorer silently falls back to its defaults forever.
+      if (manifest.scoring.controlCollection) {
+        scoring.controlCollection = manifest.scoring.controlCollection
+      }
+      if (manifest.scoring.tier === 'L1' && !agentGuide) {
+        throw new Error(
+          `${manifest.type}: scoring tier L1 requires an agentGuide — rules an agent can read before it plays`,
+        )
+      }
+    }
+
     const entry: WorldIndexEntry = {
       type: manifest.type,
       slug: d.name,
@@ -329,6 +414,11 @@ export async function buildWorlds(dist: string): Promise<WorldIndexEntry[]> {
       capabilities: manifest.capabilities ?? null,
       presentation: manifest.presentation,
       aboutMarkdown,
+      agentGuide,
+      leaderboard: manifest.leaderboard ?? null,
+      scoring,
+      // Absent means `anyone`; only the restriction is worth carrying.
+      ...(manifest.participation === 'owner' ? { participation: 'owner' as const } : {}),
       credits: manifest.credits ?? null,
       cover: await readCover(dir, manifest.presentation.cover),
       assets: await readAssets(dir),

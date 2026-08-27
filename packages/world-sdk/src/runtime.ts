@@ -20,6 +20,7 @@ import {
   type WorldOp,
 } from './protocol.js'
 import type {
+  StandingsPage,
   AiReply,
   AiRequest,
   ChangeEvent,
@@ -149,11 +150,26 @@ class Transport {
   readonly themeListeners = new Set<(t: WorldTheme) => void>()
   readonly langListeners = new Set<(l: string) => void>()
 
+  /**
+   * Whether an `init` has been handled yet.
+   *
+   * This used to be inferred from `env.theme === null`, on the reasoning that
+   * only `init` can supply a theme. It cannot: the host also pushes `env`
+   * messages, and its init effect awaits the visitor lookup before posting while
+   * the theme push is synchronous — so `env` routinely arrived FIRST. That made
+   * the real init look like a re-init, and a re-init deliberately keeps the
+   * period it already has: `null`. The world then drew a setup it was not being
+   * scored in. Nothing else observed the flag, so the bug was silent and
+   * load-order dependent, which is the worst combination.
+   */
+  private initialised = false
+
   /** Mutable env, kept in sync by `env` messages so `ctx.me`/`theme`/`lang` stay live. */
   env = {
     me: null as VisitorInfo | null,
     theme: null as ThemeTokens | null,
     lang: 'en',
+    period: null as string | null,
   }
 
   constructor() {
@@ -203,13 +219,23 @@ class Transport {
         // DEPLOYMENT rather than of the session precisely so `ctx.ai` cannot
         // appear and vanish under a running world (see HostInit). Only the three
         // fields below are live.
-        const first = this.env.theme === null
+        const first = !this.initialised
+        this.initialised = true
         const changed = {
           theme: !sameContent(this.env.theme, msg.theme),
           lang: this.env.lang !== msg.lang,
           me: !sameContent(this.env.me, msg.me),
         }
-        this.env = { me: msg.me, theme: msg.theme, lang: msg.lang }
+        // `period` is taken on the FIRST init and then held. A re-init must not
+        // move it: a scored world derives its setup from the key, so changing it
+        // mid-session would silently invalidate the run the player is in the
+        // middle of — they would finish a night that no longer exists.
+        this.env = {
+          me: msg.me,
+          theme: msg.theme,
+          lang: msg.lang,
+          period: first ? (msg.period ?? null) : this.env.period,
+        }
         this.resolveInit(msg)
 
         if (!first) {
@@ -889,6 +915,26 @@ export async function boot(def: WorldDefinition): Promise<void> {
 
     get lang() {
       return transport.env.lang
+    },
+    get period() {
+      return transport.env.period
+    },
+    /**
+     * The world's own standings.
+     *
+     * Resolves `null` for an unscored world or one with no board yet — "there
+     * is no board" is an ordinary state a world has to draw something for. The
+     * host says so explicitly by resolving null, so that case needs no catch.
+     *
+     * Everything else THROWS. This used to `catch { return null }`, which made
+     * a rejected op, a rate limit and a dead backend indistinguishable from an
+     * empty board — and the world drew "nobody has finished tonight yet" over
+     * a board that had entries in it. A player who had just been scored read
+     * that as their run having been thrown away. Never conflate "nothing" with
+     * "could not find out".
+     */
+    async standings(opts?: { limit?: number }) {
+      return transport.request<StandingsPage | null>('standings', undefined, { limit: opts?.limit ?? 20 })
     },
     onLangChange(cb) {
       transport.langListeners.add(cb)
