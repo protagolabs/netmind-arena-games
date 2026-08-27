@@ -19,11 +19,17 @@ with a key; the publisher is Arena. So nothing can ever satisfy "the platform
 that published this world", the collection is permanently unwritable, and
 `ctx.control` is null on every run.
 
-What makes that worth a rule rather than a footnote is how quietly it fails. The
-world would still build, still publish, still play and still score — every run
-judged under the scorer's defaults, forever, with no error anywhere and no write
-ever attempted. `scripts/build-worlds.ts` therefore refuses the declaration
-outright, which is what moved this world here.
+Measured, rather than assumed, because the failure is narrower than it first
+looks and the difference matters. With no record possible, the document and the
+scorer both read an empty collection and both fall back to the same defaults, so
+they agree: nobody is shown one night and scored on another. The world builds,
+publishes, plays and scores correctly — frozen on its opening sky, permanently.
+
+What it loses is the point of the design. The operator can never change the
+weather, and finds that out at the moment they first try, from a deploy-time
+error, having already shipped. `scripts/build-worlds.ts` refuses the declaration
+so that error arrives on their own machine on the first build instead — which is
+also how this world came to be here: the check caught its own author.
 
 ## What to copy from it
 
