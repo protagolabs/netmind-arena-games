@@ -1,6 +1,11 @@
 #!/usr/bin/env node
 /**
  * Scaffold a new game from a template under templates/.
+ *
+ * Prefer `pnpm new game <slug> "<Display Name>"` — the dispatcher applies the
+ * one slug rule and checks the slug against BOTH kinds before calling this.
+ * Invoked directly, neither of those happens.
+ *
  * Usage: node scripts/new-game.mjs <slug> "<Display Name>" [--pace strategy|turn-based]
  *   e.g. node scripts/new-game.mjs connect-four "Connect Four" --pace turn-based
  *
@@ -25,7 +30,10 @@ for (let i = 0; i < argv.length; i++) {
 const [slug, name] = positional
 
 if (!slug || !/^[a-z0-9-]+$/.test(slug)) {
-  console.error('Usage: node scripts/new-game.mjs <kebab-slug> "<Display Name>" [--pace strategy|turn-based]')
+  console.error(
+    'Usage: pnpm new game <kebab-slug> "<Display Name>" [--pace strategy|turn-based]\n' +
+      '       (direct: node scripts/new-game.mjs ...)',
+  )
   process.exit(1)
 }
 if (pace !== 'strategy' && pace !== 'turn-based') {

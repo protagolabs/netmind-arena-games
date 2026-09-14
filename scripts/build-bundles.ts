@@ -1,11 +1,22 @@
 /**
- * Publish step (runs on merge to main). For each game it:
+ * Publish step (runs on merge to main). Builds **both kinds of product** and
+ * writes the one index the Arena backend reads.
+ *
+ * For each game it:
  *   1. bundles the author entry into a single IIFE (esbuild) exposing
  *      `globalThis.__gameModule__.default` — the exact form the Arena sandbox loads
  *   2. computes a sha256 content-hash (pins the code a match runs against)
  *   3. writes dist/bundles/<slug>.js, dist/rules/<slug>.md
- * and finally writes dist/index.json — the manifest the Arena backend's
- * world-loader fetches to register + pull each pinned bundle.
+ *
+ * Then it calls `buildWorlds()` (scripts/build-worlds.ts), which does the world
+ * equivalent — a self-contained sandboxed document per world — and finally
+ * writes `dist/index.json` as `{version, games, worlds}`: one release asset
+ * holding the whole catalog.
+ *
+ * The file is still called `build-bundles` because
+ * `.github/workflows/publish.yml` path-filters it and the main Arena repo's
+ * README pins `pnpm build:bundles`. The name predates worlds; the behaviour
+ * does not.
  *
  * The Arena (private) backend pulls ONLY these built, hash-pinned artifacts —
  * it never imports author source. Run: `pnpm build:bundles`.

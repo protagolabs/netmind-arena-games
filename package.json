@@ -1,8 +1,8 @@
 {
-  "name": "arena-games",
+  "name": "arena-products",
   "version": "0.1.0",
   "private": true,
-  "description": "Public repository of Arena custom game types. Authors submit game packs here; the Arena backend pulls the built, content-hash-pinned bundles.",
+  "description": "Public repository of Arena products. A product is a game (scored, deterministic, pays credits) or a world (unscored, runs in the visitor's browser). Authors submit either here; the Arena backend pulls the built, content-hash-pinned artifacts.",
   "license": "Apache-2.0",
   "type": "module",
   "engines": {
@@ -17,13 +17,15 @@
     "@arena/game-sdk": "workspace:*",
     "@arena/world-sdk": "workspace:*"
   },
+  "//scripts": "Product-level commands first — they take a slug of either kind. The kind-specific ones below still work and are what the product-level ones dispatch to; they are kept so a doc, a habit or an in-flight PR that names them does not break. `build:bundles` keeps its name because .github/workflows/publish.yml path-filters scripts/build-bundles.ts and the main Arena repo's README pins the command.",
   "scripts": {
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
-    "validate": "tsx scripts/validate-games.ts",
+    "validate": "tsx scripts/validate.ts",
     "build:bundles": "tsx scripts/build-bundles.ts",
-    "sim": "tsx scripts/sim.ts",
+    "new": "node scripts/new.mjs",
     "preview": "tsx scripts/preview.ts",
+    "sim": "tsx scripts/sim.ts",
     "new-game": "node scripts/new-game.mjs",
     "new-world": "node scripts/new-world.mjs",
     "preview-world": "tsx scripts/preview-world.ts"

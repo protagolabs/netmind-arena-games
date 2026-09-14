@@ -24,6 +24,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { readFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
 import esbuild from 'esbuild'
 import type { Action } from '@arena/game-sdk'
 import { readSeatParams, simMatch, type SeatParams } from './sim.js'
@@ -128,14 +129,30 @@ async function main() {
     )
     process.exit(1)
   }
-  // This repo publishes two kinds of thing and each has its own previewer.
-  // Without this check, asking for a world here fails deep inside the sim with
-  // an ENOENT for `games/<slug>/game.manifest.json` — a stack trace that names a
-  // missing file rather than the wrong command, and one that arrives in the
-  // BROWSER (the sim runs per request), so the terminal looks perfectly healthy.
+  // `pnpm preview <slug>` takes a PRODUCT slug, of either kind, and hands off to
+  // the previewer for the kind it turns out to be. The two previewers stay
+  // separate programs — a game is simulated headlessly and rendered from frames,
+  // a world is a document in a sandboxed iframe with in-memory storage, and they
+  // share nothing but a port number.
+  //
+  // Dispatch rather than an error message. This used to print "'x' is a world,
+  // not a game. → pnpm preview-world x", which is a correct diagnosis the caller
+  // then has to act on; the command already knew the answer.
+  //
+  // The check earns its place either way: without it, asking for a world here
+  // fails deep inside the sim with an ENOENT for `games/<slug>/game.manifest.json`
+  // — a stack trace naming a missing file rather than the wrong command, and one
+  // that arrives in the BROWSER (the sim runs per request), so the terminal looks
+  // perfectly healthy.
+  //
+  // Spawn, not import: `preview-world.ts` is a top-level-await script that binds
+  // a port and never returns.
   if (!existsSync(path.join(ROOT, 'games', slug)) && existsSync(path.join(ROOT, 'worlds', slug))) {
-    console.error(`'${slug}' is a world, not a game.\n\n  pnpm preview-world ${slug}\n`)
-    process.exit(1)
+    const handoff = spawnSync('tsx', [path.join(ROOT, 'scripts', 'preview-world.ts'), slug, ...rest], {
+      stdio: 'inherit',
+      cwd: ROOT,
+    })
+    process.exit(handoff.status ?? 1)
   }
 
   const flag = (name: string) => {

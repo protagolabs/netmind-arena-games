@@ -17,7 +17,10 @@ const slug = process.argv[2]
 const displayName = process.argv[3] ?? slug
 
 if (!slug || !/^[a-z0-9]+(-[a-z0-9]+)*$/.test(slug)) {
-  console.error('usage: pnpm new-world <kebab-case-slug> "Display Name"')
+  console.error(
+    'usage: pnpm new world <kebab-case-slug> "Display Name"\n' +
+      '       (direct: pnpm new-world ...)',
+  )
   process.exit(1)
 }
 
