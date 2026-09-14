@@ -1,31 +1,25 @@
 # Worlds
 
-The second kind of artifact this repo publishes, beside `games/`.
+One of the two kinds of product this repo publishes — see
+[README § Two kinds of product](../README.md#two-kinds-of-product) for the
+comparison. The other is [games](games.md).
 
-The difference is not size or ambition, it is **money**:
+A world is unscored and perpetual. With nothing to cheat *for*, the whole
+authoritative-simulation apparatus a game needs is unnecessary: a world is author
+code in the same locked-down sandbox a game's T2 view already uses.
 
-|            | `games/`                                   | `worlds/`                                  |
-| ---------- | ------------------------------------------ | ------------------------------------------ |
-| Output     | a `score` → rank → credits                 | nothing scored                             |
-| Runs where | backend `isolated-vm` (authoritative)      | the visitor's browser, sandboxed           |
-| Determinism | enforced (no clock, no entropy)           | not required                               |
-| Gated on   | determinism, termination, source scan      | self-contained build, storage caps, schema |
-| Threat     | cheating for real money                    | UGC abuse                                  |
-
-With nothing to cheat *for*, the whole authoritative-simulation apparatus is
-unnecessary. A world is author code in the same locked-down sandbox a game's T2
-view already uses.
+**This is the complete world guide.** Everything below is the contract.
 
 ## Try it locally
 
 ```bash
 pnpm install
-pnpm new-world my-world "My World"     # scaffolds a working, publishable world
-pnpm preview-world my-world            # opens it exactly as Arena runs it
+pnpm new world my-world "My World"     # scaffolds a working, publishable world
+pnpm preview my-world                  # opens it exactly as Arena runs it
 pnpm validate                          # the CI gate
 ```
 
-`preview-world` is not an approximation of the host. It speaks the same protocol,
+`pnpm preview` is not an approximation of the host. It speaks the same protocol,
 loads the document the same way (`iframe sandbox="allow-scripts"` + `srcdoc` +
 injected CSP), and enforces the same rules — schema, ownership, size, uniqueness,
 per-author quota. Storage is in-memory instead of Postgres; that is the only
@@ -63,7 +57,7 @@ credentials; the backend registry re-checks and silently drops a bad link rather
 than delisting a live world over it.
 
 For a fullscreen world that chrome is a chip laid over the world's own
-bottom-right corner, so declaring `credits` costs you that corner. `preview-world`
+bottom-right corner, so declaring `credits` costs you that corner. `pnpm preview`
 draws the same chip in the same place: keep bottom-right controls clear of it
 there and they are clear of it on Arena.
 

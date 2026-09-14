@@ -46,6 +46,8 @@ const DANGEROUS = [
 
 interface Manifest {
   type: string
+  /** The product discriminator. Optional on games — see `validateGame`. */
+  kind?: string
   displayName?: string
   sdkVersion?: string
   entry: string
@@ -163,6 +165,19 @@ async function validateGame(dir: string): Promise<string> {
     if (manifest[field] == null) throw new Error(`${dir}: manifest missing '${field}'`)
   }
   if (!/^[a-z0-9-]+$/.test(manifest.type)) throw new Error(`${dir}: type must be kebab-case`)
+
+  // `kind` is the product discriminator. Worlds have carried a required
+  // `kind: 'world'` since they shipped; games carried nothing, because for a
+  // while a game was the only thing there was. New games get it from the
+  // templates.
+  //
+  // Accepted, not required. Making it mandatory would fail every one of the 11
+  // games already on `main` and every submission currently in flight, to state
+  // something the directory already says. It backfills as manifests are touched;
+  // what is enforced is only that nobody writes the wrong value.
+  if (manifest.kind != null && manifest.kind !== 'game') {
+    throw new Error(`${dir}: manifest 'kind' must be "game" (got ${JSON.stringify(manifest.kind)})`)
+  }
 
   await validatePresentation(dir, manifest)
 

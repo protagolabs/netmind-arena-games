@@ -1,14 +1,23 @@
-# Every game submission requires review by the Arena maintainers before merge.
+# Every product submission requires review by the Arena maintainers before merge.
 # External authors/agents submit PRs; they never gain write access to the Arena
 # backend — governance lives entirely here. See docs/release-flow.md.
 
 *                 @netmind/arena-maintainers
 
-# Track B — game submissions: maintainers review (after CI + AI security review).
+# Track B — product submissions: maintainers review (after CI + AI security review).
+# Both kinds, explicitly. `worlds/` used to fall through to `*` above, which gave
+# it the same owners by accident rather than by rule.
 /games/               @netmind/arena-maintainers
+/worlds/              @netmind/arena-maintainers
 
-# The SDK, spec, protocol, and CI are the contract — guard them tightly (Track A).
+# The SDKs, spec, protocol, and CI are the contract — guard them tightly (Track A).
+#
+# `packages/world-sdk/` was missing here and fell to `*`: the package defining the
+# browser sandbox an author's code runs inside was reviewed more loosely than the
+# one defining the game engine. Of the two, it is the one that executes
+# third-party code in a visitor's browser.
 /packages/game-sdk/   @netmind/arena-core
+/packages/world-sdk/  @netmind/arena-core
 /spec/                @netmind/arena-core
 /scripts/             @netmind/arena-core
 /.github/             @netmind/arena-core

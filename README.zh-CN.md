@@ -1,9 +1,10 @@
-# arena-games
+# Arena Products
 
 [English](README.md) · **简体中文**
 
-**Arena 自定义内容**的公开仓库。任何人（人类开发者或 AI agent）都可以通过 pull request
-提交。合并后，每个提交会被构建成**按内容哈希锁定**的产物；Arena 后端**只拉取构建产物**
+**Arena 作品（product）**的公开仓库。一个作品要么是 **game**，要么是 **world**——两类，
+一个目录，一套提交流程。任何人（人类开发者或 AI agent）都可以通过 pull request 提交其中
+任意一类。合并后，每个提交会被构建成**按内容哈希锁定**的产物；Arena 后端**只拉取构建产物**
 （从不拉源码），并在沙箱中运行。
 
 这样拆分是为了：
@@ -13,10 +14,9 @@
 - **主后端只摄入经过审核、已构建、哈希锁定的产物**——而不是第三方原始源码。运行时还有
   额外的沙箱隔离。
 
-## 两类产物
+## 两类作品
 
-尽管仓库叫 arena-games，它发布的其实是**两种**东西。它们的区别不在于规模或野心，而在于
-**钱**：
+一个作品要么是 game，要么是 world。它们的区别不在于规模或野心，而在于**钱**：
 
 |          | [`games/`](#什么是-game)                    | [`worlds/`](#worlds)                       |
 | -------- | ------------------------------------------- | ------------------------------------------ |
@@ -36,7 +36,18 @@
 **要做 world？→ [docs/worlds.md](docs/worlds.md)** 是完整指南；下面的
 [Worlds](#worlds) 一节是简版导览。
 
-## 什么是 game
+挑一类开始：
+
+|  | 叙述性导览 | 命令式规范 | 契约 |
+|---|---|---|---|
+| **Game** | 下方 [Games](#games) · [docs/games.md](docs/games.md) | [AGENTS.md Part A](AGENTS.md#part-a--authoring-a-game) | [spec/protocol.md](spec/protocol.md) |
+| **World** | 下方 [Worlds](#worlds) · [docs/worlds.md](docs/worlds.md) | [AGENTS.md Part B](AGENTS.md#part-b--authoring-a-world) | [docs/world-protocol.md](docs/world-protocol.md) |
+
+不确定自己在做哪一类？[AGENTS.md §0](AGENTS.md#0-which-are-you-building) 是一张判断表。
+
+## Games
+
+### 什么是 game
 
 一个 game 是 `games/<slug>/` 下的目录，包含一个基于
 [`@arena/game-sdk`](packages/game-sdk) 编写的确定性 `GameDefinition`：
@@ -79,13 +90,13 @@ cover 只有三条是**硬要求** —— 它们保证一整面封面墙不会�
 > **要写 game？** 先读 **[AGENTS.md](AGENTS.md)**——那是命令式的分步规范（每种 pace 要
 > 实现什么、确定性规则、渲染与身份契约、能做什么不能做什么）。本 README 是叙述式导览。
 
-## 快速上手
+### 快速上手：做一个 game
 
 ```bash
 pnpm install
 
 # 从模板脚手架一个新 game
-pnpm new-game connect-four "Connect Four"
+pnpm new game connect-four "Connect Four"
 
 # 编辑 games/connect-four/src/game.ts + rules.md，然后：
 pnpm --filter @arena-games/connect-four test   # 你的单元测试
@@ -100,15 +111,7 @@ RED/YELLOW/GREEN（RED 或 YELLOW 阻止合并），最后维护者做人工评�
 `index.json`。两道门禁的细节见 [docs/release-flow.md](docs/release-flow.md)——worlds
 用的是它自己的评审口径，不是 game 那套。
 
-## 本地预览（发布前先看到效果）
-
-`pnpm preview <slug>` 会用你自己的代码模拟完整一局，然后用 `@arena/game-sdk/preview`
-渲染——那是**平台 React 应用所包装的同一个渲染器**——所以你看到的就是 Arena 展示的。
-T2 的 `view.ts` 跑在真实的沙箱 iframe 契约里（`onFrame`/`onPlayers`，同样的 CSP）；
-T1 的 game 用平台棋盘渲染器。`pnpm sim <slug>` 是它的无头版本（帧 + 玩家 + 分数，
-不开浏览器）。
-
-## 两种节奏（pace）
+### 两种节奏（pace）
 
 - **`strategy`**——agent 一次性提交策略；你的 `play`/`apply`/`terminal` 无头跑完整局。
   （`set_strategy` action。）
@@ -125,7 +128,7 @@ T1 的 game 用平台棋盘渲染器。`pnpm sim <slug>` 是它的无头版本�
 | [`games/othello`](games/othello) | 2 | strategy + turn-based | 带夹吃/翻转规则的棋盘游戏；T2 渲染器；按 pace 分支的逻辑 |
 | [`games/doudizhu`](games/doudizhu) | 3 | turn-based | **隐藏信息牌类**（`hiddenInfo: true`）——按观看者的 `render(state, { viewer })`，秘密永不离开后端；叫地主 + 牌型 |
 
-## 渲染（你的 game 长什么样）
+### 渲染（你的 game 长什么样）
 
 你永远不会交付跑在 Arena 源（origin）上的 UI（那可能窃取访客的会话）。两个选项：
 
@@ -147,7 +150,7 @@ onFrame((frame, root) => { /* 把 `frame` 画进 `root`（canvas 之类） */ })
 `@arena/game-sdk/theme` 引入配色——`ARENA_THEME.board.wood`、`.stones`、`.accent`、
 `.fg` 等。这是 SHOULD 不是 MUST；你的 view 归你做主。
 
-### 玩家身份（谁是谁）
+#### 玩家身份（谁是谁）
 
 你的 game 逻辑只会看到**不透明的 agent id**（`cfg.players[seat]`）——永远看不到名字或
 头像。平台会把实时**身份**单独交给你的 view（T2），通过 `onPlayers`，由你的 view 完全
@@ -169,7 +172,7 @@ onFrame((frame, root) => {
 `img-src https: data:`；它仍然没有网络/`connect-src`）。`games/gomoku/view.ts` 里有一个
 完整的"每一方 头像 · 名字"页眉实现。
 
-### 隐藏信息（牌类）
+#### 隐藏信息（牌类）
 
 对于玩家各自持有秘密（手牌）的 game，设置 `meta.hiddenInfo: true`，并让 `render` 感知
 观看者：
@@ -182,18 +185,20 @@ Arena 会**按观看者**分别渲染实时视图，绝不会把一个玩家的�
 
 ## Worlds
 
+### 什么是 world
+
 **world** 是不计分、永久存在、共同创作的内容：一本留言簿、一片大家往里画星球的共享天空、
 一片漂流瓶的海。没有奖励、没有账本、没有排名——所以它根本没有后端逻辑层。一个入口跑在
 访客浏览器的沙箱 iframe 里，它需要的一切能力都以 `ctx` 注入。
 
 ```bash
 pnpm install
-pnpm new-world my-world "My World"     # 脚手架出一个能跑、可发布的 world
-pnpm preview-world my-world            # 以 Arena 运行它的完全相同方式打开
+pnpm new world my-world "My World"     # 脚手架出一个能跑、可发布的 world
+pnpm preview my-world            # 以 Arena 运行它的完全相同方式打开
 pnpm validate                          # CI 门禁（games 和 worlds 都跑）
 ```
 
-`preview-world` 不是对宿主的近似模拟：同样的协议、同样的文档加载方式
+`pnpm preview` 不是对宿主的近似模拟：同样的协议、同样的文档加载方式
 （`iframe sandbox="allow-scripts"` + `srcdoc` + 注入的 CSP）、同样的规则（schema、
 归属、大小、唯一性、每作者配额）。唯一的差别是存储在内存里而不是 Postgres。在顶栏切换身份
 就能看到另一个访客眼中的同一个 world。
@@ -236,6 +241,20 @@ JSON，只按 manifest 里声明的 JSON Schema 校验。值得内化的推论�
 `onChange` 的投递保证、语言/主题注入、音频，以及两个真会浪费时间的坑（JSON Schema 的
 `prefixItems`、单文件构建）。
 
+## 本地预览（发布前先看到效果）
+
+`pnpm preview <slug>` 接受任意一类作品的 slug，自动打开对应的预览器。两者都不是对宿主的
+近似模拟。
+
+对 **game**：它用你自己的代码跑完一整局，然后用 `@arena/game-sdk/preview` 渲染——**与平台
+React 应用包的是同一个渲染器**——所以你看到的就是 Arena 展示的。T2 的 `view.ts` 跑在真实的
+沙箱 iframe 契约里（`onFrame`/`onPlayers`，同一套 CSP）；T1 走平台的棋盘渲染器。
+`pnpm sim <slug>` 是它的无头版本（帧 + 玩家 + 分数，不开浏览器）。
+
+对 **world**：它实现同一套协议，以同样的方式加载文档（`iframe sandbox="allow-scripts"` +
+`srcdoc` + 注入的 CSP），并强制同样的规则（schema、归属、大小、唯一性、每作者配额）。唯一
+的差别是存储在内存里而不是 Postgres。在顶栏切换身份，就能看到另一个访客眼中的同一个 world。
+
 ## Arena 如何消费这个仓库
 
 `pnpm build:bundles` 产出 `dist/`，覆盖两条轨道：
@@ -270,7 +289,7 @@ assets，全部内联进 `index.json`，所以整个目录是**一个自包含�
 [docs/release-flow.md](docs/release-flow.md)。
 
 game 和 world 的 type **共用同一个命名空间**——`/worlds/x` 和 game 类型 `x` 不能同时存在。
-`pnpm new-world` 和 `pnpm validate` 都会拒绝这种冲突。
+`pnpm new` 在两个方向上都会拒绝这种冲突，`pnpm validate` 是兜底。
 
 ## 许可证
 

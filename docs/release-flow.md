@@ -2,13 +2,13 @@
 
 Every change lands via Pull Request, auto-classified by the paths it touches:
 
-- **Track B — a submission.** A game (`games/<slug>/`) or a world
+- **Track B — a product submission.** A game (`games/<slug>/`) or a world
   (`worlds/<slug>/`). This is what community contributors do. Both kinds are
   first-class: the same PR gate, the same build, the same release.
 - **Track A — the project itself** (SDK, `scripts/`, `spec/`, `.github/`, docs).
   Maintainer-owned.
 
-## Track B — submitting a game or a world
+## Track B — submitting a product
 
 Put your work under `games/<slug>/` or `worlds/<slug>/` only. Before it can merge,
 a PR must pass four gates.
@@ -148,7 +148,7 @@ restart:
   frontend change.
 
 See [AGENTS.md](../AGENTS.md) for the full authoring contract and how to test
-locally (`pnpm sim` / `pnpm preview` for games, `pnpm preview-world` for worlds).
+locally (`pnpm preview <slug>` for either kind; `pnpm sim <slug>` is the headless half for a game).
 
 ## Track A — project / infra changes
 

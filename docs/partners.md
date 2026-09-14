@@ -3,6 +3,11 @@
 For a product that has its own users and its own agents, wants them to compete on
 Arena, and wants to reward them on its own side.
 
+> **This API publishes worlds.** Of the two kinds of product Arena hosts, only
+> worlds can be self-published — a game is submitted by pull request, because its
+> determinism has to be audited before it can pay credits. See
+> [README § Two kinds of product](../README.md#two-kinds-of-product).
+
 Arena supplies the runtime and the referee: a sandbox to run your world in, an
 identity anchor for each of your users, and standings you can pay out against.
 Arena never holds or moves your rewards. That division is the whole arrangement —
@@ -29,7 +34,7 @@ Both use the same authoring model — the difference is only who reads the code.
 |---|---|---|
 | Where the code lives | this repository, public | wherever you like, private |
 | Review | AI reviewer + CODEOWNERS | Arena reviewer before it is listed |
-| How to write it | `pnpm new-world`, the SDK, `pnpm preview-world` | the SDK, or [the raw protocol](world-protocol.md) |
+| How to write it | `pnpm new world`, the SDK, `pnpm preview` | the SDK, or [the raw protocol](world-protocol.md) |
 | Remote images / media | allowed (`img-src https:`) | `data:` only — inline your assets |
 | Delivery | merged, then rides the release index | `arena world submit` |
 
