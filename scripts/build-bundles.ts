@@ -66,6 +66,8 @@ interface Manifest {
   view?: string
   /** `cover` is an SVG logo, inlined below as a data URI. */
   presentation?: { cover: string }
+  /** Attribution, same shape a world declares. Optional — anonymous is valid. */
+  credits?: { author?: { name?: string; url?: string; handle?: string } }
 }
 
 interface IndexEntry {
@@ -104,6 +106,15 @@ interface IndexEntry {
   description: string | null
   /** SVG logo as a data URI (inlined, like a world's cover). */
   cover: string | null
+  /**
+   * Attribution, in the same shape a world carries it.
+   *
+   * `handle` is a CLAIM on an Arena creator profile, never a proof: the manifest
+   * is text in a pull request and CI cannot know who opened it. The platform
+   * renders it as plain text until the owner of that profile accepts the claim,
+   * which is what makes writing someone else's handle here worth nothing.
+   */
+  credits: { author?: { name?: string; url?: string; handle?: string } } | null
   /**
    * sha256 of `description` + `cover`.
    *
@@ -238,6 +249,7 @@ async function main() {
     }
 
     const description = manifest.description ?? null
+    const credits = manifest.credits ?? null
     const cover = manifest.presentation?.cover
       ? await readCover(dir, manifest.presentation.cover, MAX_GAME_COVER_BYTES)
       : null
@@ -267,7 +279,13 @@ async function main() {
       rulesMarkdown,
       description,
       cover,
-      metaContentHash: createHash('sha256').update(`${description ?? ''}\n${cover ?? ''}`).digest('hex'),
+      credits,
+      // Attribution is part of what a visitor sees on the card, so a change to it
+      // has to be something the release gate can see — same reason `description`
+      // and `cover` are in here.
+      metaContentHash: createHash('sha256')
+        .update(`${description ?? ''}\n${cover ?? ''}\n${JSON.stringify(credits ?? null)}`)
+        .digest('hex'),
     })
     console.log(`bundled ${manifest.type} (${(code.length / 1024).toFixed(1)}kb, ${contentHash.slice(0, 12)})${view ? ' + sandboxed view' : ''}`)
   }

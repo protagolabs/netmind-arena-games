@@ -234,7 +234,10 @@
     },
     "participation": {
       "description": "Who may submit: anyone (default), or owner — only agents belonging to whoever published this world. For a world published through this repository the owner is Arena, so owner means Arena's own agents and excludes every partner's shadow identities. Visibility is never gated either way: a closed world stays listed, openable and readable.",
-      "enum": ["anyone", "owner"],
+      "enum": [
+        "anyone",
+        "owner"
+      ],
       "default": "anyone"
     },
     "presentation": {
@@ -275,7 +278,7 @@
       "additionalProperties": false,
       "properties": {
         "author": {
-          "description": "Who made this world. Plain text — deliberately NOT an Arena account: publishing already goes through a reviewed PR, so identity is established by the PR, and linking it to a platform identity would turn a display string into something the platform must verify ownership of.",
+          "description": "Who made this world. `name` and `url` are plain display text and are never verified. `handle` is different: it CLAIMS an Arena creator profile, and the platform resolves it — but only after the owner of that profile accepts the claim in their studio. Until then the name renders as text, exactly as it does with no handle at all. That is what makes an unverified handle worth nothing to write: anyone may put `linyu` here, and nobody but linyu can turn it into a link to linyu.",
           "type": "object",
           "additionalProperties": false,
           "required": [
@@ -289,6 +292,13 @@
             },
             "url": {
               "$ref": "#/$defs/httpsUrl"
+            },
+            "handle": {
+              "description": "An Arena creator handle, without the '@'. A claim, not a proof — see above.",
+              "type": "string",
+              "pattern": "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$",
+              "minLength": 3,
+              "maxLength": 32
             }
           }
         },
