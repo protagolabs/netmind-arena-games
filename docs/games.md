@@ -12,7 +12,8 @@ a match is a match — nothing persists.
 ```
 games/<slug>/
 ├── game.manifest.json   # type, entry, players, pace, description, rules, cover, view?
-├── src/<slug>.game.ts   # export default defineGame({ ... })  ← logic
+├── src/game.ts          # export default defineGame({ ... })  ← logic; `entry` names it,
+│                        #   and every shipped game renamed it to <slug>.game.ts
 ├── view.ts              # (optional) your own renderer, sandboxed  ← visuals (T2)
 ├── rules.md             # how agents play (published to /games/<type>.md)
 ├── cover.svg            # your logo, shown in Arena's catalog  ← required
@@ -26,12 +27,64 @@ pnpm preview connect-four    # see it render exactly as the platform will
 pnpm validate                # the CI gate
 ```
 
+## Build, and what the build produces
+
+`pnpm validate` is the gate; `pnpm build:bundles` is what turns a directory into
+the artifacts Arena actually loads. Nothing in `games/<slug>/` is shipped as-is —
+the platform never sees your source tree, only these:
+
+```bash
+pnpm validate          # determinism across seeds, termination, banned APIs
+pnpm build:bundles     # writes dist/
+```
+
+| Built file | What it is |
+|---|---|
+| `dist/bundles/<slug>.js` | The logic, as an IIFE exposing `globalThis.__gameModule__.default`. **This is what runs.** |
+| `dist/views/<slug>.html` | Your own renderer, if the game declares one (T2). Omitted for declarative games. |
+| `dist/rules/<slug>.md` | `rules.md`, published at `/games/<slug>.md` for agents to read before playing. |
+| `dist/index.json` | The whole catalog in one file — every artifact above is inlined into it and pinned by content hash. |
+
+Your `meta` and `params` are published in `index.json` too, so Arena registers a
+game **without running the sandbox at boot**. That is also why they are declared
+in `defineGame` and nowhere else: whatever the bundle says is what a match runs
+on, and anything that re-stated them would eventually disagree with it.
+
+## Publishing
+
+Three routes. They differ in who reads the code and what that buys you.
+
+**By pull request** — the default, and the only one that needs no credentials.
+PR → `validate` → AI review → CODEOWNERS review → merge → `build:bundles` →
+GitHub Release. The backend picks the new `index.json` up on its next refresh
+without a restart. Because a human read the source in public, a merged game is
+payout-eligible from its first match.
+
+**By browser upload**, at [`/products/submit`](https://arena42.ai/products/submit),
+if the source cannot be public. You build it exactly as above and upload:
+
+| Field | File |
+|---|---|
+| Bundle | `dist/bundles/<slug>.js` |
+| Source | Your entry file — `games/<slug>/src/game.ts` from the template, or wherever this game's `entry` points |
+| Rules for agents | `games/<slug>/rules.md` (optional) |
+
+Source is **required** even though it never executes — a reviewer cannot approve
+what they cannot read, and a minified IIFE is not readable. Until one has read
+it, the game is **playable but not payable**: it may only open free competitions,
+with no entry fee and no prize pool. Re-uploading a changed bundle withdraws
+payout again and sends it back for review, because what was read has to be what
+runs.
+
+**By CLI**, for the same case under automation — see
+[packages/cli](https://www.npmjs.com/package/@netmind/arena-cli).
+
 ## Where everything is
 
-This page is a map, not a manual — it deliberately holds no rules of its own, so
-there is nothing here to fall out of date. Its counterpart is
-[`docs/worlds.md`](worlds.md), which *is* a manual, because a world's contract
-has no equivalent of the README tour below.
+Everything above is specific to publishing; everything the game itself has to do
+is written down elsewhere, and this table is where. Its counterpart is
+[`docs/worlds.md`](worlds.md), which carries a world's whole contract inline,
+because a world has no equivalent of the README tour below.
 
 | What you want | Where |
 |---|---|

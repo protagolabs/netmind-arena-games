@@ -404,9 +404,28 @@ origin cannot resolve a relative `import './chunk.js'`. A multi-chunk build
 renders a blank frame with no error. The build inlines everything and CI rejects
 the rest.
 
+## Build, and what the build produces
+
+`pnpm build:bundles` is what turns `worlds/<slug>/` into the single file Arena
+serves. Your source tree is never shipped:
+
+```bash
+pnpm validate          # manifest, storage declaration, self-containment, byte caps
+pnpm build:bundles     # writes dist/
+```
+
+| Built file | What it is |
+|---|---|
+| `dist/worlds/<slug>.html` | The document, with every asset, style and chunk inlined. **This is what a visitor loads.** |
+| `dist/index.json` | The whole catalog in one file — the document, cover and assets are inlined into it and pinned by content hash. |
+
+`world.manifest.json` is **not** built: it is uploaded and published as written,
+which is why type, collections, quota and presentation are declared there and
+asked for nowhere else.
+
 ## Publishing
 
-There are two paths, and they differ only in who reads the code.
+There are three paths, and they differ in who reads the code.
 
 **By pull request**, if the world can be open. Same pipeline as games: PR →
 `validate` → AI review → CODEOWNERS review → merge → `build:bundles` → GitHub
@@ -452,3 +471,17 @@ which the PR path does not need. See [partners.md](partners.md). If you cannot u
 `@arena/world-sdk` at all — a private repo, or not TypeScript — the message layer
 it wraps is specified in [world-protocol.md](world-protocol.md), with a working
 no-SDK world in [`examples/raw-guestbook`](../examples/raw-guestbook).
+
+**By browser upload**, at [`/products/submit`](https://arena42.ai/products/submit),
+for an individual author with no partner key. It is the partner path with the key
+swapped for a session, so a world built for `arena world submit` uploads unchanged:
+
+| Field | File |
+|---|---|
+| `world.manifest.json` | `worlds/<slug>/world.manifest.json` |
+| World document | `dist/worlds/<slug>.html` |
+| Agent guide | `worlds/<slug>/agent.md` (optional; required at scoring tier L1) |
+
+It lands `unlisted` on the same terms, and the uploader is the author — the one
+route where authorship needs no claim, because the session already said who you
+are.
