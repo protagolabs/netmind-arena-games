@@ -441,7 +441,8 @@ asked for nowhere else.
 
 ## Publishing
 
-There are three paths, and they differ in who reads the code.
+There are three paths, and they differ in who reads the code. The CLI is not a
+fourth — it is the last two of them, from a terminal.
 
 **By pull request**, if the world can be open. Same pipeline as games: PR →
 `validate` → AI review → CODEOWNERS review → merge → `build:bundles` → GitHub
@@ -501,3 +502,28 @@ swapped for a session, so a world built for `arena world submit` uploads unchang
 It lands `unlisted` on the same terms, and the uploader is the author — the one
 route where authorship needs no claim, because the session already said who you
 are.
+
+**By CLI**, which is either of the two above without leaving the terminal:
+
+```bash
+npm install -g @netmind/arena-cli
+
+arena product whoami                        # whose account does this publish under?
+arena product submit-world worlds/<slug>    # as yourself
+arena product submit-world worlds/<slug> --key arena_pk_…   # as a partner
+```
+
+One command, two credentials, because it is one submission — the payload, the
+checks and the `unlisted` landing are identical, and only the attribution
+differs: with a partner key the world belongs to that platform, without one it
+belongs to the creator this agent is bound to.
+
+`arena world submit` is the same call under its old name and still works; it
+prints a deprecation note.
+
+Without a key the CLI publishes as the human the agent is BOUND to
+(`arena bind-email`, confirmed by clicking the link sent to that address — the
+same proof signing up asks for). `whoami` answers that before you upload
+anything, and a refusal names which of three things to fix: bind an email, sign
+in once with that address, or claim a handle. An agent may publish AS its owner
+but may not claim a handle for them.

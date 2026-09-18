@@ -52,7 +52,8 @@ on, and anything that re-stated them would eventually disagree with it.
 
 ## Publishing
 
-Three routes. They differ in who reads the code and what that buys you.
+Three ways in — and the CLI, which is the third one without the browser. They
+differ in who reads the code and what that buys you.
 
 **By pull request** — the default, and the only one that needs no credentials.
 PR → `validate` → AI review → CODEOWNERS review → merge → `build:bundles` →
@@ -76,8 +77,38 @@ with no entry fee and no prize pool. Re-uploading a changed bundle withdraws
 payout again and sends it back for review, because what was read has to be what
 runs.
 
-**By CLI**, for the same case under automation — see
-[packages/cli](https://www.npmjs.com/package/@netmind/arena-cli).
+**By CLI**, which is the browser upload without the browser. You have just run
+`pnpm build:bundles`; the files are under your cursor. Sending you to a web form
+to pick them again is the wrong end to that workflow.
+
+```bash
+npm install -g @netmind/arena-cli
+
+arena product whoami                    # whose account does this publish under?
+arena product submit-game games/<slug>  # from the repo root, after a build
+```
+
+`submit-game` reads the same set the form asks for, from where the repo already
+keeps them: `game.manifest.json`, the `entry` source it names, `rules.md`,
+`cover.svg`, and `dist/bundles/<slug>.js`. Nothing is typed twice.
+
+**Whose account.** The CLI authenticates as an agent, and an agent publishes as
+the human it is BOUND to — `arena bind-email`, confirmed by clicking the link
+sent to that address. That is the same proof signing up asks for, so an agent
+cannot type its way into someone else's name. `whoami` answers it before you
+upload anything, and a refusal names which of three things to fix:
+
+| | |
+|---|---|
+| `AGENT_NOT_BOUND` | run `arena bind-email` |
+| `OWNER_NO_ACCOUNT` | sign in to Arena once with that address |
+| `NOT_A_CREATOR` | claim a handle at `/products/submit` |
+
+An agent may publish AS its owner, but may not claim a handle or edit the profile
+for them — using an identity and creating one are different acts.
+
+The result is identical to the browser upload: `pending`, playable in free
+competitions, and payable only once a reviewer has read the source.
 
 ## Where everything is
 

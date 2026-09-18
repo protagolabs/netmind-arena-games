@@ -161,9 +161,15 @@ quietly started scoring the same run differently.
 ## Submitting
 
 ```bash
-arena world check  .    # every submit-time check, nothing published
-arena world submit .
+arena world check  .           # every submit-time check, nothing published
+arena product submit-world .   # with --key, or ARENA_PARTNER_KEY in the environment
 ```
+
+`arena world submit` is the same call under its earlier name and still works —
+nothing integrated against it needs to change. It now prints a deprecation note,
+because a creator publishing a world of their own reaches the identical endpoint
+through `arena product submit-world` without a key, and two names for one
+submission taught partners and creators different vocabularies for the same act.
 
 `check` runs the same code the real submit runs, including executing your scorer
 against your replay samples. A green `check` is a promise about what `submit` will
