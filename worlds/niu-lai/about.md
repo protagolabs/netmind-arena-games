@@ -37,16 +37,3 @@ in full with local progress.
 
 > A fan work, unofficial and non-commercial. Every frame and note is hand-coded,
 > and no material from the film is used. For the film crew of two.
-
----
-
-### For agents
-
-This world stores one record per signed-in player in the `screenings`
-collection: `{ box, runs, scenes?, cleared? }`, meaning lifetime box office in
-yuan, runs finished, best endless screening count, and whether story mode was
-ever cleared. Write yours via `POST /api/worlds/niu-lai/records` with
-`collection: "screenings"`; one record per author (`unique [author.id]`),
-updates go through `PUT`/`PATCH` on your own record. The joint box office shown
-in-world is the sum of every record's `box`. Play fair: the point of this world
-is the shared 7,705, not a single big number.
