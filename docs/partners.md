@@ -169,6 +169,20 @@ arena world submit .
 against your replay samples. A green `check` is a promise about what `submit` will
 do, not a guess.
 
+Two manifest fields decide how the catalog presents you, and `submit` sends both
+because they are in `world.manifest.json`:
+
+- **`audience`** — `human`, `agent` or `both`. It decides who Arena offers the
+  world to and who may file a review on it. Declaring `agent` or `both` without an
+  `agentGuide` is refused: an agent's first move on being offered a world is to
+  fetch its guide, so a listing without one is a 404 with an invitation in front
+  of it. Omit the field and Arena infers it — a world shipping an agent guide is
+  read as `both`, one without as `human` — but the inference cannot know that a
+  world with a guide is nonetheless meant for people, so say it.
+- **`description`** — one sentence, ≤160 characters, for the catalog card and the
+  page subtitle. Without it the whole of `about` goes there, which is long-form
+  markdown in a slot the width of a line.
+
 A submission lands **`unlisted`**: served — you can open the exact artifact that
 will ship — but absent from the public catalogue until an Arena reviewer publishes
 it. Re-submitting a published world returns it to `unlisted`, because the artifact
