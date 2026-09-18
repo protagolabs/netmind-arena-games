@@ -1,13 +1,15 @@
 {
   "type": "predictmy",
   "kind": "world",
+  "audience": "human",
   "displayName": "PredictMy.ai",
+  "description": "An 11-a-side match run by a deterministic engine. Claim any player, give it orders in plain language, and watch ninety minutes decide whether you were right.",
   "sdkVersion": "0.0.1",
   "entry": "src/world.ts",
-
   "schemaVersion": 1,
-  "supportedSchemaVersions": [1],
-
+  "supportedSchemaVersions": [
+    1
+  ],
   "capabilities": {
     "ai": {
       "purpose": "reads your touchline orders and adjusts the players' tactics",
@@ -15,13 +17,14 @@
     },
     "realtime": {
       "purpose": "relays each coach's tactical orders to the other side of a versus match",
-      "channels": ["versus"],
+      "channels": [
+        "versus"
+      ],
       "maxMessageBytes": 512,
       "maxPeers": 8,
       "maxHz": 10
     }
   },
-
   "storage": {
     "collections": {
       "rooms": {
@@ -29,61 +32,128 @@
           "$schema": "https://json-schema.org/draft/2020-12/schema",
           "type": "object",
           "additionalProperties": false,
-          "required": ["code", "seed", "halfLength"],
+          "required": [
+            "code",
+            "seed",
+            "halfLength"
+          ],
           "properties": {
-            "code": { "type": "string", "pattern": "^[A-Z0-9]{4}$" },
-            "seed": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
-            "halfLength": { "type": "integer", "minimum": 1, "maximum": 600 },
-            "startedAt": { "type": "integer", "minimum": 0 }
+            "code": {
+              "type": "string",
+              "pattern": "^[A-Z0-9]{4}$"
+            },
+            "seed": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "halfLength": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 600
+            },
+            "startedAt": {
+              "type": "integer",
+              "minimum": 0
+            }
           }
         },
         "write": "owner",
         "maxRecordBytes": 512,
         "maxRecordsPerAuthor": 1,
-        "indexes": ["payload.code"],
-        "unique": [["payload.code"]]
+        "indexes": [
+          "payload.code"
+        ],
+        "unique": [
+          [
+            "payload.code"
+          ]
+        ]
       },
-
       "seats": {
         "schema": {
           "$schema": "https://json-schema.org/draft/2020-12/schema",
           "type": "object",
           "additionalProperties": false,
-          "required": ["room", "side"],
+          "required": [
+            "room",
+            "side"
+          ],
           "properties": {
-            "room": { "type": "string", "pattern": "^[A-Z0-9]{4}$" },
-            "side": { "type": "integer", "enum": [0, 1] }
+            "room": {
+              "type": "string",
+              "pattern": "^[A-Z0-9]{4}$"
+            },
+            "side": {
+              "type": "integer",
+              "enum": [
+                0,
+                1
+              ]
+            }
           }
         },
         "write": "owner",
         "maxRecordBytes": 256,
-        "indexes": ["payload.room", "payload.side"],
+        "indexes": [
+          "payload.room",
+          "payload.side"
+        ],
         "unique": [
-          ["author.id", "payload.room"],
-          ["payload.room", "payload.side"]
+          [
+            "author.id",
+            "payload.room"
+          ],
+          [
+            "payload.room",
+            "payload.side"
+          ]
         ]
       },
-
       "logs": {
         "schema": {
           "$schema": "https://json-schema.org/draft/2020-12/schema",
           "type": "object",
           "additionalProperties": false,
-          "required": ["room", "side", "orders"],
+          "required": [
+            "room",
+            "side",
+            "orders"
+          ],
           "properties": {
-            "room": { "type": "string", "pattern": "^[A-Z0-9]{4}$" },
-            "side": { "type": "integer", "enum": [0, 1] },
+            "room": {
+              "type": "string",
+              "pattern": "^[A-Z0-9]{4}$"
+            },
+            "side": {
+              "type": "integer",
+              "enum": [
+                0,
+                1
+              ]
+            },
             "orders": {
               "type": "array",
               "maxItems": 120,
               "items": {
                 "type": "object",
                 "additionalProperties": false,
-                "required": ["tick", "delta"],
+                "required": [
+                  "tick",
+                  "delta"
+                ],
                 "properties": {
-                  "tick": { "type": "integer", "minimum": 0 },
-                  "delta": { "type": "object" },
-                  "text": { "type": "string", "maxLength": 60 }
+                  "tick": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "delta": {
+                    "type": "object"
+                  },
+                  "text": {
+                    "type": "string",
+                    "maxLength": 60
+                  }
                 }
               }
             }
@@ -92,18 +162,31 @@
         "write": "owner",
         "maxRecordBytes": 12288,
         "maxRecordsPerAuthor": 20,
-        "indexes": ["payload.room"],
-        "unique": [["author.id", "payload.room"]]
+        "indexes": [
+          "payload.room"
+        ],
+        "unique": [
+          [
+            "author.id",
+            "payload.room"
+          ]
+        ]
       }
     },
-
-    "quota": { "writesPerHourPerAuthor": 400 }
+    "quota": {
+      "writesPerHourPerAuthor": 400
+    }
   },
-
-  "presentation": { "surface": "fullscreen", "cover": "cover.svg", "audio": false },
+  "presentation": {
+    "surface": "fullscreen",
+    "cover": "cover.svg",
+    "audio": false
+  },
   "about": "about.md",
-
   "credits": {
-    "basedOn": { "name": "PredictMy.ai", "url": "https://predictmy.ai" }
+    "basedOn": {
+      "name": "PredictMy.ai",
+      "url": "https://predictmy.ai"
+    }
   }
 }

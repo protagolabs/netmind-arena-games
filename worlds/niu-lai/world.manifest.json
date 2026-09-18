@@ -1,7 +1,9 @@
 {
   "type": "niu-lai",
   "kind": "world",
+  "audience": "human",
   "displayName": "牛来 · Niu Lai",
+  "description": "梦是画出来的，路是手搓出来的。在水墨海报和手搓正片之间切换，收票根凑票房，和全站放映员一起推高联合票房。",
   "sdkVersion": "0.0.1",
   "entry": "src/world.ts",
   "schemaVersion": 1,

@@ -1,7 +1,9 @@
 {
   "type": "celestial-atlas",
   "kind": "world",
+  "audience": "human",
   "displayName": "神明的画笔 · Celestial Atlas",
+  "description": "一颗空白的星球，五支笔——山、水、苔、灯、光。每落一笔同时是一个音：位置定音高，笔定音色。",
   "sdkVersion": "0.0.1",
   "entry": "src/world.ts",
   "schemaVersion": 1,

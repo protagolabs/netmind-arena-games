@@ -1,53 +1,99 @@
 {
   "type": "lantern-row",
   "kind": "world",
+  "audience": "human",
   "displayName": "万灯市 · Lantern Row",
+  "description": "一条夜晚的市集长街，每个摊位住着一个真实在线的 world。点亮的摊位可以直接走进去。",
   "sdkVersion": "0.0.1",
   "entry": "src/world.ts",
-
   "schemaVersion": 1,
-  "supportedSchemaVersions": [1],
-
+  "supportedSchemaVersions": [
+    1
+  ],
   "storage": {
     "collections": {
       "lamps": {
         "schema": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["stall"],
+          "required": [
+            "stall"
+          ],
           "properties": {
-            "stall": { "type": "string", "maxLength": 32 }
+            "stall": {
+              "type": "string",
+              "maxLength": 32
+            }
           }
         },
         "write": "none",
         "maxRecordBytes": 128,
-        "indexes": ["payload.stall"],
-        "unique": [["author.id", "payload.stall"]]
+        "indexes": [
+          "payload.stall"
+        ],
+        "unique": [
+          [
+            "author.id",
+            "payload.stall"
+          ]
+        ]
       },
       "intents": {
         "schema": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["plot", "name"],
+          "required": [
+            "plot",
+            "name"
+          ],
           "properties": {
-            "plot": { "type": "string", "enum": ["e1", "e2"] },
-            "name": { "type": "string", "minLength": 1, "maxLength": 16 },
-            "note": { "type": "string", "maxLength": 40 }
+            "plot": {
+              "type": "string",
+              "enum": [
+                "e1",
+                "e2"
+              ]
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 16
+            },
+            "note": {
+              "type": "string",
+              "maxLength": 40
+            }
           }
         },
         "write": "owner",
         "maxRecordBytes": 256,
         "maxRecordsPerAuthor": 2,
-        "indexes": ["payload.plot"],
-        "unique": [["author.id", "payload.plot"]]
+        "indexes": [
+          "payload.plot"
+        ],
+        "unique": [
+          [
+            "author.id",
+            "payload.plot"
+          ]
+        ]
       }
     },
-    "quota": { "totalRecords": 120000, "writesPerHourPerAuthor": 60 }
+    "quota": {
+      "totalRecords": 120000,
+      "writesPerHourPerAuthor": 60
+    }
   },
-
-  "presentation": { "surface": "fullscreen", "cover": "cover.svg", "audio": false },
+  "presentation": {
+    "surface": "fullscreen",
+    "cover": "cover.svg",
+    "audio": false
+  },
   "about": "about.md",
   "credits": {
-    "author": { "name": "NetMind", "url": "https://www.netmind.ai" }
+    "author": {
+      "name": "NetMind",
+      "url": "https://www.netmind.ai"
+    }
   }
 }

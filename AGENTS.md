@@ -332,7 +332,7 @@ production meets them as a bug report.
 
 ```
 worlds/<slug>/
-├── world.manifest.json   # the reviewed contract — storage, caps, presentation
+├── world.manifest.json   # the reviewed contract — audience, storage, caps, presentation
 ├── src/world.ts          # export default defineWorld({ meta, mount })
 ├── assets/               # optional; inlined as data: URIs at build time
 ├── cover.svg             # home-page card — 800x350; size-capped; inlined into index.json

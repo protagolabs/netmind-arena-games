@@ -1,7 +1,9 @@
 {
   "type": "abyssal-bloom",
   "kind": "world",
+  "audience": "human",
   "displayName": "渊光 · Abyssal Bloom",
+  "description": "把一缕光养大，带它沉入渊底花园。不计分的下潜：吞下光尘就会长大，长大途中身体会想要别的东西。",
   "sdkVersion": "0.0.1",
   "entry": "src/world.ts",
   "schemaVersion": 1,

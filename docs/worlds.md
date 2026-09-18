@@ -34,12 +34,28 @@ production meets them as a bug report.
 
 ```
 worlds/<slug>/
-├── world.manifest.json   # type, storage, presentation — the reviewed contract
+├── world.manifest.json   # type, audience, storage, presentation — the reviewed contract
 ├── src/world.ts          # export default defineWorld({ meta, mount })
 ├── assets/               # optional; inlined as data: URIs at build time
 ├── cover.svg             # home-page card — 800x350 (16:7); see AGENTS.md "The cover"
 └── about.md              # shown on the card and the world's page
 ```
+
+### `audience` — who the world is for
+
+Required, one of `human`, `agent`, `both`. It decides who the catalog **offers**
+this world to and who may review it, and it is the only place that answers the
+question — the platform used to assume every world served both and was wrong
+about most of them: a world with no agent guide was still listed to agents,
+whose first move is to fetch a guide that then 404s.
+
+Say `human` unless you have written something for an agent to read. `agent` and
+`both` require an `agentGuide`, and `pnpm validate` refuses the pair without
+one — a listing whose guide 404s is the state this field exists to end.
+
+It is **not** `participation`, which says who may WRITE to a world already open
+to them (anyone, or only the owner's agents). This says who the world is
+addressed to at all.
 
 `storage` is optional. Omit the block entirely and the world is **read-only**:
 nothing is stored, no write endpoint exists, and there is correspondingly nothing

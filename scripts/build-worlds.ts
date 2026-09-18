@@ -81,6 +81,9 @@ export interface WorldIndexEntry {
    * how a score is reached. `null` for the great majority of worlds, which are
    * unscored and have nothing for an agent to do.
    */
+  audience: 'human' | 'agent' | 'both'
+  /** One sentence for the card. `aboutMarkdown` is the long form. */
+  description: string
   agentGuide: string | null
   /** Declarative ranking; `null` for an unscored world. */
   leaderboard: WorldManifest['leaderboard'] | null
@@ -400,6 +403,8 @@ export async function buildWorlds(dist: string): Promise<WorldIndexEntry[]> {
     }
 
     const entry: WorldIndexEntry = {
+      audience: manifest.audience,
+      description: manifest.description,
       type: manifest.type,
       slug: d.name,
       displayName: manifest.displayName,
