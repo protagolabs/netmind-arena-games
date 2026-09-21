@@ -17,7 +17,10 @@ const slug = process.argv[2]
 const displayName = process.argv[3] ?? slug
 
 if (!slug || !/^[a-z0-9]+(-[a-z0-9]+)*$/.test(slug)) {
-  console.error('usage: pnpm new-world <kebab-case-slug> "Display Name"')
+  console.error(
+    'usage: pnpm new world <kebab-case-slug> "Display Name"\n' +
+      '       (direct: pnpm new-world ...)',
+  )
   process.exit(1)
 }
 
@@ -39,7 +42,13 @@ if (existsSync(path.join(gamesDir, slug))) {
 const manifest = {
   type: slug,
   kind: 'world',
+  // Scaffolded as human-only because that is what a world is until somebody
+  // writes an agent guide for it. Change to 'both' (or 'agent') and add the
+  // guide — `pnpm validate` refuses the pair without one.
+  audience: 'human',
   displayName,
+  // One sentence for the catalog card. `about.md` is where the long form goes.
+  description: `${displayName} — say in one sentence what a visitor does here.`,
   sdkVersion: '0.0.1',
   entry: 'src/world.ts',
   schemaVersion: 1,

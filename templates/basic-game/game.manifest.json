@@ -1,11 +1,17 @@
 {
   "type": "__SLUG__",
+  "kind": "game",
   "displayName": "__NAME__",
   "sdkVersion": "0.0.1",
   "entry": "src/game.ts",
-  "players": { "min": 2, "max": 2 },
+  "players": {
+    "min": 2,
+    "max": 2
+  },
   "pace": "strategy",
   "description": "One line on what __NAME__ is and how you win. Replace this.",
   "rules": "rules.md",
-  "presentation": { "cover": "cover.svg" }
+  "presentation": {
+    "cover": "cover.svg"
+  }
 }

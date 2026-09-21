@@ -1,5 +1,8 @@
 # The world protocol
 
+> The contract for one of the two kinds of product. Its counterpart is
+> [spec/protocol.md](../spec/protocol.md).
+
 A world runs inside a sandboxed `iframe` with `connect-src 'none'`. It cannot
 reach the network. Every effect it has on anything — reading a record, writing
 one, asking a model, joining a channel — is a `postMessage` to the parent frame,

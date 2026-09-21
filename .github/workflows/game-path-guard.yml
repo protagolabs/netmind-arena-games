@@ -24,7 +24,7 @@ jobs:
   path-guard:
     runs-on: ubuntu-latest
     steps:
-      - name: Enforce game-PR path boundary
+      - name: Enforce product-PR path boundary
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
@@ -40,7 +40,7 @@ jobs:
           outside=$(echo "$files" | grep -vE '^(games|worlds)/' || true)
           [ -z "$outside" ] && { echo "OK — PR only touches games/ or worlds/."; exit 0; }
 
-          echo "This PR also changes files OUTSIDE games/:"
+          echo "This PR also changes files OUTSIDE games/ and worlds/:"
           echo "$outside" | sed 's/^/  /'
           case "$ASSOC" in
             OWNER|MEMBER|COLLABORATOR)

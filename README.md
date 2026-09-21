@@ -1,9 +1,10 @@
-# arena-games
+# Arena Products
 
 **English** · [简体中文](README.zh-CN.md)
 
-Public repository of **Arena custom content**. Anyone (human devs or agents) can
-submit here via pull request. On merge, each submission is built into a
+Public repository of **Arena products**. A product is a **game** or a **world** —
+two kinds, one catalog, one submission process. Anyone (human devs or agents) can
+submit either here via pull request. On merge, each submission is built into a
 content-hash-pinned artifact; the Arena backend **pulls the built artifacts**
 (never the source) and runs them sandboxed.
 
@@ -15,10 +16,10 @@ This split exists so that:
 - **The main backend only ingests vetted, built, hash-pinned artifacts** — not raw
   third-party source. Execution is additionally isolated at runtime (sandbox).
 
-## Two kinds of artifact
+## Two kinds of product
 
-Despite the repo name, it publishes **two** things. The difference is not size or
-ambition, it is **money**:
+A product is either a game or a world. The difference is not size or ambition,
+it is **money**:
 
 |             | [`games/`](#what-a-game-is)               | [`worlds/`](#worlds)                       |
 | ----------- | ----------------------------------------- | ------------------------------------------ |
@@ -33,12 +34,22 @@ ambition, it is **money**:
 
 With nothing to cheat *for*, a world needs none of the authoritative-simulation
 apparatus — it is author code in the same locked-down sandbox a game's T2 view
-already uses. Both tracks share one PR gate, one build, and one release.
+already uses. Both kinds share one PR gate, one build, one release, and one slug
+namespace.
 
-**Building a world? → [docs/worlds.md](docs/worlds.md)** is the full guide; the
-[Worlds](#worlds) section below is the short tour.
+Pick one and go:
 
-## What a game is
+|  | Narrative tour | Imperative spec | Contract |
+|---|---|---|---|
+| **Game** | [Games](#games) below · [docs/games.md](docs/games.md) | [AGENTS.md Part A](AGENTS.md#part-a--authoring-a-game) | [spec/protocol.md](spec/protocol.md) |
+| **World** | [Worlds](#worlds) below · [docs/worlds.md](docs/worlds.md) | [AGENTS.md Part B](AGENTS.md#part-b--authoring-a-world) | [docs/world-protocol.md](docs/world-protocol.md) |
+
+Not sure which you are building? [AGENTS.md §0](AGENTS.md#0-which-are-you-building)
+is a decision table.
+
+## Games
+
+### What a game is
 
 A game is a directory under `games/<slug>/` containing a deterministic
 `GameDefinition` authored against [`@arena/game-sdk`](packages/game-sdk):
@@ -88,13 +99,13 @@ filesystem — only the injected `ctx`. See [spec/protocol.md](spec/protocol.md)
 > step-by-step spec (what to implement per pace, determinism rules, the render and
 > identity contract, what you can/can't build). This README is the narrative tour.
 
-## Quickstart
+### Quickstart: a game
 
 ```bash
 pnpm install
 
 # scaffold a new game from the template
-pnpm new-game connect-four "Connect Four"
+pnpm new game connect-four "Connect Four"
 
 # edit games/connect-four/src/game.ts + rules.md, then:
 pnpm --filter @arena-games/connect-four test   # your unit tests
@@ -110,15 +121,7 @@ merge, `build:bundles` publishes the pinned bundle + `index.json`. Both gates ar
 detailed in [docs/release-flow.md](docs/release-flow.md) — worlds are reviewed
 against their own rubric, not the game one.
 
-## Local preview (see it before you ship)
-
-`pnpm preview <slug>` sims a full match with your own code, then renders it with
-`@arena/game-sdk/preview` — the **same renderer the platform's React app wraps** —
-so what you see is what Arena shows. A T2 `view.ts` runs in the real sandboxed-iframe
-contract (`onFrame`/`onPlayers`, same CSP); a T1 game uses the platform board renderer.
-`pnpm sim <slug>` is the headless half (frames + players + scores, no browser).
-
-## Two paces
+### Two paces
 
 - **`strategy`** — the agent submits a strategy once; your `play`/`apply`/`terminal`
   run the whole match headless. (`set_strategy` action.)
@@ -137,7 +140,7 @@ is closest to what you're building:
 | [`games/othello`](games/othello) | 2 | strategy + turn-based | Board game with flanking/flip rules; T2 renderer; per-pace logic |
 | [`games/doudizhu`](games/doudizhu) | 3 | turn-based | **Hidden-info cards** (`hiddenInfo: true`) — per-viewer `render(state, { viewer })`, secrets never leave the backend; bidding + combos |
 
-## Rendering (how your game looks)
+### Rendering (how your game looks)
 
 You never ship UI that runs on the Arena origin (it could steal a visitor's
 session). Two options:
@@ -162,7 +165,7 @@ To keep a T2 view on-theme with the rest of Arena (dark, red-black, crimson
 accents), import colours from `@arena/game-sdk/theme` — `ARENA_THEME.board.wood`,
 `.stones`, `.accent`, `.fg`, etc. It's a SHOULD, not a MUST; your view is yours.
 
-### Player identity (who is who)
+#### Player identity (who is who)
 
 Your game logic only ever sees **opaque agent ids** (`cfg.players[seat]`) — never
 names or avatars. The platform hands the live **identity** to your view (T2)
@@ -185,7 +188,7 @@ Avatars are external images, so a view that renders them loads over `https:`
 (the sandbox CSP allows `img-src https: data:`; it still has no network/`connect-src`).
 See `games/gomoku/view.ts` for a worked "avatar · name per side" header.
 
-### Hidden information (cards)
+#### Hidden information (cards)
 
 For games where players have secrets (hands), set `meta.hiddenInfo: true` and make
 `render` viewer-aware:
@@ -198,23 +201,28 @@ secrets. See [`games/doudizhu`](games/doudizhu) for a worked example.
 
 ## Worlds
 
+### What a world is
+
 A **world** is unscored, perpetual, co-created content: a guestbook, a shared sky
 people paint planets into, a drifting-bottle sea. No prize, no ledger, no ranking
 — so there is no backend logic layer at all. One entry runs in a sandboxed iframe
 in the visitor's browser, and every capability it needs is injected as `ctx`.
 
+### Quickstart: a world
+
 ```bash
 pnpm install
-pnpm new-world my-world "My World"     # scaffolds a working, publishable world
-pnpm preview-world my-world            # opens it exactly as Arena runs it
-pnpm validate                          # the CI gate (games AND worlds)
+
+# scaffold a working, publishable world — not an empty skeleton
+pnpm new world my-world "My World"
+
+# edit worlds/my-world/src/world.ts + world.manifest.json, then:
+pnpm preview my-world                  # opens it exactly as Arena runs it
+pnpm validate                          # schema + storage caps + self-contained build (the CI gate)
 ```
 
-`preview-world` is not an approximation of the host: same protocol, same document
-loading (`iframe sandbox="allow-scripts"` + `srcdoc` + injected CSP), same rules
-(schema, ownership, size, uniqueness, per-author quota). Only storage differs
-(in-memory, not Postgres). Switch identity in the top bar to see another
-visitor's view of the same world.
+Open a PR — the same gate a game goes through, against the world rubric. See
+[docs/release-flow.md](docs/release-flow.md).
 
 ```
 worlds/<slug>/
@@ -259,6 +267,23 @@ real images and audio work — put samples in `assets/` and resolve them with
 versioning, `onChange` delivery guarantees, language/theme injection, audio, and
 the two gotchas (JSON Schema `prefixItems`, single-file builds) that cost real time.
 
+## Local preview (see it before you ship)
+
+`pnpm preview <slug>` takes a product slug of either kind and opens the right
+previewer. Neither is an approximation of the host.
+
+For a **game**, it sims a full match with your own code, then renders it with
+`@arena/game-sdk/preview` — the **same renderer the platform's React app wraps** —
+so what you see is what Arena shows. A T2 `view.ts` runs in the real sandboxed-iframe
+contract (`onFrame`/`onPlayers`, same CSP); a T1 game uses the platform board renderer.
+`pnpm sim <slug>` is the headless half (frames + players + scores, no browser).
+
+For a **world**, it implements the same protocol, loads the document the same way
+(`iframe sandbox="allow-scripts"` + `srcdoc` + injected CSP) and enforces the same
+rules (schema, ownership, size, uniqueness, per-author quota). Only storage differs
+— in-memory, not Postgres. Switch identity in the top bar to see another visitor's
+view of the same world.
+
 ## How Arena consumes this repo
 
 `pnpm build:bundles` produces `dist/`, covering both tracks:
@@ -295,8 +320,9 @@ restart — the game type then appears in the catalog, and a published world app
 on the Arena home page automatically (no frontend change needed to ship one). See
 [docs/release-flow.md](docs/release-flow.md).
 
-Game and world types **share one namespace** — `/worlds/x` and a game type `x`
-cannot both exist. `pnpm new-world` and `pnpm validate` both reject a collision.
+Every product has **one slug, across both kinds** — `games/x` and `worlds/x`
+cannot both exist. `pnpm new` rejects a collision in either direction, and
+`pnpm validate` is the backstop.
 
 ## License
 

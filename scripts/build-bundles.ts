@@ -1,11 +1,22 @@
 /**
- * Publish step (runs on merge to main). For each game it:
+ * Publish step (runs on merge to main). Builds **both kinds of product** and
+ * writes the one index the Arena backend reads.
+ *
+ * For each game it:
  *   1. bundles the author entry into a single IIFE (esbuild) exposing
  *      `globalThis.__gameModule__.default` — the exact form the Arena sandbox loads
  *   2. computes a sha256 content-hash (pins the code a match runs against)
  *   3. writes dist/bundles/<slug>.js, dist/rules/<slug>.md
- * and finally writes dist/index.json — the manifest the Arena backend's
- * world-loader fetches to register + pull each pinned bundle.
+ *
+ * Then it calls `buildWorlds()` (scripts/build-worlds.ts), which does the world
+ * equivalent — a self-contained sandboxed document per world — and finally
+ * writes `dist/index.json` as `{version, games, worlds}`: one release asset
+ * holding the whole catalog.
+ *
+ * The file is still called `build-bundles` because
+ * `.github/workflows/publish.yml` path-filters it and the main Arena repo's
+ * README pins `pnpm build:bundles`. The name predates worlds; the behaviour
+ * does not.
  *
  * The Arena (private) backend pulls ONLY these built, hash-pinned artifacts —
  * it never imports author source. Run: `pnpm build:bundles`.
@@ -55,6 +66,8 @@ interface Manifest {
   view?: string
   /** `cover` is an SVG logo, inlined below as a data URI. */
   presentation?: { cover: string }
+  /** Attribution, same shape a world declares. Optional — anonymous is valid. */
+  credits?: { author?: { name?: string; url?: string; handle?: string } }
 }
 
 interface IndexEntry {
@@ -93,6 +106,15 @@ interface IndexEntry {
   description: string | null
   /** SVG logo as a data URI (inlined, like a world's cover). */
   cover: string | null
+  /**
+   * Attribution, in the same shape a world carries it.
+   *
+   * `handle` is a CLAIM on an Arena creator profile, never a proof: the manifest
+   * is text in a pull request and CI cannot know who opened it. The platform
+   * renders it as plain text until the owner of that profile accepts the claim,
+   * which is what makes writing someone else's handle here worth nothing.
+   */
+  credits: { author?: { name?: string; url?: string; handle?: string } } | null
   /**
    * sha256 of `description` + `cover`.
    *
@@ -227,6 +249,7 @@ async function main() {
     }
 
     const description = manifest.description ?? null
+    const credits = manifest.credits ?? null
     const cover = manifest.presentation?.cover
       ? await readCover(dir, manifest.presentation.cover, MAX_GAME_COVER_BYTES)
       : null
@@ -256,7 +279,13 @@ async function main() {
       rulesMarkdown,
       description,
       cover,
-      metaContentHash: createHash('sha256').update(`${description ?? ''}\n${cover ?? ''}`).digest('hex'),
+      credits,
+      // Attribution is part of what a visitor sees on the card, so a change to it
+      // has to be something the release gate can see — same reason `description`
+      // and `cover` are in here.
+      metaContentHash: createHash('sha256')
+        .update(`${description ?? ''}\n${cover ?? ''}\n${JSON.stringify(credits ?? null)}`)
+        .digest('hex'),
     })
     console.log(`bundled ${manifest.type} (${(code.length / 1024).toFixed(1)}kb, ${contentHash.slice(0, 12)})${view ? ' + sandboxed view' : ''}`)
   }

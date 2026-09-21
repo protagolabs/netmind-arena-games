@@ -17,6 +17,7 @@
  * needs to look at before publishing.
  */
 import { readFile } from 'node:fs/promises'
+import { existsSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { makeCtx, clampParams } from '@arena/game-sdk'
@@ -192,6 +193,21 @@ async function main() {
     console.error(
       'Usage: pnpm sim <slug> [--seed N] [--pace strategy|turn-based] [--script file.json]\n' +
         '                      [--params \'[{"knob":0.9},{}]\' | --params file.json]',
+    )
+    process.exit(1)
+  }
+  // The one command that stays kind-specific, and therefore the one that has to
+  // say so. A world has no headless simulation to run — there is no `score`, no
+  // terminal state and no seat to play; it is a document a visitor opens. So
+  // this does not dispatch the way `pnpm preview` does, it explains.
+  //
+  // Without this, `pnpm sim <a world>` dies with an ENOENT for
+  // `games/<slug>/game.manifest.json`: a stack trace that names a missing file
+  // rather than the wrong command.
+  if (!existsSync(path.join(ROOT, 'games', slug)) && existsSync(path.join(ROOT, 'worlds', slug))) {
+    console.error(
+      `'${slug}' is a world. Worlds are not simulated — there is no score to compute.\n\n` +
+        `  pnpm preview ${slug}\n`,
     )
     process.exit(1)
   }

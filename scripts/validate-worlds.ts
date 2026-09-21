@@ -137,6 +137,21 @@ async function validateWorld(dir: string, gameTypes: Set<string>, validateManife
     throw new Error(`supportedSchemaVersions must include schemaVersion (${manifest.schemaVersion})`)
   }
 
+  // A world addressed to agents owes them something to read. `audience` decides
+  // who the catalog OFFERS this world to, and an agent's first move on being
+  // offered one is to fetch its guide — so declaring 'agent'/'both' without one
+  // ships a listing whose guide 404s, which is the exact state this field was
+  // added to end. Checked here rather than at build time because this is the
+  // gate a submission passes through.
+  if (manifest.audience === 'agent' || manifest.audience === 'both') {
+    if (!manifest.agentGuide || !existsSync(path.join(dir, manifest.agentGuide))) {
+      throw new Error(
+        `audience '${manifest.audience}' requires an agentGuide file — ` +
+          `a world offered to agents with nothing for them to read is a 404 with a listing in front of it`,
+      )
+    }
+  }
+
   // Attribution is optional, but a declared link is one the platform will invite
   // visitors to click, so it is held to more than the schema's `^https://` shape.
   for (const [field, party] of Object.entries(manifest.credits ?? {})) {

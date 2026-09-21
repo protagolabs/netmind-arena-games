@@ -1,4 +1,4 @@
-name: games-ci
+name: products-ci
 
 # PR gate for BOTH submission tracks — games/ and worlds/. External authors and
 # agents open PRs here; this must pass (plus CODEOWNERS review) before merge. The
@@ -45,11 +45,11 @@ jobs:
         # which packages may run scripts at all, so that fetch is not also a
         # code-execution primitive handed out before any gate has run.
         run: pnpm install --frozen-lockfile || pnpm install --no-frozen-lockfile
-      - name: Typecheck (SDK + all games)
+      - name: Typecheck (SDKs + all products)
         run: pnpm -r typecheck
       - name: Unit tests
         run: pnpm -r test
-      - name: Validate games + worlds
+      - name: Validate products (games + worlds)
         # games: manifest ↔ meta, source scan, determinism/termination sweep
         # worlds: manifest schema, storage caps, self-contained build, no network
         run: pnpm validate

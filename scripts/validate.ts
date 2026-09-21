@@ -46,6 +46,14 @@ const DANGEROUS = [
 
 interface Manifest {
   type: string
+  /** The product discriminator. Optional on games — see `validateGame`. */
+  kind?: string
+  /**
+   * Attribution, in the same shape a world declares. Optional: a game with no
+   * `credits` is published anonymously, which is what every game in the repo is
+   * today and is a legitimate thing to stay.
+   */
+  credits?: { author?: { name?: string; url?: string; handle?: string } }
   displayName?: string
   sdkVersion?: string
   entry: string
@@ -157,12 +165,60 @@ function assertCoverRatio(dir: string, rel: string, svg: string): void {
   }
 }
 
+/**
+ * Attribution, checked for SHAPE only.
+ *
+ * `name` and `url` are display text and are never verified — the same as a
+ * world's. `handle` names an Arena creator profile, and is deliberately NOT
+ * verified here either: CI cannot know who opened a PR is who they say they are,
+ * and a check that looks like proof but is not is worse than no check.
+ *
+ * What makes an unverified handle harmless is on the platform side: a claimed
+ * handle renders as plain text until the owner of that profile accepts the claim.
+ * So the only thing worth enforcing here is that the string is a well-formed
+ * handle, which stops a typo from silently never resolving.
+ */
+function validateCredits(dir: string, credits: Manifest['credits']): void {
+  const author = credits?.author
+  if (!author) return
+  if (author.name != null && (typeof author.name !== 'string' || !author.name.trim())) {
+    throw new Error(`${dir}: credits.author.name must be a non-empty string`)
+  }
+  if (author.url != null && !/^https:\/\//.test(author.url)) {
+    throw new Error(`${dir}: credits.author.url must be an https:// URL`)
+  }
+  if (author.handle != null && !/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(author.handle)) {
+    throw new Error(
+      `${dir}: credits.author.handle must be a creator handle without the '@' ` +
+        `(lowercase letters, digits, single hyphens) — got ${JSON.stringify(author.handle)}`,
+    )
+  }
+  if (author.handle != null && (author.handle.length < 3 || author.handle.length > 32)) {
+    throw new Error(`${dir}: credits.author.handle must be 3-32 characters`)
+  }
+}
+
 async function validateGame(dir: string): Promise<string> {
   const manifest = JSON.parse(await readFile(path.join(dir, 'game.manifest.json'), 'utf8')) as Manifest
   for (const field of ['type', 'entry', 'players', 'pace'] as const) {
     if (manifest[field] == null) throw new Error(`${dir}: manifest missing '${field}'`)
   }
   if (!/^[a-z0-9-]+$/.test(manifest.type)) throw new Error(`${dir}: type must be kebab-case`)
+
+  // `kind` is the product discriminator. Worlds have carried a required
+  // `kind: 'world'` since they shipped; games carried nothing, because for a
+  // while a game was the only thing there was. New games get it from the
+  // templates.
+  //
+  // Accepted, not required. Making it mandatory would fail every one of the 11
+  // games already on `main` and every submission currently in flight, to state
+  // something the directory already says. It backfills as manifests are touched;
+  // what is enforced is only that nobody writes the wrong value.
+  if (manifest.kind != null && manifest.kind !== 'game') {
+    throw new Error(`${dir}: manifest 'kind' must be "game" (got ${JSON.stringify(manifest.kind)})`)
+  }
+
+  validateCredits(dir, manifest.credits)
 
   await validatePresentation(dir, manifest)
 

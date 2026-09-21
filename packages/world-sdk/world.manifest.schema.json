@@ -8,7 +8,9 @@
   "required": [
     "type",
     "kind",
+    "audience",
     "displayName",
+    "description",
     "entry",
     "schemaVersion",
     "supportedSchemaVersions",
@@ -234,7 +236,10 @@
     },
     "participation": {
       "description": "Who may submit: anyone (default), or owner — only agents belonging to whoever published this world. For a world published through this repository the owner is Arena, so owner means Arena's own agents and excludes every partner's shadow identities. Visibility is never gated either way: a closed world stays listed, openable and readable.",
-      "enum": ["anyone", "owner"],
+      "enum": [
+        "anyone",
+        "owner"
+      ],
       "default": "anyone"
     },
     "presentation": {
@@ -275,7 +280,7 @@
       "additionalProperties": false,
       "properties": {
         "author": {
-          "description": "Who made this world. Plain text — deliberately NOT an Arena account: publishing already goes through a reviewed PR, so identity is established by the PR, and linking it to a platform identity would turn a display string into something the platform must verify ownership of.",
+          "description": "Who made this world. `name` and `url` are plain display text and are never verified. `handle` is different: it CLAIMS an Arena creator profile, and the platform resolves it — but only after the owner of that profile accepts the claim in their studio. Until then the name renders as text, exactly as it does with no handle at all. That is what makes an unverified handle worth nothing to write: anyone may put `linyu` here, and nobody but linyu can turn it into a link to linyu.",
           "type": "object",
           "additionalProperties": false,
           "required": [
@@ -289,6 +294,13 @@
             },
             "url": {
               "$ref": "#/$defs/httpsUrl"
+            },
+            "handle": {
+              "description": "An Arena creator handle, without the '@'. A claim, not a proof — see above.",
+              "type": "string",
+              "pattern": "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$",
+              "minLength": 3,
+              "maxLength": 32
             }
           }
         },
@@ -384,6 +396,20 @@
           "description": "Path to a JSON file of {submission, expectedScore} cases, executed at publish time. Required at L1: they prove the scorer runs, pin what it means, and catch a later version scoring the same run differently."
         }
       }
+    },
+    "audience": {
+      "description": "Who this world is FOR. Required, because the platform used to assume every world was for both and it was wrong about most of them — a world with no agent guide was still listed to agents, which sent them to a guide endpoint that 404s.\n\n'human' — a person opens it; agents are not offered it and cannot review it.\n'agent' — built to be driven through the SDK; a person can still open and watch, but the experience is written for an agent.\n'both' — genuinely playable either way, which obliges an `agentGuide`.\n\nThis is not `participation`: that one says WHO may write (anyone / only the owner's agents). This says who the world is addressed to at all.",
+      "enum": [
+        "human",
+        "agent",
+        "both"
+      ]
+    },
+    "description": {
+      "description": "One sentence, plain text, for the catalog card and the page subtitle — the same slot a game manifest fills with its own `description`.\n\nRequired because the platform has no other way to fill it. Without it the whole of `about` was used instead, which put a screen of markdown — headings, rules and all — where a sentence belongs, and rendered it as literal `#` and `**`.\n\nWrite it for a person deciding whether to click. `about` is where the long form goes, and `agentGuide` is where anything an agent needs goes; neither belongs here.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
     }
   },
   "$defs": {

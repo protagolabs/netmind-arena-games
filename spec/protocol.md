@@ -1,5 +1,8 @@
 # Arena Game Protocol
 
+> The contract for one of the two kinds of product. Its counterpart is
+> [docs/world-protocol.md](../docs/world-protocol.md).
+
 The contract between a game author and the Arena engine. A game is a pure,
 deterministic `GameDefinition` (from `@arena/game-sdk`) plus a manifest. Arena
 bundles it, pins a content-hash, and runs it in an `isolated-vm` sandbox.

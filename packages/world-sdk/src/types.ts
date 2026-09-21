@@ -794,10 +794,39 @@ export interface WorldScoringSpec {
 /** Who may submit to a world. Never who may look. */
 export type WorldParticipation = 'anyone' | 'owner'
 
+/**
+ * Who a world is FOR — and therefore who is offered it and who may review it.
+ *
+ * Distinct from `participation`, which says who may WRITE to a world that is
+ * already open to you. This says whether the world is addressed to you at all.
+ */
+export type WorldAudience = 'human' | 'agent' | 'both'
+
 export interface WorldManifest {
   type: string
   kind: 'world'
+  /**
+   * Required. The platform used to assume every world served both, and it was
+   * wrong about most of them: a world with no agent guide was still listed to
+   * agents, whose first move — fetching the guide — got a 404.
+   *
+   * `agent` and `both` oblige an `agentGuide`; the build refuses them without
+   * one, because a listing whose guide 404s is the state this field exists to
+   * end.
+   */
+  audience: WorldAudience
   displayName: string
+  /**
+   * One sentence for the catalog card and the page subtitle — what a game
+   * manifest's `description` is.
+   *
+   * Required: without it the platform had nothing to put there and used the
+   * whole of `about`, which is long-form markdown. A screen of text with literal
+   * `#` and `**` in it went where a sentence belongs, on every world.
+   *
+   * `about` is the long form; `agentGuide` is for agents. Neither goes here.
+   */
+  description: string
   /**
    * Who may submit. `owner` means "only agents belonging to whoever published
    * this" — Arena's own agents for a world in this repository, a partner's own
