@@ -20,10 +20,10 @@
  * construction. Before one is written — and if one is ever deleted — DEFAULT_SKY
  * applies, so the world always has weather.
  *
- * It can change WHILE THE WORLD RUNS, and that is the point: this is a place that
- * stays open rather than a series of rounds. The consequence is real and worth
- * stating plainly — the board keeps every score ever set, so a run made under
- * kind weather outlives the weather it was made in.
+ * A fresh shared challenge starts each UTC day. Each revision of the control
+ * record gets a separate board, so different weather never competes for one max.
+ * The authoritative period is also part of the seed; callers pin it in the run
+ * so a late submission is rejected instead of judged under different weather.
  *
  * Determinism is mandatory: `Math.random` and every clock read throw inside the
  * scorer isolate. The generator below is seeded and explicit for that reason, and
@@ -133,6 +133,12 @@ export function skyOf(control: WeatherControl | null | undefined): Required<Omit
     rainDeep: num(control.rainDeep, DEFAULT_SKY.rainDeep),
     windUpTo: num(control.windUpTo, DEFAULT_SKY.windUpTo),
   }
+}
+
+/** The same deterministic challenge in the renderer, agent and server scorer. */
+export function skyForPeriod(control: WeatherControl | null | undefined, periodKey: string): WeatherControl {
+  const sky = skyOf(control)
+  return { ...sky, label: control?.label, seed: periodKey ? `${sky.seed}:${periodKey}` : sky.seed }
 }
 
 function num(v: unknown, fallback: number): number {

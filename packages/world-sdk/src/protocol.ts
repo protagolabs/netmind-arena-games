@@ -69,6 +69,7 @@ export const WORLD_OPS = [
    * Read-only and scoped to this world; there is no parameter naming another.
    */
   'standings',
+  'scoringContext',
 ] as const
 
 export type WorldOp = (typeof WORLD_OPS)[number]
@@ -334,6 +335,8 @@ export interface StandingsPage {
   /** The board bucket these standings belong to. */
   period: { key: string }
   rows: StandingRow[]
+  /** The caller’s own standing, even when outside the returned top rows. */
+  me?: StandingRow | null
   total: number
 }
 

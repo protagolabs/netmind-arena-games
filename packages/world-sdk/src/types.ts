@@ -89,6 +89,8 @@ export type WorldTheme = ThemeTokens
  * by author code — that is what makes ownership and moderation credible.
  */
 export interface Rec<T = Json> {
+  /** Authoritative L1 result, present on successful writes (not record reads). */
+  scoring?: { score: number; periodKey: string }
   id: string
   collection: string
   /** Trustworthy: derived from the caller's credential, not from request input. */
@@ -551,6 +553,9 @@ export interface WorldCtx {
    * A world draws its own board rather than having one bolted on outside the
    * frame — the platform owns the numbers, the world owns how they look.
    */
+  /** Fetch a coherent snapshot before planning a scored run. */
+  scoringContext(): Promise<{ periodKey: string | null; control: unknown }>
+
   standings(opts?: { limit?: number }): Promise<StandingsPage | null>
   onLangChange(cb: (lang: string) => void): Unsubscribe
 }
@@ -765,6 +770,9 @@ export interface WorldLeaderboardSpec {
   scorePath?: string
   aggregate: 'max' | 'sum' | 'last'
   window: 'all' | 'daily'
+  /** Split each time bucket by the authoritative control record and version. */
+  partitionByControl?: boolean
+  ties?: 'shared' | 'first-played'
   higherIsBetter?: boolean
 }
 

@@ -19,17 +19,9 @@ with a key; the publisher is Arena. So nothing can ever satisfy "the platform
 that published this world", the collection is permanently unwritable, and
 `ctx.control` is null on every run.
 
-Measured, rather than assumed, because the failure is narrower than it first
-looks and the difference matters. With no record possible, the document and the
-scorer both read an empty collection and both fall back to the same defaults, so
-they agree: nobody is shown one night and scored on another. The world builds,
-publishes, plays and scores correctly — frozen on its opening sky, permanently.
-
-What it loses is the point of the design. The operator can never change the
-weather, and finds that out at the moment they first try, from a deploy-time
-error, having already shipped. `scripts/build-worlds.ts` refuses the declaration
-so that error arrives on their own machine on the first build instead — which is
-also how this world came to be here: the check caught its own author.
+A fresh shared forecast and board start each UTC day. The operator can also
+change the control record to start a separate challenge within that day.
+`partitionByControl` keeps those configurations on separate boards.
 
 ## What to copy from it
 
@@ -41,15 +33,20 @@ also how this world came to be here: the check caught its own author.
 - `replay.json` pins the scorer against stated setups, including one with no
   control record at all. That state is every world before its platform has said
   anything, and it is the one most likely to go untested.
-- `agent.md` is the rules an agent reads at `GET /api/worlds/long-night/guide.md`.
-  It leads with reading the current weather, because an agent that remembers a
-  seed and not the thresholds searches a night nobody is walking — measured:
-  expected 3425, scored 1800, no error anywhere.
-- `tools/measure.mjs` reproduces every number in `agent.md`. Numbers about a game
-  go stale when the game changes, and a stale measurement reads exactly like a
-  current one.
+- `agent.md` documents `scoring-context`, the deployed scorer source, submission
+  receipts and both leaderboard endpoints. Runs include the context's period
+  key, so stale challenges fail explicitly instead of being silently rescored.
+- `tools/measure.mjs` measures the original static reference weather. Daily
+  forecasts additionally use `skyForPeriod(control, periodKey)`.
+- Run `node tools/build-scorer.mjs` after changing rules, then
+  `node --test test/scorer.test.mjs` and `pnpm exec tsc --noEmit` here.
 
 ## Publishing it
+
+Deploy the Arena backend and host support for `partitionByControl`, shared ties
+and `scoringContext` before publishing this revision. Existing all-time scores
+remain accessible as the historical `all` period; they are not moved into a
+daily challenge.
 
 ```bash
 export ARENA_PARTNER_KEY=arena_pk_...

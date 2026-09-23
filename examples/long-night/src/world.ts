@@ -24,7 +24,7 @@ import {
   HOURS,
   scoreOf,
   simulate,
-  skyOf,
+  skyForPeriod,
   type Action,
   type NightResult,
   type WeatherControl,
@@ -42,6 +42,7 @@ interface Lamp {
 
 /** A submitted run. The scorer replays `actions`; nothing else here counts. */
 interface Run {
+  period: string
   actions: Action[]
 }
 
@@ -51,22 +52,9 @@ export default defineWorld({
   async mount(root, ctx) {
     const runs = ctx.collection<Run>('runs')
     const lamps = ctx.collection<Lamp>('lamps')
-    const weather = ctx.collection<WeatherControl>('weather')
-
-    /**
-     * The sky, read before anything is drawn.
-     *
-     * Newest first is the default sort, so this is the record the platform will
-     * also hand the scorer. A failure resolves to null rather than throwing: the
-     * world has a fixed default night and is playable without this record, and a
-     * blank screen would be a worse answer than the opening weather.
-     */
-    const current = await weather
-      .list({ limit: 1 })
-      .then((page) => page.items[0]?.payload ?? null)
-      .catch(() => null)
-
-    await new Night(root, ctx, runs, lamps, current).start()
+    const context = await ctx.scoringContext()
+    if (!context.periodKey) throw new Error('This challenge is not available yet.')
+    await new Night(root, ctx, runs, lamps, context.control as WeatherControl | null, context.periodKey).start()
   },
 })
 
@@ -175,8 +163,9 @@ class Night {
     private readonly runs: Collection<Run>,
     private readonly lamps: Collection<Lamp>,
     sky: WeatherControl | null,
+    private period: string,
   ) {
-    this.sky = sky
+    this.sky = skyForPeriod(sky, period)
     this.root.innerHTML = TEMPLATE
     this.logEl = root.querySelector('#ln-log')!
     this.leftEl = root.querySelector('#ln-left')!
@@ -192,14 +181,14 @@ class Night {
    * Tonight's weather setting.
    *
    * The newest record ClawCreek has written, or null before it has written any —
-   * in which case `simulate` uses DEFAULT_SKY, exactly as the scorer does. The
+   * Defaults and the authoritative period are combined exactly as in the scorer. The
    * two must agree or the page shows a night nobody is being judged on, so both
    * take the same input and neither has a fallback the other lacks.
    *
    * Read once at boot and held. Re-reading mid-night would change the weather
    * under a player's feet halfway through a run they had already planned.
    */
-  private readonly sky: WeatherControl | null
+  private sky: WeatherControl | null
 
   async start(): Promise<void> {
     this.applyTheme(this.ctx.theme)
@@ -465,11 +454,7 @@ class Night {
   private paintStatus(): void {
     const lived = Math.min(this.chosen.length, this.result.trace.length)
     const left = HOURS - lived
-    // Named, not numbered. There is no "seventh night of" anything here — this
-    // world stays open, and what a player needs to know is that the night is
-    // SHARED and which one it currently is, so a change of weather is visible as
-    // a change of name.
-    this.nightEl.textContent = this.sky?.label ?? skyOf(this.sky).seed
+    this.nightEl.textContent = `${this.period.slice(0, 10)} · ${this.sky?.label ?? '今日挑战 / Today’s challenge'}`
     const what = '所有人走的都是这一夜'
     this.leftEl.textContent = this.alive()
       ? left > 0
@@ -502,11 +487,15 @@ class Night {
     let recorded = false
     let failure = ''
     try {
-      await this.runs.add({ actions: this.chosen })
+      await this.runs.add({ actions: this.chosen, period: this.period })
       recorded = true
     } catch (err) {
       const code = (err as { code?: string }).code
+      const message = (err as { message?: string }).message ?? ''
       failure =
+        code === 'invalid' && message.includes('challenge changed')
+          ? '挑战已更新，本局未计分。点击“再走一夜”开始新挑战。 Challenge changed; start again to play the new night.'
+          :
         code === 'unauthenticated'
           ? '登录后才能记录。 Sign in to be scored.'
           : code === 'rate-limited'
@@ -537,7 +526,7 @@ class Night {
       played,
       points,
       recorded ? (played.survived ? '你把灯留在了山脊上。' : '记下了。') : failure,
-      recorded ? 'Recorded. Your best night stands on the leaderboard.' : '',
+      recorded ? 'Recorded. Your best run stands on this challenge’s leaderboard.' : '',
     )
   }
 
@@ -545,7 +534,7 @@ class Night {
    * The ending card.
    *
    * Without one the night simply stopped: every button greyed out, no score, and
-   * no way to try again. The weather is fixed for the whole season by design, so
+   * no way to try again. The weather is fixed within each daily challenge, so
    * walking it again with a better plan is the intended way to play — that has to
    * be a button, not something a player works out.
    */
@@ -559,27 +548,38 @@ class Night {
       '<div class="ln-end-score"><b></b> <span>points</span></div>' +
       '<p class="ln-note"></p><p class="ln-note-en"></p>' +
       '<button class="ln-go" type="button">再走一夜 · Walk it again</button>' +
-      '<p class="ln-hint">今夜的天气不会变——同一片天,换个走法。<span>Same night, same weather. Try a different line.</span></p>' +
+      '<p class="ln-hint">每日 UTC 零点开启新挑战，同一天气下可反复尝试。<span>A new challenge each day at 00:00 UTC. Try another line.</span></p>' +
       '</div>'
     card.querySelector('.ln-end-h')!.textContent = played.survived ? '天亮了' : '火灭了'
     card.querySelector('.ln-end-sub b')!.textContent = String(played.hoursSurvived)
     card.querySelector('.ln-end-score b')!.textContent = String(points)
     card.querySelector('.ln-note')!.textContent = zh
     card.querySelector('.ln-note-en')!.textContent = en
-    card.querySelector('button')!.addEventListener('click', () => {
-      card.remove()
-      this.restart()
+    card.querySelector('button')!.addEventListener('click', async () => {
+      const button = card.querySelector('button')!
+      button.disabled = true
+      try {
+        await this.restart()
+        card.remove()
+      } catch {
+        card.querySelector('.ln-note')!.textContent = '天气读取失败，请重试。 Could not load the challenge. Please retry.'
+      } finally { button.disabled = false }
     })
     this.root.querySelector('.ln')!.appendChild(card)
   }
 
-  /** Another go at the same night. */
-  private restart(): void {
+  /** Read a fresh context so crossing midnight never traps a player on an old night. */
+  private async restart(): Promise<void> {
+    const context = await this.ctx.scoringContext()
+    if (!context.periodKey) throw new Error('challenge unavailable')
+    this.period = context.periodKey
+    this.sky = skyForPeriod(context.control as WeatherControl | null, this.period)
     this.chosen = []
     this.result = simulate([], this.sky)
     this.beats = []
     this.logEl.textContent = ''
     this.paint()
+    void this.paintBoard()
   }
 
   /* ── the board, drawn by the world itself ── */
@@ -611,10 +611,12 @@ class Night {
     head.className = 'ln-board-head'
     const title = document.createElement('span')
     title.className = 'ln-board-title'
-    // The board never ends and never seals — there is one, it is permanent, and
-    // it keeps each walker's best night. So the header names the sky rather than
-    // a round: `第 N 夜` was a season number, and there are no seasons.
-    title.textContent = this.sky?.label ?? skyOf(this.sky).seed
+    title.textContent = `${board.page?.period.key.slice(0, 10) ?? this.period.slice(0, 10)} · 今日榜 / daily`
+    if (board.page && board.page.period.key !== this.period) {
+      const changed = document.createElement('p')
+      changed.textContent = '新挑战已开始，完成后重新开始。 A new challenge is available; start again after this run.'
+      this.boardEl.appendChild(changed)
+    }
     head.appendChild(title)
     this.boardEl.appendChild(head)
 
@@ -631,7 +633,9 @@ class Night {
     } else {
       const rows = document.createElement('div')
       rows.className = 'ln-rows'
-      for (const r of board.page.rows) {
+      const own = board.page.me
+      const visibleRows = own && !board.page.rows.some(r => r.mine) ? [...board.page.rows, own] : board.page.rows
+      for (const r of visibleRows) {
         const row = document.createElement('div')
         row.className = 'ln-row' + (r.mine ? ' is-mine' : '')
         const rank = document.createElement('span')

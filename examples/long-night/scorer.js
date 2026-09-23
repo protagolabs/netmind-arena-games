@@ -39,6 +39,10 @@ function skyOf(control) {
     windUpTo: num(control.windUpTo, DEFAULT_SKY.windUpTo)
   };
 }
+function skyForPeriod(control, periodKey) {
+  const sky = skyOf(control);
+  return { ...sky, label: control?.label, seed: periodKey ? `${sky.seed}:${periodKey}` : sky.seed };
+}
 function num(v, fallback) {
   return typeof v === "number" && isFinite(v) && v >= 0 && v <= 1 ? v : fallback;
 }
@@ -137,6 +141,7 @@ function scoreOf(result) {
   forecast,
   scoreOf,
   simulate,
+  skyForPeriod,
   skyOf
 };
 
@@ -148,6 +153,7 @@ function scoreOf(result) {
  * pick a mild one.
  */
 function score(submission, ctx) {
+  if (!submission || submission.period !== ctx.periodKey) ctx.reject('challenge changed; read scoring-context and start again')
   const actions = (submission && submission.actions) || []
   if (!Array.isArray(actions)) ctx.reject('actions must be an array')
   if (actions.length > HOURS) ctx.reject('a night is ' + HOURS + ' hours; got ' + actions.length)
@@ -156,5 +162,5 @@ function score(submission, ctx) {
       ctx.reject('hour ' + i + ': "' + actions[i] + '" is not one of ' + ACTIONS.join(', '))
     }
   }
-  return scoreOf(simulate(actions, ctx.control))
+  return scoreOf(simulate(actions, skyForPeriod(ctx.control, ctx.periodKey)))
 }
