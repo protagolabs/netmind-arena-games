@@ -5,8 +5,8 @@
   "sdkVersion": "0.0.1",
   "entry": "src/world.ts",
 
-  "schemaVersion": 1,
-  "supportedSchemaVersions": [1],
+  "schemaVersion": 2,
+  "supportedSchemaVersions": [1, 2],
 
   "storage": {
     "collections": {
@@ -15,8 +15,9 @@
           "$schema": "https://json-schema.org/draft/2020-12/schema",
           "type": "object",
           "additionalProperties": false,
-          "required": ["actions"],
+          "required": ["actions", "period"],
           "properties": {
+            "period": { "type": "string", "minLength": 1, "maxLength": 64, "description": "periodKey from scoring-context; stale challenges are rejected." },
             "actions": {
               "type": "array",
               "maxItems": 24,
@@ -74,6 +75,6 @@
   "about": "about.md",
   "agentGuide": "agent.md",
 
-  "leaderboard": { "collection": "runs", "aggregate": "max", "window": "all" },
+  "leaderboard": { "collection": "runs", "aggregate": "max", "window": "daily", "partitionByControl": true, "ties": "shared" },
   "scoring": { "tier": "L1", "scorer": "scorer.js", "replaySamples": "replay.json", "controlCollection": "weather" }
 }

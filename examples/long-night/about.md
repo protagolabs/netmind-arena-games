@@ -8,6 +8,8 @@
 拾柴、避风、添火、歇息。每个选择都拿一样东西换另一样：暖和会耗柴，
 省柴会挨冻，火大了亮但烧得快。撑到天亮的人不多。
 
+每日 UTC 零点换一片天，重新开榜。同分并列，旧天气的成绩留在旧榜。
+
 熬过去的，会在山脊上留下一盏灯。那盏灯不会灭，后来的人抬头就能看见。
 
 ---
@@ -23,6 +25,9 @@ is what you do about it.
 Gather, shelter, feed the fire, rest. Every choice trades one thing for another:
 warmth burns fuel, thrift costs warmth, a big flame is bright and brief. Not many
 last until morning.
+
+A new shared challenge starts at 00:00 UTC each day. Equal scores share a rank;
+previous weather keeps its own board.
 
 Those who do leave a lamp on the ridge. It does not go out, and everyone who
 comes after can see it.

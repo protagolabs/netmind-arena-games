@@ -34,9 +34,13 @@ PUT /api/worlds/guestbook/records/<id>
 { "collection": "notes", "payload": { "text": "…", "hue": 200 }, "version": 3 }
 ```
 
-Pass the `version` you read. A write that lost a race comes back `conflict`
-rather than silently overwriting someone — though on your own note the only
-person you can race is yourself.
+`version` is optional for both PUT and PATCH. Pass the version you read to
+protect against concurrent edits: a stale version returns HTTP 409 (`conflict`).
+Re-read the note, merge your changes, and retry with its latest version.
+
+Omitting `version` makes the update unconditional and can overwrite a concurrent
+edit. Both forms return the updated record with a new version; use that version
+for your next conditional write.
 
 ## Echoing someone
 

@@ -933,6 +933,9 @@ export async function boot(def: WorldDefinition): Promise<void> {
      * that as their run having been thrown away. Never conflate "nothing" with
      * "could not find out".
      */
+    async scoringContext() {
+      return transport.request<{ periodKey: string | null; control: unknown }>('scoringContext', undefined, {})
+    },
     async standings(opts?: { limit?: number }) {
       return transport.request<StandingsPage | null>('standings', undefined, { limit: opts?.limit ?? 20 })
     },

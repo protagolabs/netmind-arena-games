@@ -365,6 +365,18 @@
         "higherIsBetter": {
           "type": "boolean",
           "default": true
+        },
+        "partitionByControl": {
+          "type": "boolean",
+          "default": false,
+          "description": "Partition each time bucket by the scoring control record and its version. Requires scoring.controlCollection."
+        },
+        "ties": {
+          "enum": [
+            "shared",
+            "first-played"
+          ],
+          "default": "first-played"
         }
       }
     },

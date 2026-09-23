@@ -55,6 +55,8 @@ const AFLOAT = 20
 const SEEN_KEY = 'seen'
 const SEEN_KEPT = 80
 const SOUND_KEY = 'sound'
+const REPLY_READ_KEY = 'reply-read-v1'
+type ReadReceipt = { at: string; ids: string[] }
 
 type Panel =
   | { kind: 'compose' }
@@ -94,6 +96,12 @@ class DriftBottle {
   private draft = ''
   private replyDraft = ''
   private mood: Mood = 'longing'
+  private ownedBottleIds = new Set<string>()
+  private unread = new Map<string, number>()
+  private readReceipts: Record<string, ReadReceipt> = {}
+  private inboxEpoch = 0
+  private inboxPending = false
+  private inboxAgain = false
   private readonly ships = new Map<string, HTMLElement>()
 
   constructor(
@@ -169,6 +177,7 @@ class DriftBottle {
       this.renderChrome()
       this.close()
       void this.refleet()
+      void this.loadInbox()
     })
 
     this.sea.start()
@@ -188,6 +197,12 @@ class DriftBottle {
     // empty on arrival while a round trip is in flight.
     await this.refleet()
 
+    this.replies.onChange(e => {
+      if (e.op === 'deleted' || this.ownedBottleIds.has(e.record.payload.target)) void this.refreshInbox()
+    })
+    await this.loadInbox()
+    addEventListener('focus', () => void this.refreshInbox())
+
     this.bottles.onChange((e) => {
       if (e.op === 'deleted') {
         this.sink(e.id)
@@ -200,6 +215,7 @@ class DriftBottle {
         }
       }
       this.renderChrome()
+      void this.refreshInbox()
     })
   }
 
@@ -250,7 +266,8 @@ class DriftBottle {
     }
     this.dock.append(fish, cast)
     if (this.ctx.me) {
-      const mine = button(t.mineCta, 'db-btn db-btn--ghost')
+      const n = [...this.unread.values()].reduce((sum, count) => sum + count, 0)
+      const mine = button(n ? `${t.mineCta} · ${t.unreadN(n)}` : t.mineCta, 'db-btn db-btn--ghost')
       mine.onclick = () => void this.openMine()
       this.dock.appendChild(mine)
     }
@@ -394,24 +411,84 @@ class DriftBottle {
   }
 
   private async listReplies(target: string): Promise<Rec<Reply>[]> {
-    const page = await this.replies.list({
-      where: { 'payload.target': { eq: target } },
-      sort: ['createdAt'],
-      limit: 50,
-    })
-    return page.items
+    return this.readReplyPages({ 'payload.target': { eq: target } })
+  }
+
+  private async readReplyPages(where: NonNullable<Parameters<Collection<Reply>['list']>[0]>['where']): Promise<Rec<Reply>[]> {
+    const items: Rec<Reply>[] = []
+    let cursor: string | undefined
+    do {
+      const page = await this.replies.list({ where, sort: ['createdAt'], limit: 100, cursor })
+      items.push(...page.items)
+      cursor = page.hasMore ? page.cursor ?? undefined : undefined
+    } while (cursor)
+    return items
+  }
+
+  private async loadInbox(): Promise<void> {
+    const epoch = ++this.inboxEpoch
+    this.unread.clear()
+    this.ownedBottleIds.clear()
+    this.readReceipts = {}
+    this.renderChrome()
+    if (!this.ctx.me) return
+    const saved = await this.ctx.local.get<Record<string, ReadReceipt>>(REPLY_READ_KEY).catch(() => null)
+    if (epoch !== this.inboxEpoch) return
+    this.readReceipts = saved ?? {}
+    await this.refreshInbox()
+  }
+
+  private async refreshInbox(): Promise<void> {
+    if (!this.ctx.me) return
+    if (this.inboxPending) { this.inboxAgain = true; return }
+    this.inboxPending = true
+    const epoch = this.inboxEpoch
+    try {
+      const bottles = await this.bottles.list({ mine: true, limit: 20 })
+      if (epoch !== this.inboxEpoch) return
+      const ids = bottles.items.map(b => b.id) // manifest caps this at five
+      this.ownedBottleIds = new Set(ids)
+      const where: NonNullable<Parameters<Collection<Reply>['list']>[0]>['where'] = { 'payload.target': { in: ids } }
+      const receipts = ids.map(id => this.readReceipts[id])
+      // Keep the boundary inclusive: multiple replies can share a timestamp.
+      // Remember their ids so neither page boundaries nor timestamp precision
+      // make an already-read reply new again.
+      if (ids.length && receipts.every(r => r?.at)) {
+        where!.createdAt = { gte: receipts.map(r => r!.at).sort()[0]! }
+      }
+      const replies = ids.length ? await this.readReplyPages(where) : []
+      if (epoch !== this.inboxEpoch) return
+      const unread = new Map<string, number>()
+      for (const reply of replies) {
+        if (reply.mine) continue
+        const read = this.readReceipts[reply.payload.target]
+        if (read && (reply.createdAt < read.at || (reply.createdAt === read.at && read.ids.includes(reply.id)))) continue
+        unread.set(reply.payload.target, (unread.get(reply.payload.target) ?? 0) + 1)
+      }
+      this.unread = unread
+      this.renderChrome()
+      if (this.panel?.kind === 'mine') this.renderPanel()
+    } catch {
+      // A failed refresh must not clear the last successful unread count.
+    } finally {
+      this.inboxPending = false
+      if (this.inboxAgain) { this.inboxAgain = false; void this.refreshInbox() }
+    }
   }
 
   private async openMine(): Promise<void> {
     this.sound.tick()
-    const page = await this.bottles.list({ mine: true, sort: ['-createdAt'], limit: 20 })
-    const counts = new Map<string, number>()
-    await Promise.all(
-      page.items.map(async (b) => {
+    const epoch = this.inboxEpoch
+    try {
+      const page = await this.bottles.list({ mine: true, sort: ['-createdAt'], limit: 20 })
+      const counts = new Map<string, number>()
+      await Promise.all(page.items.map(async b => {
         counts.set(b.id, await this.replies.count({ where: { 'payload.target': { eq: b.id } } }))
-      }),
-    )
-    this.open({ kind: 'mine', items: page.items, counts })
+      }))
+      if (epoch !== this.inboxEpoch) return
+      this.open({ kind: 'mine', items: page.items, counts })
+      void this.refreshInbox()
+    } catch (err) { this.toast(this.explain(err as WorldError)) }
   }
 
   /* ─────────────────────────── writes ─────────────────────────── */
@@ -430,6 +507,7 @@ class DriftBottle {
       this.renderChrome()
       this.close()
       this.toast(this.t.castDone)
+      void this.refreshInbox()
     } catch (err) {
       status.textContent = this.explain(err as WorldError)
       trigger.disabled = false
@@ -623,6 +701,8 @@ class DriftBottle {
       const sub = div('db-item-sub')
       const n = counts.get(bottle.id) ?? 0
       sub.textContent = `${t.moods[bottle.payload.mood]} · ${ago(bottle.createdAt, t)} · ${t.repliesN(n)}`
+      const unread = this.unread.get(bottle.id) ?? 0
+      if (unread) sub.textContent += ` · ${t.unreadN(unread)}`
       body.append(text, sub)
       row.append(rail, body)
       row.onclick = () => void this.openThread(bottle)
@@ -633,7 +713,20 @@ class DriftBottle {
 
   private async openThread(bottle: Rec<Bottle>): Promise<void> {
     this.sound.pop()
-    this.open({ kind: 'thread', bottle, replies: await this.listReplies(bottle.id) })
+    const epoch = this.inboxEpoch
+    try {
+      const replies = await this.listReplies(bottle.id)
+      if (epoch !== this.inboxEpoch) return
+      this.open({ kind: 'thread', bottle, replies })
+      const latest = replies.map(r => r.createdAt).sort().at(-1)
+      if (latest && latest >= (this.readReceipts[bottle.id]?.at ?? '')) {
+        this.readReceipts[bottle.id] = { at: latest, ids: replies.filter(r => r.createdAt === latest).map(r => r.id) }
+        void this.ctx.local.set(REPLY_READ_KEY, this.readReceipts).catch(() => {})
+      }
+      this.unread.delete(bottle.id)
+      this.renderChrome()
+      void this.refreshInbox()
+    } catch (err) { this.toast(this.explain(err as WorldError)) }
   }
 
   private renderThread(sheet: HTMLElement, bottle: Rec<Bottle>, replies: Rec<Reply>[]): void {
