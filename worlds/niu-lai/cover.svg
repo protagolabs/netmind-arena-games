@@ -20,11 +20,11 @@
     <ellipse cx="0" cy="2" rx="6" ry="3.6" fill="#c0432a"/>
   </g>
   <!-- title, kept low-left so the platform badge corner stays clear -->
-  <text x="42" y="102" font-family="'Kaiti SC','STKaiti',serif" font-size="82" letter-spacing="12" fill="#26221d">牛来</text>
-  <text x="46" y="130" font-family="'Kaiti SC','STKaiti',serif" font-size="19" letter-spacing="6" fill="#c8402a">Niu Lai · 海报与正片</text>
+  <text x="42" y="102" font-family="Georgia,'Times New Roman',serif" font-size="62" letter-spacing="5" fill="#26221d" font-weight="700">NIU LAI</text>
+  <text x="46" y="130" font-family="Georgia,'Times New Roman',serif" font-size="19" letter-spacing="4" fill="#c8402a">Poster &amp; Feature</text>
   <rect x="248" y="40" width="34" height="34" rx="3" fill="#c8402a"/>
-  <text x="265" y="65" font-family="'Kaiti SC','STKaiti',serif" font-size="22" fill="#f3ead8" text-anchor="middle">牛</text>
-  <text x="46" y="158" font-family="'Kaiti SC','STKaiti',serif" font-size="15" letter-spacing="2" fill="#6b3226">梦是画出来的，路是手搓出来的。</text>
+  <text x="265" y="65" font-family="system-ui,-apple-system,'Segoe UI',sans-serif" font-size="11" fill="#f3ead8" text-anchor="middle" letter-spacing="1">NIU</text>
+  <text x="46" y="158" font-family="Georgia,'Times New Roman',serif" font-size="14" letter-spacing="0.5" fill="#6b3226">Dreams are drawn. Roads are hand-made.</text>
 
   <!-- right: the crude low-poly REEL world -->
   <g>
@@ -61,8 +61,8 @@
     </g>
     <!-- stilted subtitle bar -->
     <rect x="420" y="312" width="380" height="38" fill="#000000" opacity="0.85"/>
-    <text x="610" y="337" font-family="'Songti SC','SimSun',serif" font-size="17" fill="#ffffff" text-anchor="middle">。。。加油。牛来。</text>
-    <text x="792" y="304" font-family="'Songti SC','SimSun',serif" font-size="10" fill="#555555" text-anchor="end" opacity="0.7">样片 DEMO</text>
+    <text x="610" y="337" font-family="Georgia,'Times New Roman',serif" font-size="15" fill="#ffffff" text-anchor="middle">…keep going. Niu Lai.</text>
+    <text x="792" y="304" font-family="system-ui,-apple-system,'Segoe UI',sans-serif" font-size="10" fill="#555555" text-anchor="end" opacity="0.7">DEMO REEL</text>
   </g>
 
   <!-- the tear between the two worlds -->

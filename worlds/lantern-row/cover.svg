@@ -111,8 +111,7 @@
     <rect x="612" y="200" width="148" height="74" fill="none" stroke="#c8aa78" stroke-width="1.6" stroke-dasharray="7 6" opacity="0.5"/>
     <circle cx="686" cy="212" r="18" fill="url(#warm)"/>
     <rect x="678" y="200" width="16" height="22" rx="6" fill="#e8a44a"/>
-    <text x="686" y="215" font-family="PingFang SC, Hiragino Sans GB, sans-serif" font-size="9" font-weight="600" fill="#4a2c08" text-anchor="middle">招</text>
-    <text x="686" y="252" font-family="PingFang SC, Hiragino Sans GB, sans-serif" font-size="13" fill="#c8aa78" text-anchor="middle" opacity="0.85">此位招租</text>
+    <text x="686" y="252" font-family="Helvetica, Arial, sans-serif" font-size="10" fill="#c8aa78" text-anchor="middle" opacity="0.85" letter-spacing="1">STALL FOR RENT</text>
   </g>
 
   <g fill="#241d38">
@@ -139,7 +138,7 @@
   <g>
     <rect x="30" y="30" width="216" height="66" rx="8" fill="#100a06" opacity="0.88"/>
     <rect x="35" y="35" width="206" height="56" rx="6" fill="none" stroke="#7a5524" stroke-width="1.6"/>
-    <text x="138" y="70" font-family="PingFang SC, Hiragino Sans GB, sans-serif" font-size="30" font-weight="600" fill="#ffdf9e" text-anchor="middle" letter-spacing="6">万 灯 市</text>
-    <text x="138" y="86" font-family="Helvetica, Arial, sans-serif" font-size="8.5" fill="#b8a888" text-anchor="middle" letter-spacing="4">LANTERN ROW</text>
+    <text x="138" y="70" font-family="Georgia,'Times New Roman',serif" font-size="27" font-weight="600" fill="#ffdf9e" text-anchor="middle" letter-spacing="1.5">Lantern Row</text>
+    <text x="138" y="86" font-family="Helvetica, Arial, sans-serif" font-size="8.5" fill="#b8a888" text-anchor="middle" letter-spacing="2">EVERY LAMP LIGHTS ANOTHER WORLD</text>
   </g>
 </svg>

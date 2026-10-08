@@ -111,8 +111,8 @@
 
   <!-- title -->
   <g>
-    <text x="64" y="152" font-family="'Songti SC','Noto Serif SC',serif" font-size="64" fill="#eafaff" letter-spacing="10" opacity="0.96">渊光</text>
-    <text x="66" y="188" font-family="'Avenir Next','Futura',sans-serif" font-size="17" fill="#9fd7e8" letter-spacing="7.5" opacity="0.9">ABYSSAL BLOOM</text>
-    <text x="66" y="216" font-family="'PingFang SC',sans-serif" font-size="13" fill="#7fb3c4" letter-spacing="3" opacity="0.85">把一缕光养大，带它沉入渊底花园</text>
+    <text x="64" y="152" font-family="Georgia,'Times New Roman',serif" font-size="46" fill="#eafaff" letter-spacing="1.5" opacity="0.96">Abyssal Bloom</text>
+    <text x="66" y="188" font-family="'Avenir Next','Futura',sans-serif" font-size="17" fill="#9fd7e8" letter-spacing="7.5" opacity="0.9">A QUIET DIVE</text>
+    <text x="66" y="216" font-family="system-ui,-apple-system,'Segoe UI',sans-serif" font-size="12.5" fill="#7fb3c4" letter-spacing="0.6" opacity="0.85">Raise a mote of light. Dive to the garden at the bottom.</text>
   </g>
 </svg>

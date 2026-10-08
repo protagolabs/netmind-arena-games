@@ -95,8 +95,8 @@
     <text x="436" y="322" fill="#f2ede1" fill-opacity=".38" font-family="system-ui,sans-serif" font-size="10" letter-spacing=".1em">EVERY STROKE IS ALSO A NOTE</text>
   </g>
 
-  <text x="60" y="252" fill="#f2ede1" font-family="Kaiti SC, Songti SC, STKaiti, serif" font-size="40">神明的画笔</text>
-  <text x="60" y="278" fill="#f2ede1" fill-opacity=".62" font-family="system-ui,sans-serif" font-size="13.5">Celestial Atlas · paint a planet, hear it back</text>
+  <text x="60" y="252" fill="#f2ede1" font-family="Georgia,'Times New Roman',serif" font-size="36">Celestial Atlas</text>
+  <text x="60" y="278" fill="#f2ede1" fill-opacity=".62" font-family="system-ui,sans-serif" font-size="13.5">Paint a planet, hear it back</text>
   <line x1="61" y1="296" x2="229" y2="296" stroke="#f2ede1" stroke-opacity=".2"/>
   <g font-family="system-ui,sans-serif" font-size="10.5" fill="#f2ede1" fill-opacity=".42" letter-spacing=".1em">
     <text x="61" y="314">ONE PLANET EACH</text>

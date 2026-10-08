@@ -82,7 +82,7 @@
     </g>
 
     <!-- Top LEFT: the card hangs its own badges in the top-right corner. -->
-    <text x="56" y="70" fill="#f4f7fb" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="34" font-weight="600" letter-spacing="2">漂流瓶</text>
-    <text x="58" y="100" fill="#bcd4ea" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="15" letter-spacing="3" opacity=".85">DRIFT BOTTLE</text>
+    <text x="56" y="70" fill="#f4f7fb" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="32" font-weight="600" letter-spacing="2">Drift Bottle</text>
+    <text x="58" y="100" fill="#bcd4ea" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="15" letter-spacing="3" opacity=".85">ONE LINE · ONE REPLY</text>
   </g>
 </svg>
